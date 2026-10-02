@@ -1000,13 +1000,15 @@ def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str,
         # 1.6.7: one row per person. A chosen signer: the signature line with the name (and title) under it, and
         # the date. A blank row: Signature | Printed | Date, all filled in by hand.
         w_sig, w_name, w_date, gap = 2.55 * inch, 2.45 * inch, 1.1 * inch, 0.22 * inch
-        lines = [[_SignLine(w_sig, c), "", _SignLine(w_date, "Date")] if c else
+        # (a chosen signer's line runs across both columns, up to the date - no empty gap)
+        lines = [[_SignLine(w_sig + gap + w_name, c), "", _SignLine(w_date, "Date")] if c else
                  [_SignLine(w_sig, "Signature"), _SignLine(w_name, "Printed"), _SignLine(w_date, "Date")]
                  for c in caps]
         sig_t = Table(lines, hAlign="LEFT", colWidths=[w_sig + gap, w_name + gap, w_date], rowHeights=[h_row] * len(lines))
         sig_t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                                    ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0),
-                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]
+                                  + [("SPAN", (0, i), (1, i)) for i, c in enumerate(caps) if c]))
         f.append(sig_t)
         if extra_checks:   # page 2: print it on the back (duplex) or as a second sheet, only when it is needed
             wide = [0.4 * inch, 1.2 * inch, FRAME_W - 12 - 3.1 * inch, 1.5 * inch]

@@ -6,8 +6,8 @@ Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 Cash count sheet. No database change.
 - **Signature rows.** The sheet is meant to be printed before it is known who will count. Each person now gets one
   row across the page with room to write. A row left empty in *Cash count sheet…* prints **Signature**, **Printed**
-  name and **Date** lines to fill in by hand; a chosen signer gets the signature line with the name (and title)
-  printed under it, and the date. The dialog starts with three empty rows. Up to five rows; at most three may be
+  name and **Date** lines to fill in by hand; a chosen signer gets one long signature line with the name (and
+  title) printed under it, and the date. The dialog starts with three empty rows. Up to five rows; at most three may be
   empty, or two next to chosen signers. (Before: empty rows printed a single line captioned "Name and title", and
   never more than three.)
 - **Notes:** always two lines.
