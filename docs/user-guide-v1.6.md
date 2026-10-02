@@ -1,6 +1,6 @@
 # What's new in 1.6 — quick guide
 
-*1.6.6: the application is renamed Fundwarden. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
+*1.6.7: cash count sheet with blank signature rows and a page for more checks. 1.6.6: the application is renamed Fundwarden. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
 1.6.2: the fundraiser report. 1.6.3: reminders and notifications. 1.6.4: cancelled fundraisers and the cash count sheet.*
 
 ## 1.6.6: a new name — Fundwarden
@@ -70,9 +70,9 @@ Register) and the transactions' attachments. Notices remind you, for example, to
   fundraiser shows *Cancelled* everywhere, including its report and the Audit / Close reports. Money already spent or
   received stays listed and counted. **Reinstate** undoes it.
 - **Cash count sheet…** opens a one-page PDF to print for the count: bills and coins, checks, the totals (you can
-  fill in just the totals), notes and one signature row per person: **Signature**, **Printed** name and **Date**
-  (1.6.6). The dialog starts with three empty rows — for when you do not yet know who will count. Choose a signer
-  in a row to have the name printed. Up to five rows; at most three may be empty (two next to chosen signers).
+  fill in just the totals), notes and one signature row per person (1.6.7). The dialog starts with three empty
+  rows — for when you do not yet know who will count; each prints **Signature**, **Printed** name and **Date**
+  lines. Choose a signer in a row to print the name under the signature line instead. Up to five rows; at most three may be empty (two next to chosen signers).
   Page 1 has 13 check lines; **page 2** (optional, on by default) has 30 more — print it on the back or as a second
   sheet. Scan the signed sheet and add it under *Fundraiser documents*.
 

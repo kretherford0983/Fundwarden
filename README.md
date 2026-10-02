@@ -2,7 +2,7 @@
 
 **Free financial ledger for small organizations** — clubs, associations, booster groups and similar bodies that
 keep a checkbook, a budget and an annual audit. Fundwarden runs on your own Windows PC or Linux server; your data
-stays in one folder you control. Current release: **1.6.6** (the first production release) —
+stays in one folder you control. Current release: **1.6.7** (1.6.6 was the first production release) —
 [download](https://github.com/kretherford0983/Fundwarden/releases/latest) · [changelog](CHANGELOG.md).
 
 ## What it does

@@ -50,7 +50,7 @@ def test_cash_count_sheet(env, base):
     assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
     assert "fundraiser-Autumn-Fair-cash-count-sheet.pdf" in r.headers["content-disposition"]
     pages, text = _text(r.content)
-    # 1.6.6: 13 check lines beside the 13 bill/coin lines; page 2 (the back) has 30 more and their own total
+    # 1.6.7: 13 check lines beside the 13 bill/coin lines; page 2 (the back) has 30 more and their own total
     assert pages == 2 and "continue on page 2" in text and "additional checks" in text
     assert "Total of the checks on this page" in text and " 43 " in text and " 44 " not in text
     pages, text = _text(env.bu.get(f"/api/fundraisers/{fid}/count-sheet?extra_checks=false").content)
@@ -58,7 +58,7 @@ def test_cash_count_sheet(env, base):
     for want in ("Cash count sheet", "Acme Org", "Autumn Fair", "2026-09-20", "Date of count", "Time", "$100", "$2", "25¢",
                  "Check no.", "Cash total", "Check total", "Total counted", "Notes", "agree with the amounts"):
         assert want in text, want
-    # 1.6.6: one row per person - Signature | Printed | Date; three blank rows by default, two notes lines always
+    # 1.6.7: one row per person - Signature | Printed | Date; three blank rows by default, two notes lines always
     assert "Location" not in text and "Name and title" not in text
     assert text.count("Signature") == 3 and text.count("Printed") == 3 and text.count("Date") == 3 + 1  # + "Date of count"
     assert text.count("_" * 80) >= 2
@@ -66,17 +66,17 @@ def test_cash_count_sheet(env, base):
         pages, text = _text(env.bu.get(f"/api/fundraisers/{fid}/count-sheet?extra_checks=false&blank_lines={n}").content)
         assert pages == 1 and text.count("Signature") == n and text.count("Printed") == n, n
     assert env.bu.get(f"/api/fundraisers/{fid}/count-sheet?blank_lines=4").status_code == 422
-    # chosen signers (up to five individuals, optional titles): the name is pre-printed on the "Printed" line
+    # chosen signers (up to five individuals, optional titles): the name under the signature line, no labels
     people = [env.entity(f"Person {i}", etype="INDIVIDUAL")["id"] for i in range(5)]
     q = "extra_checks=false&" + "&".join(f"signer_id={p}" for p in people) + "&signer_title=Treasurer"
     pages, text = _text(env.ru.get(f"/api/fundraisers/{fid}/count-sheet?{q}").content)
     assert pages == 1 and "Person 0, Treasurer" in text and "Person 4" in text
-    assert text.count("Signature") == 5 and text.count("Printed") == 5 and text.count("_" * 80) >= 2
+    assert "Signature" not in text and "Printed" not in text and text.count("Date") == 5 + 1 and text.count("_" * 80) >= 2
     # chosen signers followed by blank rows: at most two blank rows then, at most five rows in total
     q2 = f"extra_checks=false&signer_id={people[0]}&signer_title=Treasurer&signer_id={people[1]}&signer_id={people[2]}&blank_lines=2"
     pages, text = _text(env.ru.get(f"/api/fundraisers/{fid}/count-sheet?{q2}").content)
     assert pages == 1 and "Person 0, Treasurer" in text and "Person 2" in text
-    assert text.count("Signature") == 5 and text.count("Printed") == 5 and text.count("Date") == 5 + 1
+    assert text.count("Signature") == 2 and text.count("Printed") == 2 and text.count("Date") == 5 + 1
     assert env.ru.get(f"/api/fundraisers/{fid}/count-sheet?signer_id={people[0]}&blank_lines=3").status_code == 422
     assert env.ru.get(f"/api/fundraisers/{fid}/count-sheet?{q}&blank_lines=1").status_code == 422
     # worst case for the page: the longest fundraiser name (120 characters, wraps in the header and the statement)

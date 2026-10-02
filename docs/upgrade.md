@@ -1,4 +1,4 @@
-# Upgrading a Linux server install (current release: 1.6.6)
+# Upgrading a Linux server install (current release: 1.6.7)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
@@ -10,6 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.6.6 → 1.6.7 | none | switch binaries only |
 | 1.6.5 → 1.6.6 | none — the application is renamed to Fundwarden (see *1.6.6: the rename* below) | switch back to the old `fmpoc` service (left in place) |
 | 1.6.4 → 1.6.5 | none | switch binaries only |
 | 1.6.3 → 1.6.4 | migration `0013` — **adds** columns `fundraiser.cancelled_at`, `cancelled_by_user_id`, `cancel_reason` | switch binaries **and** restore the pre-upgrade data backup |
