@@ -176,6 +176,9 @@ class Entity(Base):
     entity_type: Mapped[str] = mapped_column(String(14))  # INDIVIDUAL | ORGANIZATION | SYSTEM
     organization_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     primary_contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # 1.6.7: position in the organization (individuals only), offered as the signer's title on the audit review
+    # signature page and the cash count sheet
+    position: Mapped[str | None] = mapped_column(String(60), nullable=True)
     address_line1: Mapped[str | None] = mapped_column(String(200), nullable=True)
     address_line2: Mapped[str | None] = mapped_column(String(200), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -58,9 +58,9 @@ def test_cash_count_sheet(env, base):
     for want in ("Cash count sheet", "Acme Org", "Autumn Fair", "2026-09-20", "Date of count", "Time", "$100", "$2", "25¢",
                  "Check no.", "Cash total", "Check total", "Total counted", "Notes", "agree with the amounts"):
         assert want in text, want
-    # 1.6.7: one row per person - Signature | Printed | Date; three blank rows by default, two notes lines always
+    # 1.6.7: one row per person - Signature | Printed | Date; two blank rows by default, two notes lines always
     assert "Location" not in text and "Name and title" not in text
-    assert text.count("Signature") == 3 and text.count("Printed") == 3 and text.count("Date") == 3 + 1  # + "Date of count"
+    assert text.count("Signature") == 2 and text.count("Printed") == 2 and text.count("Date") == 2 + 1  # + "Date of count"
     assert text.count("_" * 80) >= 2
     for n in (1, 2, 3):  # as many blank rows as asked for, at most three when no signer is chosen
         pages, text = _text(env.bu.get(f"/api/fundraisers/{fid}/count-sheet?extra_checks=false&blank_lines={n}").content)

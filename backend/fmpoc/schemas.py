@@ -205,6 +205,7 @@ class EntityFields(In):
     entity_type: Literal["INDIVIDUAL", "ORGANIZATION"] | None = None
     organization_name: OptStr(200) = None
     primary_contact: OptStr(200) = None
+    position: OptStr(60) = None  # 1.6.7: individuals only; same limit as a signer title
     address_line1: OptStr(200) = None
     address_line2: OptStr(200) = None
     city: OptStr(100) = None

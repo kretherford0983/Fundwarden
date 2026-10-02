@@ -5,6 +5,14 @@ import { EntityPicker, ErrorBox } from "../components";
 
 export type Signer = { entity_id: string; title: string };
 export type SigState = { on: boolean; choice: string; custom: string; signers: Signer[] };
+/** 1.6.7: when a signer is picked, their saved position becomes the title - unless a title was typed by hand
+ *  (a title that is empty or still equals the previous signer's position counts as not typed). */
+export function positionTitle(people: any[], row: Signer, newId: string): string {
+  const pos = (id: string) => (people.find((e) => String(e.id) === String(id))?.position || "") as string;
+  const untouched = !row.title.trim() || row.title === pos(row.entity_id);
+  return untouched ? pos(newId) : row.title;
+}
+
 export const SIG_EMPTY: SigState = { on: false, choice: "default", custom: "", signers: [{ entity_id: "", title: "" }] };
 
 const VAR_RE = /\{([^{}]*)\}/g;
@@ -104,7 +112,7 @@ export function SignatureOptions({ sig, setSig, preview: previewHref }: { sig: S
           <h3>Signers (up to 5)</h3>
           {sig.signers.map((x, i) => (
             <div key={i} className="sig-signer row">
-              <div className="grow"><EntityPicker label={`Signer ${i + 1}`} entities={people} value={x.entity_id} onChange={(id) => set({ signers: sig.signers.map((y, j) => (j === i ? { ...y, entity_id: id } : y)) })} /></div>
+              <div className="grow"><EntityPicker label={`Signer ${i + 1}`} entities={people} value={x.entity_id} onChange={(id) => set({ signers: sig.signers.map((y, j) => (j === i ? { ...y, entity_id: id, title: positionTitle(people, y, id) } : y)) })} /></div>
               <label className="field-inner"><span className="field-label">Title (optional)</span><input aria-label={`Signer ${i + 1} title`} maxLength={60} value={x.title} placeholder="e.g. Trustee" onChange={(e) => set({ signers: sig.signers.map((y, j) => (j === i ? { ...y, title: e.target.value } : y)) })} /></label>
               {sig.signers.length > 1 ? <button type="button" className="small" aria-label={`Remove signer ${i + 1}`} onClick={() => set({ signers: sig.signers.filter((_, j) => j !== i) })}>Remove</button> : null}
             </div>

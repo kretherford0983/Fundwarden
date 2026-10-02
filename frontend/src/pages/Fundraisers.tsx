@@ -2,6 +2,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { api, money, todayIso } from "../api";
 import { Attachments, EntityPicker, ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
+import { positionTitle } from "./SignatureOptions";
 import { Link, useRouter } from "../router";
 import { useMe } from "../App";
 
@@ -525,7 +526,7 @@ function CancelDialog({ f, onClose, onSaved }: { f: any; onClose: () => void; on
 
 function CountSheetDialog({ f, onClose }: { f: any; onClose: () => void }) {
   const [people, setPeople] = useState<any[]>([]);
-  const [signers, setSigners] = useState<{ entity_id: string; title: string }[]>([0, 1, 2].map(() => ({ entity_id: "", title: "" })));
+  const [signers, setSigners] = useState<{ entity_id: string; title: string }[]>([0, 1].map(() => ({ entity_id: "", title: "" })));
   const [extra, setExtra] = useState(true);   // 1.6.7: page 2 with more check lines (print on the back)
   const [err, setErr] = useState<unknown>(null);
   useEffect(() => {
@@ -551,13 +552,13 @@ function CountSheetDialog({ f, onClose }: { f: any; onClose: () => void }) {
       <h3>Signature lines (1 to 5)</h3>
       {signers.map((x, i) => (
         <div key={i} className="sig-signer row">
-          <div className="grow"><EntityPicker label={`Signer ${i + 1}`} entities={people} value={x.entity_id} onChange={(v) => upd(i, { entity_id: v })} /></div>
+          <div className="grow"><EntityPicker label={`Signer ${i + 1}`} entities={people} value={x.entity_id} onChange={(v) => upd(i, { entity_id: v, title: positionTitle(people, x, v) })} /></div>
           <label className="field-inner"><span className="field-label">Title (optional)</span><input aria-label={`Signer ${i + 1} title`} maxLength={60} value={x.title} placeholder="e.g. Treasurer" onChange={(e) => upd(i, { title: e.target.value })} /></label>
           {signers.length > 1 ? <button type="button" className="small" aria-label={`Remove signer ${i + 1}`} onClick={() => setSigners(signers.filter((_, j) => j !== i))}>Remove</button> : null}
         </div>
       ))}
       {signers.length < 5 && blank < maxBlank ? <button type="button" className="small" onClick={() => setSigners([...signers, { entity_id: "", title: "" }])}>+ Add signature line</button> : null}
-      <p className="hint">Choose a signer (an individual Entity) to print the name under the signature line, or leave the row empty for blank <b>Signature</b>, <b>Printed</b> name and <b>Date</b> lines to fill in by hand. Up to 5 rows; at most 3 may be empty (2 when signers are chosen) so there is room to write.</p>
+      <p className="hint">Choose a signer (an individual Entity) to print the name under the signature line, or leave the row empty for blank <b>Signature</b>, <b>Printed</b> name and <b>Date</b> lines to fill in by hand. A signer's saved position is filled in as the title. Up to 5 rows; at most 3 may be empty (2 when signers are chosen) so there is room to write.</p>
       <h3>Checks</h3>
       <label className="check"><input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} /> Add page 2 for more checks</label>
       <p className="hint">Page 1 has 13 check lines. Page 2 has 30 more and their own total — print it on the back (two-sided printing) or as a second sheet, or print page 1 only when it is not needed.</p>

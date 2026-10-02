@@ -10,7 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
-| 1.6.6 → 1.6.7 | none | switch binaries only |
+| 1.6.6 → 1.6.7 | migration `0014` — **adds** column `entity.position` (empty for every existing Entity) | switch binaries **and** restore the pre-upgrade data backup |
 | 1.6.5 → 1.6.6 | none — the application is renamed to Fundwarden (see *1.6.6: the rename* below) | switch back to the old `fmpoc` service (left in place) |
 | 1.6.4 → 1.6.5 | none | switch binaries only |
 | 1.6.3 → 1.6.4 | migration `0013` — **adds** columns `fundraiser.cancelled_at`, `cancelled_by_user_id`, `cancel_reason` | switch binaries **and** restore the pre-upgrade data backup |
@@ -36,6 +36,10 @@ were then asked to set up two-step verification; a backup → restore round trip
 (including two-step verification from the backup). Rollback: the 1.4.0 binaries alone refuse the 1.4.1 database
 ("Can't locate revision"); restoring the installer's data snapshot with the 1.4.0 binaries returned exactly the
 pre-upgrade data.
+Verified for 1.6.7 (simulated systemd): a 1.6.6 `fundwarden` server with data was upgraded with `install-server.sh`:
+snapshot taken, `0014` applied (`entity.position` empty for every Entity), every other row, attachment, the key and a
+hand-edited `config.toml` identical. The 1.6.6 binaries alone refuse the 1.6.7 database ("Can't locate revision");
+with the snapshot restored they started on exactly the pre-upgrade data.
 Verified for 1.6.1: a 1.6.0 server with fundraisers was upgraded with `install.sh`: files identical, every row kept,
 `0011` applied (four new empty tables); rollback started 1.6.0 on the identical data.
 Verified for 1.6.0: a 1.5.0 server with data was upgraded with `install.sh` (test channel): `config.toml`, the key and

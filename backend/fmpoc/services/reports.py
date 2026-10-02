@@ -930,6 +930,7 @@ _EXTRA_CHECK_LINES = 30    # page 2
 
 COUNT_SHEET_MAX_SIGNATURES = 5        # rows on the sheet in total
 COUNT_SHEET_MAX_BLANK = 3             # blank rows when no signer is chosen
+COUNT_SHEET_DEFAULT_BLANK = 2         # blank rows when nothing is asked for (the dialog starts with two)
 COUNT_SHEET_MAX_BLANK_WITH_NAMED = 2  # blank rows next to chosen signers
 
 
@@ -939,7 +940,7 @@ def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str,
     individual counts are not written down), two notes lines and one signature row per person (1.6.7): the
     chosen signers (signature line with the name under it, date) followed by `blank_lines` blank rows (Signature |
     Printed | Date).
-    With neither, three blank rows. `extra_checks` adds page 2 (to print on the back): more check lines and their
+    With neither, two blank rows. `extra_checks` adds page 2 (to print on the back): more check lines and their
     total."""
     ws = db.get(Workspace, ctx.workspace_id)
     title = f"Cash count sheet — {fr.name} — {ws.name}"
@@ -958,7 +959,7 @@ def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str,
         checks = [[PM("<b>#</b>", "cell"), PM("<b>Check no.</b>", "cell"), PM("<b>From</b>", "cell"), PM("<b>Amount</b>", "cell")]]
         checks += [[P(str(i + 1), "cell"), blank, blank, blank] for i in range(_CHECK_LINES)]
         caps: list[str | None] = [f"{name}, {t}" if t else name for name, t in signers]
-        caps += [None] * (blank_lines if (caps or blank_lines) else COUNT_SHEET_MAX_BLANK)   # None = blank row
+        caps += [None] * (blank_lines if (caps or blank_lines) else COUNT_SHEET_DEFAULT_BLANK)   # None = blank row
         caps = caps[:COUNT_SHEET_MAX_SIGNATURES]
         row_h = [0.2 * inch] + [0.235 * inch] * _CHECK_LINES
         left_w = [1.05 * inch, 0.7 * inch, 1.0 * inch]

@@ -3,17 +3,17 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.7 — unreleased (in development)
-Cash count sheet. No database change.
-- **Signature rows.** The sheet is meant to be printed before it is known who will count. Each person now gets one
-  row across the page with room to write. A row left empty in *Cash count sheet…* prints **Signature**, **Printed**
-  name and **Date** lines to fill in by hand; a chosen signer gets one long signature line with the name (and
-  title) printed under it, and the date. The dialog starts with three empty rows. Up to five rows; at most three may be
-  empty, or two next to chosen signers. (Before: empty rows printed a single line captioned "Name and title", and
-  never more than three.)
-- **Notes:** always two lines.
-- **Checks.** Page 1 now lists 13 checks, level with the 13 bill and coin lines, which leaves the room for notes and
-  signatures. An optional **page 2** (on by default) has 30 more check lines and their own total: print it on the
-  back with two-sided printing, as a second sheet, or leave it out when it is not needed.
+Cash count sheet refinements and a position for people. Database migration `0014` (one new optional column).
+- **Position of a person.** An individual Entity can have a **Position in the organization** (for example
+  "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
+  signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
+  It can still be changed or cleared for that one print. Not used anywhere else.
+- **Cash count sheet — chosen signers.** A chosen signer now gets one long signature line running across to the
+  date, with the name (and title) printed under it — no "Signature" / "Printed" labels and no empty gap. Rows left
+  empty are unchanged (Signature, Printed, Date to fill in by hand).
+- **Cash count sheet — dialog.** Starts with two empty rows and offers *+ Add signature line* right away (still at
+  most three empty rows, or two next to chosen signers, and five rows in total).
+- Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
 
 ## 1.6.6 — 2026-10-02
 **First production release, under a new name: Fundwarden.** The application leaves its proof-of-concept names
@@ -36,6 +36,14 @@ Everything from 1.1 to 1.6.5 (sections below, kept as written) was published on 
 - **Installer:** `install-server.sh` reads the health-check port from the existing `config.toml` and takes its data
   snapshot before every upgrade even when the service was stopped; `install.sh` can still install a release from
   before the rename (`--version <tag>`).
+- **Cash count sheet — signature rows.** The sheet is meant to be printed before it is known who will count. Each
+  person now gets one row across the page: **Signature**, **Printed** name and **Date**, with room to write. A row
+  left empty in *Cash count sheet…* is filled in by hand; a chosen signer's name is printed on the *Printed* line.
+  The dialog starts with three empty rows. Up to five rows; at most three may be empty, or two next to chosen
+  signers. Always two lines for notes. (Before: a single line captioned "Name and title".)
+- **Cash count sheet — checks.** Page 1 now lists 13 checks, level with the 13 bill and coin lines, which leaves the
+  room for notes and signatures. An optional **page 2** (on by default) has 30 more check lines and their own total:
+  print it on the back with two-sided printing, as a second sheet, or leave it out when it is not needed.
 - The source code moved to `github.com/kretherford0983/Fundwarden` (the old address redirects).
 - Unchanged on purpose (internal): Python package `fmpoc`, `database/fmpoc.sqlite3`, `logs/fmpoc.log`, `FM_*`
   settings, the `.fmbak` format.
