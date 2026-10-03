@@ -13,6 +13,9 @@ Cash count sheet refinements and a position for people. Database migration `0014
   empty are unchanged (Signature, Printed, Date to fill in by hand).
 - **Cash count sheet — dialog.** Starts with two empty rows and offers *+ Add signature line* right away (still at
   most three empty rows, or two next to chosen signers, and five rows in total).
+- **Installer fix.** `curl …/releases/latest/download/install.sh | sudo bash` (without `--version`) stopped with
+  "no release found": GitHub answers the release lookup on one line and the installer only understood the
+  multi-line form. It now understands both. (Installing with `--version <tag>` was not affected.)
 - Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
 
 ## 1.6.6 — 2026-10-02
