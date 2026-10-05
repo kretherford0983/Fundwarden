@@ -64,6 +64,13 @@ Register) and the transactions' attachments. Notices remind you, for example, to
   can be resolved by Budget Managers and Register Users; Budget Users and Auditors just see them. A resolved reminder
   can be **reopened**.
 - A reminder can be edited or deleted only before it is shown.
+- **Repeating organization reminders (1.6.7).** In *New reminder* for the whole organization, set **Repeat** to
+  *Repeats every…* and choose the number and the period (days, weeks, months, years), optionally an **Until** date.
+  The reminder shows "Repeats every 3 months". When it is resolved, the next one is created automatically, due one
+  interval after the due date of the one just resolved (resolving late does not shift the schedule). Budget Managers
+  see the next one under *Upcoming* and can still edit or delete it there. To end the series, tick **Stop repeating
+  after this one** when resolving, or delete the upcoming one. Reopening a resolved reminder removes the next one it
+  created; it is created again when you resolve.
 
 ## Cancelled fundraisers and the cash count sheet (1.6.4)
 - **Mark as cancelled…** (Budget Manager) when a fundraiser did not take place as planned; give the reason. The
@@ -84,3 +91,14 @@ Register) and the transactions' attachments. Notices remind you, for example, to
 **Archive** hides a finished fundraiser from the list (tick *Show archived* to see it). **Delete** removes a
 fundraiser's settings (never transactions); it is not possible once one of its Fiscal Years is closed or while it
 has buckets, cash-float marks, exclusions or documents.
+
+## Account start and end pages in the Audit and Close reports (1.6.7)
+When the End of Year Audit Report or the Fiscal Year Close Report contains transactions of more than one bank
+account, the transactions are grouped by account and each group is framed:
+- a **Start of transactions** page before the account's first transaction and an **End of transactions** page after
+  its last one. Both show the account, how many transactions it has (active / VOID), deposits and withdrawals, the
+  first and last transaction, and the pages the account occupies — for example "pages 4 to 9 of 12 (6 pages)";
+- every page of the group shows the account and **section page k of n** at the bottom right, above "Page x of y".
+
+To check that a printed report is complete: for each account, find the start page, read its page range, and confirm
+that the section page numbers run from 1 to n up to the end page. A report limited to one account has no such pages.

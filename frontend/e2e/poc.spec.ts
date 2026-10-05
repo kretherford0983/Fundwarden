@@ -1045,6 +1045,42 @@ test("CR-036: organization and personal reminders - bell, dashboard, resolve wit
   await logout(page);
 });
 
+// ---------------------------------------------------------------- 1.6.7: recurring organization reminders
+test("1.6.7: a recurring organization reminder creates its next occurrence when resolved", async ({ page }) => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  await login(page, "bm1");
+  await page.getByRole("link", { name: /Notifications/ }).click();
+  await page.getByRole("button", { name: "New reminder" }).click();
+  let dlg = page.getByRole("dialog", { name: "New reminder" });
+  await expect(dlg.getByRole("combobox", { name: "Repeat", exact: true })).toHaveCount(0); // personal reminders do not repeat
+  await dlg.getByRole("combobox").first().selectOption("ORGANIZATION");
+  await dlg.getByLabel("Reminder", { exact: true }).fill("Reconcile the bank statement");
+  await dlg.getByLabel("Due date").fill(today);
+  await dlg.getByRole("combobox", { name: "Repeat", exact: true }).selectOption("yes");
+  await dlg.getByRole("spinbutton", { name: "Every" }).fill("3");
+  await dlg.getByRole("combobox", { name: "Period" }).selectOption("MONTH");
+  await page.screenshot({ path: "e2e-screenshots/light-reminder-repeat-dialog.png" });
+  await dlg.getByRole("button", { name: "Save" }).click();
+  const item = page.getByTestId("reminder").filter({ hasText: "Reconcile the bank statement" });
+  await expect(item.getByTestId("reminder-repeat")).toHaveText("Repeats every 3 months");
+  // resolving it announces and creates the next one
+  await page.getByRole("button", { name: "Resolve Reconcile the bank statement" }).click();
+  dlg = page.getByRole("dialog", { name: "Resolve reminder" });
+  await expect(dlg).toContainText("The next one will be due");
+  await dlg.getByRole("button", { name: "Mark as resolved" }).click();
+  await expect(item).toHaveCount(0);
+  await page.getByRole("tab", { name: "Upcoming" }).click();
+  await expect(item).toHaveCount(1);
+  await expect(item.getByTestId("reminder-repeat")).toHaveText("Repeats every 3 months");
+  await page.screenshot({ path: "e2e-screenshots/light-reminder-repeat-upcoming.png" });
+  // deleting the upcoming occurrence ends the series
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete Reconcile the bank statement" }).click();
+  await expect(item).toHaveCount(0);
+  await logout(page);
+});
+
 // ---------------------------------------------------------------- v1.6.4 CR-037 / CR-038
 test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and reinstate it", async ({ page }) => {
   await login(page, "bm1");

@@ -23,6 +23,7 @@ export function ReminderItem({ r, onResolve, onReopen, onEdit, onDelete }: {
           Due {r.due_date}{r.state === "UPCOMING" && r.show_date !== r.due_date ? ` · shown from ${r.show_date}` : ""}
           {r.scope === "ORGANIZATION" && r.owner ? ` · set by ${r.owner}` : ""}
           {r.link ? <> · <Link to={r.link.url}>{r.link.label}</Link></> : null}
+          {r.repeat_label ? <> · <span data-testid="reminder-repeat">{r.repeat_label}</span></> : null}
         </div>
         {r.details ? <div className="pre-wrap">{r.details}</div> : null}
         {r.state === "RESOLVED" ? <div className="muted">Resolved {String(r.resolved_at).slice(0, 10)} by {r.resolved_by || "?"}{r.resolution_note ? ` — ${r.resolution_note}` : ""}</div> : null}
@@ -84,10 +85,11 @@ export default function Notifications() {
 
 export function ResolveDialog({ r, onClose, onDone }: { r: any; onClose: () => void; onDone: () => void }) {
   const [note, setNote] = useState("");
+  const [stop, setStop] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    try { await api.post(`/api/reminders/${r.id}/resolve`, { note: note || null }); onDone(); } catch (x) { setErr(x); }
+    try { await api.post(`/api/reminders/${r.id}/resolve`, { note: note || null, stop_repeating: stop }); onDone(); } catch (x) { setErr(x); }
   };
   return (
     <Modal title="Resolve reminder" onClose={onClose}>
@@ -95,6 +97,14 @@ export function ResolveDialog({ r, onClose, onDone }: { r: any; onClose: () => v
         <p><b>{r.title}</b> — due {r.due_date}</p>
         <ErrorBox error={err} />
         <Field label="Note (optional)" hint="Kept with the reminder and in the audit log."><input maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        {r.repeat_label ? (
+          r.next_due ? (
+            <>
+              <p className="hint">{r.repeat_label}. {stop ? "No further reminder will be created." : `The next one will be due ${r.next_due}.`}</p>
+              <label className="check"><input type="checkbox" checked={stop} onChange={(e) => setStop(e.target.checked)} /> Stop repeating after this one</label>
+            </>
+          ) : <p className="hint">{r.repeat_label}. This is the last one.</p>
+        ) : null}
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Mark as resolved</button></div>
       </GuardedForm>
     </Modal>
@@ -109,6 +119,8 @@ function ReminderForm({ current, onClose, onSaved }: { current: any; onClose: ()
     scope: current.scope || (personal ? "PERSONAL" : "ORGANIZATION"), title: current.title || "", details: current.details || "",
     due_date: current.due_date || todayIso(), notify_days_before: String(current.notify_days_before ?? 0),
     link_type: current.link_type || "", link_id: current.link_id ? String(current.link_id) : "",
+    repeat: current.repeat_every ? "yes" : "no", repeat_every: String(current.repeat_every ?? 1),
+    repeat_unit: current.repeat_unit || "MONTH", repeat_until: current.repeat_until || "",
   });
   const [opts, setOpts] = useState<{ value: string; label: string }[]>([]);
   const [err, setErr] = useState<unknown>(null);
@@ -131,12 +143,16 @@ function ReminderForm({ current, onClose, onSaved }: { current: any; onClose: ()
     }
   }, [v.link_type]);
   const set = (k: string) => (e: any) => setV({ ...v, [k]: e.target.value });
+  const repeats = v.scope === "ORGANIZATION" && v.repeat === "yes";
+  const many = Number(v.repeat_every || 1) !== 1;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     const body = { scope: v.scope, title: v.title, details: v.details || null, due_date: v.due_date,
                    notify_days_before: Number(v.notify_days_before || 0),
-                   link_type: v.link_type || null, link_id: v.link_type && v.link_id ? Number(v.link_id) : null };
+                   link_type: v.link_type || null, link_id: v.link_type && v.link_id ? Number(v.link_id) : null,
+                   repeat_every: repeats ? Number(v.repeat_every || 1) : null, repeat_unit: repeats ? v.repeat_unit : null,
+                   repeat_until: repeats && v.repeat_until ? v.repeat_until : null };
     try {
       if (current.id) await api.put(`/api/reminders/${current.id}`, body); else await api.post("/api/reminders", body);
       onSaved();
@@ -157,6 +173,26 @@ function ReminderForm({ current, onClose, onSaved }: { current: any; onClose: ()
           <Field label="Due date"><input type="date" required value={v.due_date} onChange={set("due_date")} /></Field>
           <Field label="Show days before" hint="0 = on the due date."><input type="number" min={0} max={365} value={v.notify_days_before} onChange={set("notify_days_before")} /></Field>
         </div>
+        {v.scope === "ORGANIZATION" ? (
+          <div className="row fields">
+            <Field label="Repeat">
+              <select value={v.repeat} onChange={set("repeat")}><option value="no">Does not repeat</option><option value="yes">Repeats every…</option></select>
+            </Field>
+            {repeats ? (
+              <>
+                <Field label="Every"><input type="number" required min={1} max={365} value={v.repeat_every} onChange={set("repeat_every")} /></Field>
+                <Field label="Period">
+                  <select value={v.repeat_unit} onChange={set("repeat_unit")}>
+                    <option value="DAY">{many ? "days" : "day"}</option><option value="WEEK">{many ? "weeks" : "week"}</option>
+                    <option value="MONTH">{many ? "months" : "month"}</option><option value="YEAR">{many ? "years" : "year"}</option>
+                  </select>
+                </Field>
+                <Field label="Until (optional)" hint="Empty = no end."><input type="date" min={v.due_date} value={v.repeat_until} onChange={set("repeat_until")} /></Field>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {repeats ? <p className="hint">Each time it is resolved, the next one is created, counted from the due date above (not from the day it was resolved).</p> : null}
         <div className="row fields">
           <Field label="Link to (optional)">
             <select value={v.link_type} onChange={(e) => setV({ ...v, link_type: e.target.value, link_id: "" })}>

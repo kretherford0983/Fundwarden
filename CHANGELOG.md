@@ -3,7 +3,34 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.7 — unreleased (in development)
-Cash count sheet refinements and a position for people. Database migration `0014` (one new optional column).
+Recurring organization reminders, cash count sheet refinements and a position for people. Database migrations
+`0014` and `0015` (new optional columns only).
+- **Recurring organization reminders.** An organization reminder can **repeat every N days, weeks, months or
+  years**, optionally **until** an end date (New reminder → *Repeat*). Each occurrence is its own reminder with its
+  own resolution note. **Resolving one creates the next**, due one interval after the *scheduled* due date — not the
+  day it was resolved — so a monthly reminder stays on its day of the month (the 31st falls on the last day of
+  shorter months). In the Resolve dialog, *Stop repeating after this one* ends the series; so does deleting the
+  upcoming occurrence. Reopening a resolved occurrence takes back the next one it created (refused once that next
+  one has itself been resolved). Personal reminders stay one-time. Existing reminders are unchanged.
+- **Audit and Fiscal Year Close reports — account start and end pages.** When the report covers more than one bank
+  account, each account's transactions now sit between a **"Start of transactions"** page and an **"End of
+  transactions"** page. Both name the account, its number of transactions, deposits, withdrawals, first and last
+  transaction, and state the account's page range ("pages 4 to 9 of 12 (6 pages…)"), each pointing at the other.
+  Every page in between shows the account and **"section page k of n"** at the bottom right, so a reviewer can see
+  which account a page belongs to and that no page is missing. A report for a single account is unchanged. The
+  page range of each account is also recorded with the report in the audit log.
+- **Mac app (Apple Silicon).** New download `Fundwarden-<version>-macos-arm64.dmg` for Macs with an M1 or later
+  chip (macOS 11+): open the disk image, drag **Fundwarden** to Applications and open it. A small Fundwarden window
+  shows the address, opens the browser and has **Quit**; closing the window stops Fundwarden. Data is kept in
+  `~/Library/Application Support/Fundwarden`, so replacing the app with a newer one keeps everything. Like the
+  Windows .exe, the app is **not signed with a paid developer certificate**: the first time, macOS says it could
+  not verify the app — open *System Settings → Privacy & Security* and click **Open Anyway** (once). The steps are
+  in *Read me first* inside the disk image and in docs/deployment.md. Built and smoke-tested by CI on a macOS
+  arm64 machine with every build.
+- **Documentation.** The README on the project page now presents what Fundwarden does: the core features, each
+  with a screenshot (dashboard, budgets, register, audit report, closing the year, fundraisers, reminders), and a
+  table of all capabilities. The screenshots come from a made-up organization: `scripts/demo_data.py` fills a new,
+  empty installation through the normal API and `scripts/readme_screenshots.mjs` retakes them.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.

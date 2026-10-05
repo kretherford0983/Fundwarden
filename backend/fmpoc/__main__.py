@@ -67,7 +67,8 @@ def reset_mfa_cli(argv: list[str]) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, window: bool = False) -> int:
+    """window=True (1.6.7, the macOS app): local mode runs behind a small status window instead of a console."""
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "reset-mfa":
         return reset_mfa_cli(argv[1:])
@@ -101,11 +102,17 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{'127.0.0.1' if settings.host in ('0.0.0.0', '::') else settings.host}:{settings.port}"
     print(f"Fundwarden {VERSION} - {settings.mode} mode - {url}")
     print(f"Application data: {settings.data_dir}")
+    trusted = settings.trusted_proxies.strip()
+    kwargs = dict(host=settings.host, port=settings.port, access_log=False, server_header=False,
+                  proxy_headers=bool(trusted), forwarded_allow_ips=trusted or None, log_config=None)
+    if window:
+        from . import desktop
+
+        if desktop.window_wanted(settings):
+            return desktop.run_with_window(app, settings, url, VERSION, kwargs)  # opens the browser itself
     if settings.mode == "local" and settings.open_browser:
         threading.Thread(target=_open_browser_when_ready, args=(url,), daemon=True).start()
-    trusted = settings.trusted_proxies.strip()
-    uvicorn.run(app, host=settings.host, port=settings.port, access_log=False, server_header=False,
-                proxy_headers=bool(trusted), forwarded_allow_ips=trusted or None, log_config=None)
+    uvicorn.run(app, **kwargs)
     return 0
 
 
