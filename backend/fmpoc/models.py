@@ -537,8 +537,11 @@ class FundraiserBucketLine(Base):
 
 # ---------------------------------------------------------------- v1.6.3 CR-036 reminders
 class Reminder(Base):
-    """A one-time reminder: PERSONAL (visible to its owner only) or ORGANIZATION (all financial users + Auditors).
-    It becomes a notification on (due_date - notify_days_before) and stays until resolved."""
+    """A reminder: PERSONAL (visible to its owner only) or ORGANIZATION (all financial users + Auditors).
+    It becomes a notification on (due_date - notify_days_before) and stays until resolved.
+    1.6.7: an ORGANIZATION reminder can repeat (every N days/weeks/months/years, optionally until a date). Each
+    occurrence is its own row; resolving one creates the next (repeat_source_id points back at the resolved one).
+    Due dates are counted from repeat_anchor (the first due date) so month ends do not drift."""
     __tablename__ = "reminder"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
@@ -556,3 +559,9 @@ class Reminder(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repeat_every: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repeat_unit: Mapped[str | None] = mapped_column(String(8), nullable=True)  # DAY | WEEK | MONTH | YEAR
+    repeat_until: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    repeat_anchor: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    repeat_index: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    repeat_source_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)

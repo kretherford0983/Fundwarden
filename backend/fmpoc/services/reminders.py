@@ -7,9 +7,18 @@
   (due date - notify_days_before) and stays until someone resolves it, with an optional note.
 - It can be edited or deleted only before its show date; afterwards it must be resolved (and can be reopened).
 - Everything is audited.
+
+1.6.7 - recurring ORGANIZATION reminders: "every N days / weeks / months / years", optionally until a date.
+- Each occurrence is its own reminder with its own resolution note. Resolving one creates the next, due one
+  interval after the *scheduled* due date (not the day it was resolved), unless "stop repeating" is chosen or the
+  next due date would fall after the end date.
+- Reopening a resolved occurrence removes the next one it created (it comes back when resolved again); that is
+  refused once the next one has itself been resolved.
+- Personal reminders do not repeat.
 """
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 
 from sqlalchemy import select
@@ -36,6 +45,39 @@ def is_due(r: Reminder, day: dt.date | None = None) -> bool:
     return show_date(r) <= (day or today())
 
 
+UNIT_WORDS = {"DAY": "day", "WEEK": "week", "MONTH": "month", "YEAR": "year"}
+
+
+def add_interval(anchor: dt.date, unit: str, n: int) -> dt.date:
+    """anchor + n units. Months and years keep the anchor's day, clamped to the month's length (31 Jan -> 28 Feb)."""
+    if unit == "DAY":
+        return anchor + dt.timedelta(days=n)
+    if unit == "WEEK":
+        return anchor + dt.timedelta(weeks=n)
+    months = anchor.month - 1 + n * (12 if unit == "YEAR" else 1)
+    year, month = anchor.year + months // 12, months % 12 + 1
+    return dt.date(year, month, min(anchor.day, calendar.monthrange(year, month)[1]))
+
+
+def next_due(r: Reminder) -> dt.date | None:
+    """Due date of the occurrence after this one, or None (does not repeat / the series has ended)."""
+    if not r.repeat_every or not r.repeat_unit:
+        return None
+    try:
+        nxt = add_interval(r.repeat_anchor or r.due_date, r.repeat_unit, r.repeat_every * ((r.repeat_index or 0) + 1))
+    except (ValueError, OverflowError):
+        return None
+    return None if r.repeat_until and nxt > r.repeat_until else nxt
+
+
+def repeat_label(r: Reminder) -> str | None:
+    if not r.repeat_every or not r.repeat_unit:
+        return None
+    word = UNIT_WORDS[r.repeat_unit]
+    text = f"Repeats every {word}" if r.repeat_every == 1 else f"Repeats every {r.repeat_every} {word}s"
+    return text + (f" until {r.repeat_until.isoformat()}" if r.repeat_until else "")
+
+
 def _link(db: Session, ctx, link_type: str | None, link_id: int | None) -> dict | None:
     if not link_type or link_id is None:
         return None
@@ -60,7 +102,9 @@ def _link(db: Session, ctx, link_type: str | None, link_id: int | None) -> dict 
 def snapshot(r: Reminder) -> dict:
     return {"id": r.id, "scope": r.scope, "owner_user_id": r.owner_user_id, "title": r.title, "details": r.details,
             "due_date": r.due_date.isoformat(), "notify_days_before": r.notify_days_before, "link_type": r.link_type,
-            "link_id": r.link_id, "resolved": r.resolved_at is not None, "resolution_note": r.resolution_note}
+            "link_id": r.link_id, "resolved": r.resolved_at is not None, "resolution_note": r.resolution_note,
+            "repeat_every": r.repeat_every, "repeat_unit": r.repeat_unit,
+            "repeat_until": r.repeat_until.isoformat() if r.repeat_until else None}
 
 
 def _can_resolve(ctx, r: Reminder) -> bool:
@@ -90,7 +134,9 @@ def out(db: Session, ctx, r: Reminder, users: dict[int, str] | None = None) -> d
 
     due = is_due(r, day)
     state = "RESOLVED" if r.resolved_at else ("DUE" if due else "UPCOMING")
+    nxt = next_due(r)
     return {**snapshot(r), "state": state, "show_date": show_date(r).isoformat(),
+            "repeat_label": repeat_label(r), "next_due": nxt.isoformat() if nxt else None,
             "overdue_days": max(0, (day - r.due_date).days) if state == "DUE" else 0,
             "owner": name(r.owner_user_id), "link": _link(db, ctx, r.link_type, r.link_id),
             "resolved_at": r.resolved_at.isoformat() + "Z" if r.resolved_at else None,
@@ -133,8 +179,24 @@ def _apply(db: Session, ctx, r: Reminder, body) -> None:
         raise validation("Choose both what the reminder links to and the item, or neither.", "link_id")
     if body.link_type and _link(db, ctx, body.link_type, body.link_id) is None:
         raise validation("The linked item was not found.", "link_id")
+    if (body.repeat_every is None) != (body.repeat_unit is None):
+        raise validation("Choose both how often the reminder repeats and the unit, or neither.", "repeat_every")
+    if body.repeat_every and r.scope != "ORGANIZATION":
+        raise validation("Only organization reminders can repeat.", "repeat_every")
+    if body.repeat_until and not body.repeat_every:
+        raise validation("An end date needs a repeat interval.", "repeat_until")
+    if body.repeat_until and body.repeat_until < body.due_date:
+        raise validation("The end date cannot be before the due date.", "repeat_until")
+    # keep the series' anchor while only the text changes; a new due date or interval starts the count again
+    same_schedule = (r.repeat_anchor is not None and r.due_date == body.due_date
+                     and r.repeat_every == body.repeat_every and r.repeat_unit == body.repeat_unit)
     r.title, r.details = body.title, body.details or None
     r.due_date, r.notify_days_before = body.due_date, body.notify_days_before
+    r.repeat_every, r.repeat_unit, r.repeat_until = body.repeat_every, body.repeat_unit, body.repeat_until
+    if not body.repeat_every:
+        r.repeat_anchor, r.repeat_index = None, 0
+    elif not same_schedule:
+        r.repeat_anchor, r.repeat_index = body.due_date, 0
     r.link_type, r.link_id = body.link_type, body.link_id
     r.updated_by_user_id = ctx.user.id
 
@@ -175,7 +237,26 @@ def delete(db: Session, ctx, r: Reminder) -> None:
     db.delete(r)
 
 
-def resolve(db: Session, ctx, r: Reminder, note: str | None) -> Reminder:
+def _next_of(db: Session, r: Reminder) -> Reminder | None:
+    return db.scalars(select(Reminder).where(Reminder.repeat_source_id == r.id).order_by(Reminder.id)).first()
+
+
+def _create_next(db: Session, ctx, r: Reminder) -> Reminder | None:
+    due = next_due(r)
+    if due is None or _next_of(db, r) is not None:
+        return None
+    n = Reminder(workspace_id=r.workspace_id, scope=r.scope, owner_user_id=r.owner_user_id, title=r.title,
+                 details=r.details, due_date=due, notify_days_before=r.notify_days_before, link_type=r.link_type,
+                 link_id=r.link_id, repeat_every=r.repeat_every, repeat_unit=r.repeat_unit,
+                 repeat_until=r.repeat_until, repeat_anchor=r.repeat_anchor or r.due_date,
+                 repeat_index=(r.repeat_index or 0) + 1, repeat_source_id=r.id, updated_by_user_id=ctx.user.id)
+    db.add(n)
+    db.flush()
+    audit.record(db, ctx, "REMINDER_CREATED", "reminder", n.id, None, {**snapshot(n), "repeat_of": r.id})
+    return n
+
+
+def resolve(db: Session, ctx, r: Reminder, note: str | None, stop_repeating: bool = False) -> Reminder:
     if not _can_resolve(ctx, r):
         raise forbidden()
     if r.resolved_at is not None:
@@ -186,6 +267,8 @@ def resolve(db: Session, ctx, r: Reminder, note: str | None) -> Reminder:
     r.resolved_at, r.resolved_by_user_id, r.resolution_note = utcnow(), ctx.user.id, (note or "").strip() or None
     db.flush()
     audit.record(db, ctx, "REMINDER_RESOLVED", "reminder", r.id, before, snapshot(r))
+    if not stop_repeating:
+        _create_next(db, ctx, r)
     return r
 
 
@@ -194,6 +277,13 @@ def reopen(db: Session, ctx, r: Reminder) -> Reminder:
         raise forbidden()
     if r.resolved_at is None:
         raise AppError(409, "INVALID_STATE", "This reminder is not resolved.")
+    nxt = _next_of(db, r)
+    if nxt is not None:
+        if nxt.resolved_at is not None:
+            raise AppError(409, "REMINDER_NEXT_RESOLVED", "This reminder repeats and its next occurrence has already "
+                           "been resolved, so it can no longer be reopened.")
+        audit.record(db, ctx, "REMINDER_DELETED", "reminder", nxt.id, {**snapshot(nxt), "repeat_of": r.id}, None)
+        db.delete(nxt)
     before = snapshot(r)
     r.resolved_at = r.resolved_by_user_id = r.resolution_note = None
     db.flush()

@@ -3,7 +3,15 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.7 — unreleased (in development)
-Cash count sheet refinements and a position for people. Database migration `0014` (one new optional column).
+Recurring organization reminders, cash count sheet refinements and a position for people. Database migrations
+`0014` and `0015` (new optional columns only).
+- **Recurring organization reminders.** An organization reminder can **repeat every N days, weeks, months or
+  years**, optionally **until** an end date (New reminder → *Repeat*). Each occurrence is its own reminder with its
+  own resolution note. **Resolving one creates the next**, due one interval after the *scheduled* due date — not the
+  day it was resolved — so a monthly reminder stays on its day of the month (the 31st falls on the last day of
+  shorter months). In the Resolve dialog, *Stop repeating after this one* ends the series; so does deleting the
+  upcoming occurrence. Reopening a resolved occurrence takes back the next one it created (refused once that next
+  one has itself been resolved). Personal reminders stay one-time. Existing reminders are unchanged.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.

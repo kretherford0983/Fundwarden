@@ -463,7 +463,12 @@ class ReminderIn(In):
     notify_days_before: int = Field(0, ge=0, le=365)
     link_type: Literal["FISCAL_YEAR", "BUDGET", "BANK_ACCOUNT"] | None = None
     link_id: int | None = None
+    # 1.6.7: organization reminders can repeat
+    repeat_every: int | None = Field(None, ge=1, le=365)
+    repeat_unit: Literal["DAY", "WEEK", "MONTH", "YEAR"] | None = None
+    repeat_until: Date | None = None
 
 
 class ReminderResolveIn(In):
     note: OptStr(500) = None
+    stop_repeating: bool = False

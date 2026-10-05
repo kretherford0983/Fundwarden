@@ -10,7 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
-| 1.6.6 → 1.6.7 | migration `0014` — **adds** column `entity.position` (empty for every existing Entity) | switch binaries **and** restore the pre-upgrade data backup |
+| 1.6.6 → 1.6.7 | migrations `0014` — **adds** column `entity.position` (empty for every existing Entity); `0015` — **adds** columns `reminder.repeat_every`, `repeat_unit`, `repeat_until`, `repeat_anchor`, `repeat_index`, `repeat_source_id` (existing reminders stay one-time) | switch binaries **and** restore the pre-upgrade data backup |
 | 1.6.5 → 1.6.6 | none — the application is renamed to Fundwarden (see *1.6.6: the rename* below) | switch back to the old `fmpoc` service (left in place) |
 | 1.6.4 → 1.6.5 | none | switch binaries only |
 | 1.6.3 → 1.6.4 | migration `0013` — **adds** columns `fundraiser.cancelled_at`, `cancelled_by_user_id`, `cancel_reason` | switch binaries **and** restore the pre-upgrade data backup |

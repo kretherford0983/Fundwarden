@@ -64,6 +64,13 @@ Register) and the transactions' attachments. Notices remind you, for example, to
   can be resolved by Budget Managers and Register Users; Budget Users and Auditors just see them. A resolved reminder
   can be **reopened**.
 - A reminder can be edited or deleted only before it is shown.
+- **Repeating organization reminders (1.6.7).** In *New reminder* for the whole organization, set **Repeat** to
+  *Repeats every…* and choose the number and the period (days, weeks, months, years), optionally an **Until** date.
+  The reminder shows "Repeats every 3 months". When it is resolved, the next one is created automatically, due one
+  interval after the due date of the one just resolved (resolving late does not shift the schedule). Budget Managers
+  see the next one under *Upcoming* and can still edit or delete it there. To end the series, tick **Stop repeating
+  after this one** when resolving, or delete the upcoming one. Reopening a resolved reminder removes the next one it
+  created; it is created again when you resolve.
 
 ## Cancelled fundraisers and the cash count sheet (1.6.4)
 - **Mark as cancelled…** (Budget Manager) when a fundraiser did not take place as planned; give the reason. The
