@@ -9,6 +9,7 @@ export default function Register() {
   const [accounts, setAccounts] = useState<any[] | null>(null);
   const [fys, setFys] = useState<any[]>([]);
   const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "" });
+  const [defaultFy, setDefaultFy] = useState(""); // 1.6.7: what "Clear" goes back to (the current Fiscal Year)
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -32,6 +33,7 @@ export default function Register() {
       setFys(y);
       const primary = reg.find((x: any) => x.is_primary) || reg.find((x: any) => x.status === "ACTIVE") || reg[0];
       // v1.6.0: deep link from a fundraiser line - /register?account=<id>&search=<text> (all dates)
+      setDefaultFy(nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "");
       const q = new URLSearchParams(window.location.search);
       const linked = reg.find((x: any) => String(x.id) === q.get("account"));
       if (linked) setF((p) => ({ ...p, bank_account_id: String(linked.id), fiscal_year_id: "", search: q.get("search") || "" }));
@@ -46,6 +48,9 @@ export default function Register() {
   if (!accounts) return <><ErrorBox error={err} /><Loading /></>;
   const acct = data?.bank_account;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
+  // 1.6.7: "Clear" puts every filter back to how the register opens; the chosen bank account stays
+  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "" };
+  const filtered = (Object.keys(defaults) as (keyof typeof defaults)[]).some((k) => f[k] !== defaults[k]);
   return (
     <div className="register-page">
       <div className="register-sticky" ref={stickyRef}>
@@ -78,6 +83,8 @@ export default function Register() {
         <Field label="From"><input type="date" value={f.date_from} onChange={set("date_from")} /></Field>
         <Field label="To"><input type="date" value={f.date_to} onChange={set("date_to")} /></Field>
         <Field label="Search"><input value={f.search} onChange={set("search")} placeholder="Entity, description, invoice, check #, amount" /></Field>
+        <button type="button" className="filters-clear" disabled={!filtered} onClick={() => setF({ ...f, ...defaults })}
+                title="Reset the filters to how the register opens (the bank account stays)">Clear</button>
       </div>
       {data && acct ? (
         <div className="tiles">

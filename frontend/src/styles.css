@@ -87,6 +87,7 @@ fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; p
 .page-head .field { margin-bottom: 0; }
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin: 8px 0; }
 .filters .field { min-width: 130px; }
+.filters .filters-clear { margin-bottom: 10px; } /* lines up with the inputs (a field has a 10px bottom margin) */
 .table-wrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .table th, .table td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }

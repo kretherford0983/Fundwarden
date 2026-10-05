@@ -523,6 +523,34 @@ test("CR-013 / CR-014 / CR-015: fixed navigation, collapsible menu and pinned re
   await expect(nav.getByText("Register", { exact: true })).toBeVisible();
 });
 
+test("1.6.7: Clear puts the register filters back to their defaults and keeps the bank account", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Register" }).click();
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toBeVisible();
+  const clear = page.getByRole("button", { name: "Clear", exact: true });
+  const fy = page.getByLabel("Register Fiscal Year filter");
+  const account = page.getByLabel("Register bank account");
+  await expect(clear).toBeDisabled(); // nothing to clear yet
+  const defaultFy = await fy.inputValue();
+  const chosenAccount = await account.inputValue();
+  await page.getByLabel("Search").fill("Scroll 7");
+  await page.getByRole("combobox", { name: "Status" }).selectOption("uncleared");
+  await page.getByLabel("From").fill("2026-12-01");
+  await fy.selectOption("");
+  await expect(page.getByRole("row", { name: /Scroll 7/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toHaveCount(0);
+  await expect(clear).toBeEnabled();
+  await clear.click();
+  await expect(page.getByLabel("Search")).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: "Status" })).toHaveValue("");
+  await expect(page.getByLabel("From")).toHaveValue("");
+  await expect(fy).toHaveValue(defaultFy);
+  await expect(account).toHaveValue(chosenAccount);
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toBeVisible();
+  await expect(clear).toBeDisabled();
+  await logout(page);
+});
+
 // ---------------------------------------------------------------- v1.4 enhancements
 test("CR-022 / CR-021: version in My Account for every user; bank balance total on the dashboard", async ({ page }) => {
   await login(page, "bm1");
