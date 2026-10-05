@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+"""Fills a NEW, empty Fundwarden installation with a small made-up organization - for screenshots and demos.
+
+    python scripts/demo_data.py http://127.0.0.1:8787
+
+Everything goes through the normal web API, exactly like a person clicking through the application, so every rule
+and the audit trail apply. The installation must not be initialized yet (the script runs the Initialization Wizard).
+Never run it against an installation with real data - it refuses when the wizard has already been completed.
+
+Sign-ins afterwards (local mode; all with the password below): admin, treasurer (Budget Manager + Register User),
+bookkeeper (Register User), auditor.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import io
+import sys
+
+import httpx
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+PASSWORD = "Demo-Fundwarden-2026"
+ORG = "Riverside Band Boosters"
+
+
+class Api:
+    def __init__(self, base: str):
+        self.c = httpx.Client(base_url=base, timeout=60)
+        self.csrf = self.c.get("/api/auth/csrf").json()["csrf_token"]
+
+    def _h(self):
+        return {"X-CSRF-Token": self.csrf}
+
+    def call(self, method: str, url: str, json=None, ok=(200, 201), **kw):
+        r = self.c.request(method, url, json=json, headers=self._h(), **kw)
+        if r.status_code not in ok:
+            raise SystemExit(f"{method} {url} -> {r.status_code}: {r.text[:500]}")
+        return r.json() if r.headers.get("content-type", "").startswith("application/json") else r
+
+    def post(self, url, json=None, **kw):
+        return self.call("POST", url, json, **kw)
+
+    def put(self, url, json=None, **kw):
+        return self.call("PUT", url, json, **kw)
+
+    def get(self, url):
+        return self.call("GET", url)
+
+    def login(self, user: str) -> "Api":
+        self.csrf = self.post("/api/auth/login", {"username": user, "password": PASSWORD})["csrf_token"]
+        return self
+
+    def upload(self, owner_type: str, owner_id: int, name: str, data: bytes, extra: str = ""):
+        return self.call("POST", f"/api/attachments?owner_type={owner_type}&owner_id={owner_id}{extra}",
+                         files={"file": (name, data, "application/pdf")})
+
+
+def pdf(title: str, lines: list[str]) -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(72, 720, title)
+    c.setFont("Helvetica", 11)
+    for i, line in enumerate(lines):
+        c.drawString(72, 690 - 18 * i, line)
+    c.save()
+    return buf.getvalue()
+
+
+def main(base: str) -> None:
+    today = dt.date.today()
+    year = today.year
+    d = lambda m, day: min(dt.date(year, m, day), today).isoformat()  # noqa: E731 - never in the future
+
+    admin = Api(base)
+    if admin.get("/api/system/status").get("initialized"):
+        raise SystemExit("This installation is already initialized - demo data is only for a new, empty one.")
+    admin.post("/api/system/initialize", {"workspace_name": ORG, "admin_username": "admin",
+                                          "admin_email": "admin@example.org", "password": PASSWORD,
+                                          "password_confirmation": PASSWORD})
+    admin.csrf = admin.get("/api/auth/me")["csrf_token"]
+    for name, domain, roles in (("treasurer", "FINANCIAL", ["BUDGET_MANAGER", "REGISTER_USER"]),
+                                ("bookkeeper", "FINANCIAL", ["REGISTER_USER"]),
+                                ("auditor", "AUDITOR", ["AUDITOR"])):
+        admin.post("/api/users", {"username": name, "email": f"{name}@example.org", "password": PASSWORD,
+                                  "security_domain": domain, "roles": roles})
+    admin.put("/api/system/modules", {"fundraisers": True})
+    bm = Api(base).login("treasurer")
+
+    # ---- Fiscal Year and budgets
+    fy = bm.post("/api/fiscal-years", {"identifier": str(year), "start_date": f"{year}-01-01",
+                                       "end_date": f"{year}-12-31", "confirmations": []})
+
+    def budget(code, name, amount, btype=None, parent=None):
+        body = {"fiscal_year_id": fy["id"], "code": code, "name": name, "amount": amount}
+        body.update({"parent_budget_id": parent} if parent else {"budget_type": btype})
+        return bm.post("/api/budgets", body)
+
+    budget("4000", "Membership dues", "6000.00", "INCOME")
+    budget("4100", "Donations and sponsors", "9000.00", "INCOME")
+    fundraising = budget("4200", "Fundraising", "14000.00", "INCOME")
+    b_spring = budget("4210", "Spring Concert & Silent Auction", "8500.00", parent=fundraising["id"])
+    b_fall = budget("4220", "Fall Mattress Sale", "5500.00", parent=fundraising["id"])
+    budget("4300", "Concessions", "7500.00", "INCOME")
+    budget("5000", "Instruments and repairs", "9500.00", "EXPENSE")
+    budget("5100", "Uniforms", "4200.00", "EXPENSE")
+    travel = budget("5200", "Travel and competitions", "11500.00", "EXPENSE")
+    budget("5210", "Buses", "7000.00", parent=travel["id"])
+    budget("5220", "Entry fees", "4500.00", parent=travel["id"])
+    budget("5300", "Concession supplies", "3600.00", "EXPENSE")
+    b_costs = budget("5400", "Fundraising costs", "2600.00", "EXPENSE")
+    budget("5500", "Scholarships", "3000.00", "EXPENSE")
+    budget("5900", "Administration", "1200.00", "EXPENSE")
+
+    # ---- people, vendors, bank accounts
+    def org(name, bank=False):
+        return bm.post("/api/entities", {"entity_type": "ORGANIZATION", "organization_name": name,
+                                         "is_financial_institution": bank, "confirmations": ["DUPLICATE_ENTITY"]})
+
+    def person(name, position=None):
+        return bm.post("/api/entities", {"entity_type": "INDIVIDUAL", "primary_contact": name, "position": position,
+                                         "confirmations": ["DUPLICATE_ENTITY"]})
+
+    bank = org("First River Credit Union", bank=True)
+    e = {n: org(n) for n in ("Harmony Music Supply", "Valley Coach Lines", "Stitchworks Uniforms",
+                             "Wholesale Club", "State Band Association", "Riverside Print Shop",
+                             "Members (dues)", "Community donors", "Concession stand sales", "DreamRest Mattress Co.")}
+    person("Dana Whitfield", "Treasurer")
+    person("Marcus Ortega", "President")
+    person("Priya Raman", "Audit Committee Chair")
+    acct = {}
+    for key, name, kind, number, opening, primary in (
+            ("chk", "Operating Checking", "CHECKING", "000123456789", "8450.00", True),
+            ("sav", "Reserve Savings", "SAVINGS", "000987654321", "15000.00", False)):
+        acct[key] = bm.post("/api/bank-accounts", {
+            "account_name": name, "financial_institution_entity_id": bank["id"], "account_type": kind,
+            "account_number": number, "is_primary": primary, "opening_balance": opening,
+            "opening_balance_date": f"{year}-01-01"})
+
+    bm.upload("fiscal_year", fy["id"], "board-approval.pdf",
+              pdf("Budget approval", [f"{ORG} - Fiscal Year {year}", "Approved by the board (demo document)."]),
+              "&document_type=APPROVAL")
+    bm.post(f"/api/fiscal-years/{fy['id']}/approve", {"confirm_irreversible": True})
+
+    # ---- register
+    ru = Api(base).login("bookkeeper")
+    leaf = {}
+    for kind in ("WITHDRAWAL", "DEPOSIT"):
+        for o in ru.get(f"/api/budgets/selectable?fiscal_year_id={fy['id']}&transaction_type={kind}"):
+            leaf[o["label"].split(" ")[0].split("-")[-1]] = o["id"]
+    check = iter(range(1041, 1200))
+
+    def txn(account, kind, when, entity, lines, cleared=True, attach=None, **kw):
+        body = {"bank_account_id": acct[account]["id"], "transaction_type": kind, "transaction_date": when,
+                "entity_id": e[entity]["id"] if entity else None,
+                "allocations": [{"budget_id": leaf[c], "amount": a, "description": desc} for c, a, desc in lines], **kw}
+        if kind == "WITHDRAWAL" and account == "chk" and "check_number" not in kw:
+            body["check_number"] = str(next(check))
+        if cleared:
+            body["clear_date"] = when
+        t = ru.post("/api/transactions", body)
+        if attach:
+            ru.upload("transaction", t["id"], attach, pdf(attach.rsplit(".", 1)[0].replace("-", " ").title(),
+                                                           [f"{entity} - {when}"] + [f"{desc}: ${a}" for _, a, desc in lines]))
+        return t
+
+    W, D = "WITHDRAWAL", "DEPOSIT"
+    txn("chk", D, d(1, 12), "Members (dues)", [("4000", "2850.00", "Member dues - January")], attach="dues-deposit-slip.pdf")
+    txn("chk", W, d(1, 20), "Harmony Music Supply", [("5000", "1240.00", "Tuba valve repair, 2 clarinets serviced")], attach="harmony-invoice-2291.pdf")
+    txn("chk", D, d(2, 3), "Community donors", [("4100", "2500.00", "Rotary Club sponsorship")], attach="rotary-letter.pdf")
+    txn("chk", W, d(2, 14), "State Band Association", [("5220", "850.00", "Regional festival entry")], attach="festival-entry-form.pdf")
+    txn("chk", W, d(2, 27), "Valley Coach Lines", [("5210", "1650.00", "2 buses - regional festival")], attach="valley-coach-invoice.pdf")
+    txn("chk", D, d(3, 9), "Members (dues)", [("4000", "1900.00", "Member dues - March")])
+    t_print = txn("chk", W, d(3, 18), "Riverside Print Shop", [("5400", "310.00", "Spring concert programs and posters"),
+                                                      ("5900", "45.00", "Letterhead")], attach="print-shop-receipt.pdf")
+    t_gate = txn("chk", D, d(4, 20), "Community donors", [("4210", "3120.00", "Spring concert tickets"),
+                                                            ("4210", "4675.00", "Spring concert silent auction")],
+                 attach="spring-concert-count-sheet.pdf")
+    t_food = txn("chk", W, d(4, 22), "Wholesale Club", [("5400", "420.50", "Spring concert reception supplies")],
+                 attach="wholesale-receipt-0422.pdf")
+    txn("chk", D, d(4, 25), "Concession stand sales", [("4300", "1385.00", "Spring concert concessions")])
+    txn("chk", W, d(5, 6), "Stitchworks Uniforms", [("5100", "2380.00", "12 marching jackets")], attach="stitchworks-invoice.pdf")
+    txn("chk", W, d(5, 19), "Harmony Music Supply", [("5000", "3150.00", "Marimba - used, refurbished")], attach="harmony-invoice-2407.pdf")
+    txn("chk", D, d(6, 2), "Community donors", [("4100", "1800.00", "Alumni appeal")])
+    txn("chk", W, d(6, 10), None, [("5500", "1500.00", "Senior scholarships (3 x $500)")], attach="scholarship-minutes.pdf")
+    txn("chk", D, d(8, 24), "Members (dues)", [("4000", "1150.00", "Member dues - fall sign-up")])
+    txn("chk", W, d(8, 28), "Wholesale Club", [("5300", "960.75", "Concession stock - football season")], attach="wholesale-receipt-0828.pdf")
+    txn("chk", D, d(9, 8), "Concession stand sales", [("4300", "1742.00", "Home game 1 concessions")])
+    txn("chk", D, d(9, 22), "Concession stand sales", [("4300", "1968.50", "Home game 2 concessions")])
+    txn("chk", W, d(9, 25), "Valley Coach Lines", [("5210", "2100.00", "3 buses - state marching preview")], attach="valley-coach-invoice-2.pdf")
+    txn("chk", D, d(9, 29), "DreamRest Mattress Co.", [("4220", "4380.00", "Mattress sale commission")], attach="dreamrest-statement.pdf")
+    txn("chk", W, d(9, 30), "Riverside Print Shop", [("5400", "185.00", "Mattress sale yard signs")])
+    txn("chk", W, d(10, 1), "State Band Association", [("5220", "1200.00", "State championship entry")], cleared=False)
+    txn("chk", W, d(10, 2), "Wholesale Club", [("5300", "640.20", "Concession restock")], cleared=False)
+    txn("chk", D, d(10, 3), "Concession stand sales", [("4300", "1510.00", "Home game 3 concessions")], cleared=False)
+    ru.post("/api/transfers", {"from_account_id": acct["chk"]["id"], "to_account_id": acct["sav"]["id"],
+                               "amount": "2500.00", "transaction_date": d(7, 1), "clear_date": d(7, 1),
+                               "notes": "Move surplus to the reserve"})
+
+    # ---- fundraisers
+    spring = bm.post("/api/fundraisers", {"name": "Spring Concert & Silent Auction", "start_date": d(4, 18),
+                                          "end_date": d(4, 18), "description": "Annual spring concert with a silent auction in the lobby.",
+                                          "budget_ids": [b_spring["id"], b_costs["id"]], "filter_text": "spring concert"})
+    for name in ("Tickets", "Silent auction", "Reception"):
+        spring = bm.post(f"/api/fundraisers/{spring['id']}/buckets", {"name": name})
+    bucket = {b["name"]: b["id"] for b in spring["buckets"]["items"] if b.get("id")}
+    for t, i, name in ((t_gate, 0, "Tickets"), (t_gate, 1, "Silent auction"), (t_print, 0, "Tickets"),
+                       (t_food, 0, "Reception")):
+        al = t["allocations"][i]
+        bm.put(f"/api/fundraisers/{spring['id']}/lines/{al['id']}",
+               {"buckets": [{"bucket_id": bucket[name], "amount": al["amount"]}]})
+    bm.post("/api/fundraisers", {"name": "Fall Mattress Sale", "start_date": d(9, 27), "end_date": d(9, 27),
+                                 "budget_ids": [b_fall["id"]]})
+
+    # ---- reminders
+    month_end = (today.replace(day=1) + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
+    bm.post("/api/reminders", {"scope": "ORGANIZATION", "title": "Reconcile the bank statements",
+                               "details": "Both accounts. Attach the statements to the Fiscal Year.",
+                               "due_date": today.isoformat(), "repeat_every": 1, "repeat_unit": "MONTH",
+                               "link_type": "BANK_ACCOUNT", "link_id": acct["chk"]["id"]})
+    bm.post("/api/reminders", {"scope": "ORGANIZATION", "title": "File the quarterly sales tax return",
+                               "due_date": (today - dt.timedelta(days=2)).isoformat(), "repeat_every": 3,
+                               "repeat_unit": "MONTH"})
+    bm.post("/api/reminders", {"scope": "ORGANIZATION", "title": f"Present the {year + 1} budget to the board",
+                               "due_date": month_end.isoformat(), "notify_days_before": 14,
+                               "link_type": "FISCAL_YEAR", "link_id": fy["id"]})
+    bm.post("/api/reminders", {"scope": "PERSONAL", "title": "Order deposit slips", "due_date": today.isoformat()})
+    bm.post("/api/reminders", {"scope": "ORGANIZATION", "title": "Renew the liability insurance",
+                               "due_date": (today + dt.timedelta(days=75)).isoformat(), "notify_days_before": 30,
+                               "repeat_every": 1, "repeat_unit": "YEAR"})
+    print(f"Demo organization '{ORG}' created at {base}. Sign in as treasurer / {PASSWORD}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:8787")

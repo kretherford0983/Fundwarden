@@ -27,6 +27,10 @@ Recurring organization reminders, cash count sheet refinements and a position fo
   not verify the app — open *System Settings → Privacy & Security* and click **Open Anyway** (once). The steps are
   in *Read me first* inside the disk image and in docs/deployment.md. Built and smoke-tested by CI on a macOS
   arm64 machine with every build.
+- **Documentation.** The README on the project page now presents what Fundwarden does: the core features, each
+  with a screenshot (dashboard, budgets, register, audit report, closing the year, fundraisers, reminders), and a
+  table of all capabilities. The screenshots come from a made-up organization: `scripts/demo_data.py` fills a new,
+  empty installation through the normal API and `scripts/readme_screenshots.mjs` retakes them.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
