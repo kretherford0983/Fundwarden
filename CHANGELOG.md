@@ -31,6 +31,9 @@ Recurring organization reminders, cash count sheet refinements and a position fo
   with a screenshot (dashboard, budgets, register, audit report, closing the year, fundraisers, reminders), and a
   table of all capabilities. The screenshots come from a made-up organization: `scripts/demo_data.py` fills a new,
   empty installation through the normal API and `scripts/readme_screenshots.mjs` retakes them.
+- **Register — Clear filters.** A **Clear** button next to the register's filters puts Fiscal Year, Type, Status,
+  From, To and Search back to how the register opens (the current Fiscal Year, everything else empty). The chosen
+  bank account stays. The button is greyed out when no filter is set.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
