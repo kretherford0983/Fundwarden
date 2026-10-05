@@ -551,6 +551,29 @@ test("1.6.7: Clear puts the register filters back to their defaults and keeps th
   await logout(page);
 });
 
+test("1.6.7: the register's Attachments filter shows transactions with or without attachments", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Register" }).click();
+  const withoutAny = page.getByRole("row", { name: /Scroll 29/ }); // the "Scroll" transactions have no attachments
+  await expect(withoutAny).toBeVisible();
+  const att = page.getByRole("combobox", { name: "Attachments" });
+  await expect(att).toHaveValue(""); // All
+  const all = await page.locator("table.register tbody tr").count();
+  await att.selectOption("yes");
+  await expect(withoutAny).toHaveCount(0);
+  const yes = await page.locator("table.register tbody tr").count();
+  await att.selectOption("no");
+  await expect(withoutAny).toBeVisible();
+  const no = await page.locator("table.register tbody tr").count();
+  expect(yes).toBeGreaterThan(0);
+  expect(no).toBeGreaterThan(0);
+  expect(yes + no).toBe(all);
+  await page.screenshot({ path: "e2e-screenshots/light-register-attachments-filter.png" });
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(att).toHaveValue("");
+  await logout(page);
+});
+
 test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nnnn", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");
   await page.getByRole("link", { name: "Entities" }).click();

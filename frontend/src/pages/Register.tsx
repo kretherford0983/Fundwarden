@@ -8,7 +8,7 @@ export default function Register() {
   const { can } = useMe();
   const [accounts, setAccounts] = useState<any[] | null>(null);
   const [fys, setFys] = useState<any[]>([]);
-  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "" });
+  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" });
   const [defaultFy, setDefaultFy] = useState(""); // 1.6.7: what "Clear" goes back to (the current Fiscal Year)
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
@@ -49,7 +49,7 @@ export default function Register() {
   const acct = data?.bank_account;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   // 1.6.7: "Clear" puts every filter back to how the register opens; the chosen bank account stays
-  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "" };
+  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" };
   const filtered = (Object.keys(defaults) as (keyof typeof defaults)[]).some((k) => f[k] !== defaults[k]);
   return (
     <div className="register-page">
@@ -80,6 +80,7 @@ export default function Register() {
         </Field>
         <Field label="Type"><select value={f.transaction_type} onChange={set("transaction_type")}><option value="">All</option><option value="DEPOSIT">Deposits</option><option value="WITHDRAWAL">Withdrawals</option></select></Field>
         <Field label="Status"><select value={f.status} onChange={set("status")}><option value="">All</option><option value="cleared">Cleared</option><option value="uncleared">Uncleared</option><option value="void">Void</option></select></Field>
+        <Field label="Attachments"><select value={f.attachments} onChange={set("attachments")}><option value="">All</option><option value="yes">Yes</option><option value="no">No</option></select></Field>
         <Field label="From"><input type="date" value={f.date_from} onChange={set("date_from")} /></Field>
         <Field label="To"><input type="date" value={f.date_to} onChange={set("date_to")} /></Field>
         <Field label="Search"><input value={f.search} onChange={set("search")} placeholder="Entity, description, invoice, check #, amount" /></Field>
