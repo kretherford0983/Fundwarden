@@ -12,6 +12,13 @@ Recurring organization reminders, cash count sheet refinements and a position fo
   shorter months). In the Resolve dialog, *Stop repeating after this one* ends the series; so does deleting the
   upcoming occurrence. Reopening a resolved occurrence takes back the next one it created (refused once that next
   one has itself been resolved). Personal reminders stay one-time. Existing reminders are unchanged.
+- **Audit and Fiscal Year Close reports — account start and end pages.** When the report covers more than one bank
+  account, each account's transactions now sit between a **"Start of transactions"** page and an **"End of
+  transactions"** page. Both name the account, its number of transactions, deposits, withdrawals, first and last
+  transaction, and state the account's page range ("pages 4 to 9 of 12 (6 pages…)"), each pointing at the other.
+  Every page in between shows the account and **"section page k of n"** at the bottom right, so a reviewer can see
+  which account a page belongs to and that no page is missing. A report for a single account is unchanged. The
+  page range of each account is also recorded with the report in the audit log.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.

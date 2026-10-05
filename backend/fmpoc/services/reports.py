@@ -141,6 +141,24 @@ class _Mark(Flowable):
         self._d.page_labels[self.canv.getPageNumber()] = self._label
 
 
+class _SectionNote(Flowable):
+    """1.6.7: reserves two lines on an account's start / end page and remembers where they are. The page range of
+    the account's section is only known once the whole report is laid out, so the text is stamped afterwards."""
+
+    HEIGHT = 34
+
+    def __init__(self, doc: "_AuditDoc", section: dict, kind: str):
+        super().__init__()
+        self._d, self._s, self._kind = doc, section, kind
+
+    def wrap(self, aw, ah):
+        return aw, self.HEIGHT
+
+    def draw(self):
+        x, y = self.canv.absolutePosition(0, 0)
+        self._s[self._kind] = (self.canv.getPageNumber(), x, y)
+
+
 BODY_H = PAGE_H - MARGIN - (MARGIN + 0.25 * inch) - 12 - 4  # usable frame height (frame padding + safety)
 
 
@@ -220,6 +238,7 @@ class _AuditDoc(SimpleDocTemplate):
         self.current_label = ""
         self.page_labels: dict[int, str] = {}
         self.slots: list[tuple[int, float, float, float, float, object]] = []  # page, x, y, w, h, pypdf page
+        self.sections: list[dict] = []  # 1.6.7: one per bank account when the report covers several
 
     def afterPage(self):
         self.page_labels.setdefault(self.page, self.current_label)
@@ -236,6 +255,24 @@ def _stamp_and_write(reader_bytes: bytes, doc: _AuditDoc, path: str, title: str)
               .translate(x + (w - sw * s) / 2, y + (h - sh * s) / 2))
         writer.pages[page_no - 1].merge_transformed_page(src, op, over=True)
     total = len(writer.pages)
+    # 1.6.7: account sections - every page of a section carries "<account> - section page k of n" in the footer,
+    # and the start / end pages state the section's page range, so a reviewer can tell that no page is missing.
+    in_section: dict[int, str] = {}
+    notes: dict[int, list[tuple[float, float, list[str]]]] = {}
+    for sec in doc.sections:
+        if "start" not in sec or "end" not in sec:
+            continue
+        first, last = sec["start"][0], sec["end"][0]
+        n = last - first + 1
+        for pg in range(first, last + 1):
+            in_section[pg] = f"{sec['label']} - section page {pg - first + 1} of {n}"
+        span = f"pages {first} to {last} of {total} ({n} pages, counting this start page and the end page)"
+        notes.setdefault(first, []).append((sec["start"][1], sec["start"][2], [
+            f"This account's section: {span}.",
+            f"Its last page is page {last}, headed \"End of transactions\" for this account."]))
+        notes.setdefault(last, []).append((sec["end"][1], sec["end"][2], [
+            f"This account's section: pages {first} to {last} of {total} ({n} pages, counting the start page and this end page).",
+            f"Its first page is page {first}, headed \"Start of transactions\" for this account."]))
     for i, page in enumerate(writer.pages):
         w, h = float(page.mediabox.width), float(page.mediabox.height)
         buf = io.BytesIO()
@@ -244,6 +281,13 @@ def _stamp_and_write(reader_bytes: bytes, doc: _AuditDoc, path: str, title: str)
         c.setFillColor(colors.HexColor("#444444"))
         c.drawString(18, 10, f"{title}  ·  {doc.page_labels.get(i + 1, '')}"[:160])
         c.drawRightString(w - 18, 10, f"Page {i + 1} of {total}")
+        if i + 1 in in_section:
+            c.drawRightString(w - 18, 20, in_section[i + 1][:120])
+        for x, y, lines in notes.get(i + 1, []):
+            c.setFont(_FONT, 10)
+            c.setFillColor(colors.black)
+            for k, line in enumerate(lines):
+                c.drawString(x, y + _SectionNote.HEIGHT - 12 - 14 * k, line)
         c.save()
         buf.seek(0)
         page.merge_page(PdfReader(buf).pages[0])
@@ -504,7 +548,10 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
             + ("the Fiscal Year documents (approval, audit signoff and other supporting documents); the Fiscal Year "
                "budgets; " if close_layout else "the Fiscal Year budgets (page 3 onward); ")
             + "then every transaction of the year on its own page(s), with the transaction details at the top and each "
-              "supporting attachment reproduced beneath them.", "body"),
+              "supporting attachment reproduced beneath them."
+            + (" The transactions are grouped by bank account: each account begins with a \"Start of transactions\" "
+               "page and finishes with an \"End of transactions\" page, both stating the account's page range."
+               if len({t.bank_account_id for t in txns}) > 1 else ""), "body"),
           Spacer(1, 8), PM("Activity summary", "h2"),
           _kv([("Transactions", f"{len(txns)} in this report — {len(active)} active, {len(txns) - len(active)} VOID"),
                ("Deposits (active)", money(dep)), ("Withdrawals (active)", money(wd)), ("Net", money(dep - wd)),
@@ -564,8 +611,47 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
     # ---- one or more pages per transaction
     if not txns:
         f += [_Mark(doc, "Transactions"), PM("Transactions", "h1"), P("No transactions for this Fiscal Year.", "body")]
-    for t in txns:
+    # 1.6.7: with several accounts in the report, each account's transactions sit between a start page and an end page
+    acct_order = list(dict.fromkeys(t.bank_account_id for t in txns))
+    sectioned = len(acct_order) > 1
+    by_acct = {aid: [t for t in txns if t.bank_account_id == aid] for aid in acct_order}
+
+    def section_page(sec: dict, kind: str) -> list:
+        aid = sec["account_id"]
+        a, mine = accts[aid], by_acct[aid]
+        act = [t for t in mine if t.status == "ACTIVE"]
+        n = acct_order.index(aid) + 1
+        first, last = mine[0], mine[-1]
+        nxt = acct_order[n] if n < len(acct_order) else None
+        start = kind == "start"
+        rows = [("Account", f"{a.account_name} - {bank.masked(a)}"),
+                ("Account in this report", f"{n} of {len(acct_order)}"),
+                ("Transactions", f"{len(mine)} — {len(act)} active, {len(mine) - len(act)} VOID"),
+                ("Deposits (active)", money(sum(t.total_cents for t in act if t.transaction_type == "DEPOSIT"))),
+                ("Withdrawals (active)", money(sum(t.total_cents for t in act if t.transaction_type == "WITHDRAWAL"))),
+                ("First transaction", f"#{first.id} — {first.transaction_date}"),
+                ("Last transaction", f"#{last.id} — {last.transaction_date}")]
+        if not start:
+            rows.append(("Next", f"{accts[nxt].account_name} - {bank.masked(accts[nxt])}" if nxt
+                         else "This was the last account in the report."))
+        head = "Start of transactions" if start else "End of transactions"
+        return [_Mark(doc, f"{head} — {a.account_name}"), Spacer(1, 1.2 * inch),
+                PM(head, "cover_sub"), Spacer(1, 6),
+                PM(escape(f"{a.account_name} - {bank.masked(a)}"), "cover_title"), Spacer(1, 0.5 * inch),
+                _kv(rows, w1=1.8 * inch), Spacer(1, 14), _SectionNote(doc, sec, kind), Spacer(1, 8),
+                P("Every page between this account's start page and end page shows the account and \"section page "
+                  "k of n\" at the bottom right. The pages belong to this account only, and none is missing when the "
+                  "section page numbers run from 1 to n without a gap." if start else
+                  "No transaction of this account follows this page.", "small"),
+                PageBreak()]
+
+    section = None
+    for i_t, t in enumerate(txns):
         a = accts[t.bank_account_id]
+        if sectioned and (section is None or section["account_id"] != t.bank_account_id):
+            section = {"account_id": a.id, "label": f"{a.account_name} {bank.masked(a)}"}
+            doc.sections.append(section)
+            f += section_page(section, "start")
         parent_atts, by_alloc, removed = att_cache[t.id]
         live = t.live_allocations
         void = t.status == "VOID"
@@ -631,6 +717,8 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
             f += [Spacer(1, 4), P("Removed attachments (retained in history, not reproduced): " + ", ".join(
                 f"{x.original_filename} (removed {x.removed_at:%Y-%m-%d})" for x in removed), "small")]
         f.append(PageBreak())
+        if sectioned and (i_t + 1 == len(txns) or txns[i_t + 1].bank_account_id != t.bank_account_id):
+            f += section_page(section, "end")
 
     frs = fsvc.for_fiscal_year_report(db, ctx.workspace_id, fy) if fundraisers else []
     for fr in frs:  # v1.6.2 CR-035
@@ -654,7 +742,11 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
         os.unlink(path)
         raise
     fname = f"{fy.display_name}-{'fiscal-year-close' if close_layout else 'end-of-year-audit'}-report.pdf"
-    return path, fname, {"transactions": len(txns), "pages": pages, **({"fundraisers": len(frs)} if fundraisers else {})}
+    summary = {"transactions": len(txns), "pages": pages, **({"fundraisers": len(frs)} if fundraisers else {})}
+    if doc.sections:
+        summary["account_sections"] = [{"bank_account_id": x["account_id"], "first_page": x["start"][0],
+                                        "last_page": x["end"][0]} for x in doc.sections]
+    return path, fname, summary
 
 
 # --------------------------------------------------------------------------- v1.6.2 CR-035 fundraiser report
