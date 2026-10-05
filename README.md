@@ -1,7 +1,7 @@
 <h1><img src="frontend/public/favicon.svg" alt="" width="36" align="top"> Fundwarden</h1>
 
 **Free financial ledger for small organizations** — clubs, associations, booster groups and similar bodies that
-keep a checkbook, a budget and an annual audit. Fundwarden runs on your own Windows PC or Linux server; your data
+keep a checkbook, a budget and an annual audit. Fundwarden runs on your own Windows PC, Mac or Linux server; your data
 stays in one folder you control. Current release: **1.6.7** (1.6.6 was the first production release) —
 [download](https://github.com/kretherford0983/Fundwarden/releases/latest) · [changelog](CHANGELOG.md).
 
@@ -27,6 +27,7 @@ stays in one folder you control. Current release: **1.6.7** (1.6.6 was the first
 
 | | |
 |---|---|
+| **Mac with Apple Silicon (single user)** | Download `Fundwarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest), drag Fundwarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* ([details](docs/deployment.md)). |
 | **Windows (single user)** | Download `Fundwarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest) and double-click it. |
 | **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
 
@@ -105,6 +106,7 @@ bash scripts/security_check.sh                    # pip-audit + npm audit + secu
 | Linux x86-64 self-contained | `bash packaging/build_linux.sh` | PyInstaller onedir → `dist/Fundwarden-linux-x64.tar.gz` |
 | Windows x86-64 portable folder | `bash packaging/build_windows_portable.sh` | Runs on any OS; relocatable CPython + win_amd64 wheels → `dist/Fundwarden-windows-x64.zip`; launch `Fundwarden.cmd` |
 | Windows x86-64 one-file .exe | `pyinstaller --noconfirm --distpath dist packaging/pyinstaller/fmpoc-onefile.spec` | Build on Windows (CI: `windows-latest`) → `Fundwarden-<version>-windows-x64.exe` |
+| macOS arm64 app + disk image | `bash packaging/build_macos.sh` | Build on a Mac with Apple Silicon (CI: `macos-15`) → `dist/Fundwarden.app`, `Fundwarden-<version>-macos-arm64.dmg` (ad hoc signed) |
 | Windows x86-64 PyInstaller folder | `pwsh packaging/build_windows.ps1` | Build on Windows → `Fundwarden.exe` |
 | Linux one-command install | `packaging/linux/install.sh` | Published with every release — see [docs/deployment.md](docs/deployment.md) |
 | Docker (optional, server) | `docker build -f packaging/docker/Dockerfile -t fundwarden .` | plus `docker-compose.yml` with Caddy HTTPS |

@@ -7,6 +7,8 @@
 # v1.5.0: the one-file Windows .exe is built and smoke-tested (with the portable zip) on a Windows runner (CR-026);
 # install.sh (one-command Linux install, CR-027) is attached to every release. Run this workflow by hand
 # (Actions -> build -> Run workflow) on a feature branch to try the packages without publishing anything.
+# 1.6.7: Fundwarden.app for Macs with Apple Silicon is built, ad hoc signed and smoke-tested on a macOS arm64 runner
+# and attached as Fundwarden-<version>-macos-arm64.dmg.
 name: build
 on:
   push:
@@ -131,9 +133,52 @@ jobs:
           path: dist/Fundwarden-${{ needs.package.outputs.version }}-windows-x64.exe
           retention-days: 1
 
+  macos-app:
+    # 1.6.7: Fundwarden.app (PyInstaller app bundle, arm64, ad hoc signed) in a .dmg + smoke tests.
+    needs: package
+    runs-on: macos-15          # Apple Silicon (arm64) runner
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build info shown in the app
+        env:
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          printf '{"version":"%s","branch":"%s","commit":"%s","run":"%s","built_at":"%s"}\n' \
+            "$VERSION" "$GITHUB_REF_NAME" "${GITHUB_SHA::7}" "$GITHUB_RUN_NUMBER" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            > backend/fmpoc/build_info.json
+      - name: Frontend production build
+        run: npm --prefix frontend ci && npm --prefix frontend run build
+      - name: Fundwarden.app and .dmg
+        env:
+          FM_PYTHON: python
+        run: |
+          [ "$(uname -m)" = "arm64" ] || { echo "::error::this runner is not Apple Silicon"; exit 1; }
+          bash packaging/build_macos.sh
+          ls -l dist/*.dmg
+      - name: Smoke test the app (as started by a double-click)
+        run: bash packaging/macos/smoke_test.sh dist/Fundwarden.app "${{ needs.package.outputs.version }}" 8793 window
+      - name: Smoke test the app from the disk image (no window)
+        run: bash packaging/macos/smoke_test.sh "dist/Fundwarden-${{ needs.package.outputs.version }}-macos-arm64.dmg" "${{ needs.package.outputs.version }}" 8794 headless
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-${{ github.run_number }}
+          path: dist/Fundwarden-${{ needs.package.outputs.version }}-macos-arm64.dmg
+          retention-days: 1
+
   assemble:
-    # All release files + SHA256SUMS.txt (install.sh verifies against it). Publishing waits for both smoke tests.
-    needs: [package, windows-exe]
+    # All release files + SHA256SUMS.txt (install.sh verifies against it). Publishing waits for all smoke tests.
+    needs: [package, windows-exe, macos-app]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -143,6 +188,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: windows-exe-${{ github.run_number }}
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-app-${{ github.run_number }}
           path: release
       - name: Checksums
         run: (cd release && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
@@ -180,7 +229,7 @@ jobs:
               exit 0
             fi
             TAG="v$VERSION-test.$GITHUB_RUN_NUMBER"
-            printf '\n---\nTest build from branch `test` (commit %s). Install or upgrade on the **test** server:\n```\ncurl -fsSL https://github.com/%s/releases/download/%s/install.sh | sudo bash -s -- --version %s\n```\nWindows: download `Fundwarden-%s-windows-x64.exe` and double-click it.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$TAG" "$TAG" "$VERSION" >> notes.md
+            printf '\n---\nTest build from branch `test` (commit %s). Install or upgrade on the **test** server:\n```\ncurl -fsSL https://github.com/%s/releases/download/%s/install.sh | sudo bash -s -- --version %s\n```\nWindows: download `Fundwarden-%s-windows-x64.exe` and double-click it.\nMac (Apple Silicon): download `Fundwarden-%s-macos-arm64.dmg`, drag Fundwarden to Applications and see *Read me first* in the disk image for the first start.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$TAG" "$TAG" "$VERSION" "$VERSION" >> notes.md
             gh release create "$TAG" release/* --target "$GITHUB_SHA" --prerelease \
               --title "Fundwarden $VERSION (test build $GITHUB_RUN_NUMBER)" --notes-file notes.md
           else
@@ -189,7 +238,7 @@ jobs:
               echo "::notice::$TAG already released - packages are attached to this workflow run only."
               exit 0
             fi
-            printf '\n---\nProduction release (commit %s). Install or upgrade (see docs/upgrade.md):\n```\ncurl -fsSL https://github.com/%s/releases/latest/download/install.sh | sudo bash\n```\nWindows: download `Fundwarden-%s-windows-x64.exe` and double-click it.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$VERSION" >> notes.md
+            printf '\n---\nProduction release (commit %s). Install or upgrade (see docs/upgrade.md):\n```\ncurl -fsSL https://github.com/%s/releases/latest/download/install.sh | sudo bash\n```\nWindows: download `Fundwarden-%s-windows-x64.exe` and double-click it.\nMac (Apple Silicon): download `Fundwarden-%s-macos-arm64.dmg`, drag Fundwarden to Applications and see *Read me first* in the disk image for the first start.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$VERSION" "$VERSION" >> notes.md
             gh release create "$TAG" release/* --target "$GITHUB_SHA" --latest \
               --title "Fundwarden $VERSION" --notes-file notes.md
           fi

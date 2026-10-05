@@ -19,6 +19,14 @@ Recurring organization reminders, cash count sheet refinements and a position fo
   Every page in between shows the account and **"section page k of n"** at the bottom right, so a reviewer can see
   which account a page belongs to and that no page is missing. A report for a single account is unchanged. The
   page range of each account is also recorded with the report in the audit log.
+- **Mac app (Apple Silicon).** New download `Fundwarden-<version>-macos-arm64.dmg` for Macs with an M1 or later
+  chip (macOS 11+): open the disk image, drag **Fundwarden** to Applications and open it. A small Fundwarden window
+  shows the address, opens the browser and has **Quit**; closing the window stops Fundwarden. Data is kept in
+  `~/Library/Application Support/Fundwarden`, so replacing the app with a newer one keeps everything. Like the
+  Windows .exe, the app is **not signed with a paid developer certificate**: the first time, macOS says it could
+  not verify the app — open *System Settings → Privacy & Security* and click **Open Anyway** (once). The steps are
+  in *Read me first* inside the disk image and in docs/deployment.md. Built and smoke-tested by CI on a macOS
+  arm64 machine with every build.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
