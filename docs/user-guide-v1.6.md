@@ -102,3 +102,9 @@ account, the transactions are grouped by account and each group is framed:
 
 To check that a printed report is complete: for each account, find the start page, read its page range, and confirm
 that the section page numbers run from 1 to n up to the end page. A report limited to one account has no such pages.
+
+## Phone numbers of Entities (1.6.7)
+Type the number however is convenient: `5551234567`, `555-123-4567`, `555.123.4567`, `(555) 123-4567`, with or
+without a leading 1. Fundwarden stores the plain digits and shows **(555) 123-4567** everywhere. For an extension add
+`x204` (or `ext 204`); for a number in another country start with `+` and the country code. A number that is neither
+is refused, so a typing mistake (a missing digit) is caught when you save.

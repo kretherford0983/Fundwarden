@@ -213,7 +213,7 @@ class EntityFields(In):
     postal_code: OptStr(20) = None
     country: OptStr(100) = None
     phone: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=40,
-                                                    pattern=r"^[0-9+().\-\s xX#]*$")] = None
+                                                    pattern=r"^[0-9+().\-\s xX#eEtT]*$")] = None  # 1.6.7: checked and tidied by fmpoc.phone
     email: OptEmail = None
     notes: OptStr(4000) = None
     is_financial_institution: bool | None = None

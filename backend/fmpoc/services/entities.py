@@ -6,7 +6,7 @@ import re
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from .. import audit
+from .. import audit, phone as phone_fmt
 from ..errors import AppError, Warning_, forbidden, not_found, require_confirmations, validation
 from ..models import Entity, Workspace
 
@@ -26,8 +26,19 @@ def snapshot(e: Entity) -> dict:
             **{f: getattr(e, f) for f in FIELDS}, "active": e.active, "is_system": e.is_system}
 
 
+def clean_phone(typed: str | None, current: str | None = None) -> str | None:
+    """1.6.7: the stored form of a typed phone number. A value that is already stored (or is its displayed form) is
+    kept as it is, so an Entity whose older number is in another form can still be edited."""
+    if current and typed and typed.strip() in (current, phone_fmt.display(current)):
+        return current
+    try:
+        return phone_fmt.normalize(typed)
+    except ValueError as exc:
+        raise validation(str(exc), "phone") from None
+
+
 def out(e: Entity) -> dict:
-    return {**snapshot(e), "created_at": e.created_at.isoformat() if e.created_at else None,
+    return {**snapshot(e), "phone_display": phone_fmt.display(e.phone), "created_at": e.created_at.isoformat() if e.created_at else None,
             "updated_at": e.updated_at.isoformat() if e.updated_at else None}
 
 
@@ -84,6 +95,7 @@ def create(db: Session, ctx, data) -> Entity:
                created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id, active=True, is_system=False)
     for f in FIELDS:
         setattr(e, f, getattr(data, f))
+    e.phone = clean_phone(data.phone)
     if e.entity_type != "INDIVIDUAL":
         e.position = None  # 1.6.7: a position belongs to a person
     e.is_financial_institution = bool(data.is_financial_institution)
@@ -109,6 +121,8 @@ def update(db: Session, ctx, e: Entity, data) -> Entity:
     _validate_names(new["entity_type"], new["organization_name"], new["primary_contact"])
     if new["entity_type"] != "INDIVIDUAL":
         new["position"] = None
+    if "phone" in fields:
+        new["phone"] = clean_phone(data.phone, e.phone)
     display = new["primary_contact"] if new["entity_type"] == "INDIVIDUAL" else new["organization_name"]
     if name_key(display) != e.name_key or (new["email"] and new["email"] != e.email):
         matches = duplicates(db, ctx.workspace_id, display, new["email"], exclude_id=e.id)
