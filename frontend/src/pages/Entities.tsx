@@ -42,7 +42,7 @@ export default function Entities() {
               return (
                 <tr key={e.id} className={e.active ? "" : "inactive"}>
                   <td>{e.entity_number}</td><td>{e.display_name}</td><td>{e.entity_type === "INDIVIDUAL" ? "Individual" : "Organization"}</td>
-                  <td>{[e.email, e.phone, e.city].filter(Boolean).join(" · ")}</td>
+                  <td>{[e.email, e.phone_display || e.phone, e.city].filter(Boolean).join(" · ")}</td>
                   <td>{e.is_financial_institution ? "Yes" : "No"}</td><td>{e.active ? "Active" : "Inactive"}</td>
                   {manage ? (
                     <td className="actions-cell">
@@ -65,9 +65,20 @@ export default function Entities() {
   );
 }
 
+/** 1.6.7: shows a 10-digit number as (nnn) nnn-nnnn as soon as the field is left; the server decides what is stored. */
+export function formatPhone(typed: string): string {
+  const m = typed.trim().match(/^(.*?)(?:\s*(?:ext\.?|x|#)\s*(\d{1,8}))?$/i);
+  if (!m || /[^0-9+().\-\s]/.test(m[1])) return typed;
+  let d = m[1].replace(/\D/g, "");
+  if (d.length === 11 && d[0] === "1") d = d.slice(1);
+  else if (m[1].trim().startsWith("+")) return typed;
+  if (d.length !== 10) return typed;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}${m[2] ? ` x${m[2]}` : ""}`;
+}
+
 export function EntityForm({ entity, onClose, onSaved, forceFi }: { entity: any; onClose: () => void; onSaved: (e: any) => void; forceFi?: boolean }) {
   const isNew = !entity.id;
-  const [f, setF] = useState<any>({ ...EMPTY, ...entity, ...(forceFi ? { is_financial_institution: true } : {}) });
+  const [f, setF] = useState<any>({ ...EMPTY, ...entity, phone: entity.phone_display || entity.phone || "", ...(forceFi ? { is_financial_institution: true } : {}) });
   const [err, setErr] = useState<unknown>(null);
   const { run, dialog } = useConfirmable();
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
@@ -100,7 +111,9 @@ export function EntityForm({ entity, onClose, onSaved, forceFi }: { entity: any;
         ) : null}
         <div className="row">
           <Field label="Email"><input type="email" value={f.email || ""} onChange={set("email")} /></Field>
-          <Field label="Phone"><input value={f.phone || ""} onChange={set("phone")} /></Field>
+          <Field label="Phone" hint="Type it any way — 5551234567, 555-123-4567, 555.123.4567. It is shown as (555) 123-4567.">
+            <input type="tel" maxLength={40} value={f.phone || ""} onChange={set("phone")} onBlur={() => setF((p: any) => ({ ...p, phone: formatPhone(p.phone || "") }))} />
+          </Field>
         </div>
         <Field label="Address line 1"><input value={f.address_line1 || ""} onChange={set("address_line1")} /></Field>
         <Field label="Address line 2"><input value={f.address_line2 || ""} onChange={set("address_line2")} /></Field>

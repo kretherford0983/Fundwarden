@@ -4,7 +4,7 @@ Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.7 — unreleased (in development)
 Recurring organization reminders, cash count sheet refinements and a position for people. Database migrations
-`0014` and `0015` (new optional columns only).
+`0014`, `0015` (new optional columns only) and `0016` (tidies stored phone numbers).
 - **Recurring organization reminders.** An organization reminder can **repeat every N days, weeks, months or
   years**, optionally **until** an end date (New reminder → *Repeat*). Each occurrence is its own reminder with its
   own resolution note. **Resolving one creates the next**, due one interval after the *scheduled* due date — not the
@@ -34,6 +34,12 @@ Recurring organization reminders, cash count sheet refinements and a position fo
 - **Register — Clear filters.** A **Clear** button next to the register's filters puts Fiscal Year, Type, Status,
   From, To and Search back to how the register opens (the current Fiscal Year, everything else empty). The chosen
   bank account stays. The button is greyed out when no filter is set.
+- **Entity phone numbers.** Type a phone number any way you like — `5551234567`, `555-123-4567`, `555.123.4567`,
+  `(555) 123-4567`, with or without a leading 1. It is stored as plain digits and always shown as
+  **(555) 123-4567**; the field tidies itself when you leave it. An extension (`x204`, `ext 204`, `#204`) is kept
+  and shown as `x204`; a number from another country is entered with a leading `+` and kept as typed digits.
+  Anything else is refused with a hint. Database migration `0016` rewrites the numbers already stored that are
+  clearly 10-digit numbers; any other existing value is left untouched and can still be edited.
 - **Position of a person.** An individual Entity can have a **Position in the organization** (for example
   "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
   signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.

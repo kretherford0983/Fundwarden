@@ -551,6 +551,31 @@ test("1.6.7: Clear puts the register filters back to their defaults and keeps th
   await logout(page);
 });
 
+test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nnnn", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Entities" }).click();
+  await page.getByRole("button", { name: "New entity" }).click();
+  let dlg = page.getByRole("dialog", { name: "New entity" });
+  await dlg.getByLabel(/Organization Name/).fill("Phone Format Co");
+  const phone = dlg.getByLabel("Phone");
+  await phone.fill("555.123.4567");
+  await phone.blur();
+  await expect(phone).toHaveValue("(555) 123-4567"); // tidied as soon as the field is left
+  await phone.fill("12345");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg).toContainText("Enter a 10-digit phone number");
+  await phone.fill("1 555 123 4567 ext 12");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  const row = page.getByRole("row", { name: /Phone Format Co/ });
+  await expect(row).toContainText("(555) 123-4567 x12");
+  await row.getByRole("button", { name: /Edit/ }).click();
+  dlg = page.getByRole("dialog", { name: /^Edit ENT-/ });
+  await expect(dlg.getByLabel("Phone")).toHaveValue("(555) 123-4567 x12");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(row).toContainText("(555) 123-4567 x12");
+  await logout(page);
+});
+
 // ---------------------------------------------------------------- v1.4 enhancements
 test("CR-022 / CR-021: version in My Account for every user; bank balance total on the dashboard", async ({ page }) => {
   await login(page, "bm1");
