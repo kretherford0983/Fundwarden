@@ -10,7 +10,7 @@ from .. import audit
 from ..errors import AppError, Warning_, forbidden, not_found, require_confirmations, validation
 from ..models import Entity, Workspace
 
-FIELDS = ["entity_type", "organization_name", "primary_contact", "address_line1", "address_line2", "city",
+FIELDS = ["entity_type", "organization_name", "primary_contact", "position", "address_line1", "address_line2", "city",
           "state_region", "postal_code", "country", "phone", "email", "notes", "is_financial_institution"]
 
 
@@ -84,6 +84,8 @@ def create(db: Session, ctx, data) -> Entity:
                created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id, active=True, is_system=False)
     for f in FIELDS:
         setattr(e, f, getattr(data, f))
+    if e.entity_type != "INDIVIDUAL":
+        e.position = None  # 1.6.7: a position belongs to a person
     e.is_financial_institution = bool(data.is_financial_institution)
     e.name_key = name_key(display)
     db.add(e)
@@ -105,6 +107,8 @@ def update(db: Session, ctx, e: Entity, data) -> Entity:
     if new["is_financial_institution"] is None:
         new["is_financial_institution"] = e.is_financial_institution
     _validate_names(new["entity_type"], new["organization_name"], new["primary_contact"])
+    if new["entity_type"] != "INDIVIDUAL":
+        new["position"] = None
     display = new["primary_contact"] if new["entity_type"] == "INDIVIDUAL" else new["organization_name"]
     if name_key(display) != e.name_key or (new["email"] and new["email"] != e.email):
         matches = duplicates(db, ctx.workspace_id, display, new["email"], exclude_id=e.id)

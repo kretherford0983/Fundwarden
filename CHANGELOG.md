@@ -2,6 +2,22 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.6.7 — unreleased (in development)
+Cash count sheet refinements and a position for people. Database migration `0014` (one new optional column).
+- **Position of a person.** An individual Entity can have a **Position in the organization** (for example
+  "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
+  signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
+  It can still be changed or cleared for that one print. Not used anywhere else.
+- **Cash count sheet — chosen signers.** A chosen signer now gets one long signature line running across to the
+  date, with the name (and title) printed under it — no "Signature" / "Printed" labels and no empty gap. Rows left
+  empty are unchanged (Signature, Printed, Date to fill in by hand).
+- **Cash count sheet — dialog.** Starts with two empty rows and offers *+ Add signature line* right away (still at
+  most three empty rows, or two next to chosen signers, and five rows in total).
+- **Installer fix.** `curl …/releases/latest/download/install.sh | sudo bash` (without `--version`) stopped with
+  "no release found": GitHub answers the release lookup on one line and the installer only understood the
+  multi-line form. It now understands both. (Installing with `--version <tag>` was not affected.)
+- Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
+
 ## 1.6.6 — 2026-10-02
 **First production release, under a new name: Fundwarden.** The application leaves its proof-of-concept names
 (*Financial Management POC*, *Freedger*, `fmpoc`) behind. No database change; nothing about how you work changes.

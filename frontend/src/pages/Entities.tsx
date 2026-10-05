@@ -3,7 +3,7 @@ import { api, qs } from "../api";
 import { ErrorBox, Field, Loading, Modal, useConfirmable, GuardedForm } from "../components";
 import { useMe } from "../App";
 
-const EMPTY = { entity_type: "ORGANIZATION", organization_name: "", primary_contact: "", address_line1: "", address_line2: "", city: "",
+const EMPTY = { entity_type: "ORGANIZATION", organization_name: "", primary_contact: "", position: "", address_line1: "", address_line2: "", city: "",
   state_region: "", postal_code: "", country: "", phone: "", email: "", notes: "", is_financial_institution: false };
 
 export default function Entities() {
@@ -76,6 +76,7 @@ export function EntityForm({ entity, onClose, onSaved, forceFi }: { entity: any;
     setErr(null);
     const body: any = {};
     Object.keys(EMPTY).forEach((k) => { body[k] = typeof f[k] === "string" ? (f[k].trim() || null) : f[k]; });
+    if (body.entity_type !== "INDIVIDUAL") body.position = null;   // 1.6.7: a position belongs to a person
     try {
       const saved = await run((confirmations) => isNew ? api.post("/api/entities", { ...body, confirmations }) : api.patch(`/api/entities/${entity.id}`, { ...body, confirmations }));
       if (saved) onSaved(saved);
@@ -92,6 +93,11 @@ export function EntityForm({ entity, onClose, onSaved, forceFi }: { entity: any;
           <Field label={`Organization Name${f.entity_type === "ORGANIZATION" ? " (required)" : ""}`}><input required={f.entity_type === "ORGANIZATION"} maxLength={200} value={f.organization_name || ""} onChange={set("organization_name")} /></Field>
           <Field label={`Primary Contact / Person Name${f.entity_type === "INDIVIDUAL" ? " (required)" : ""}`}><input required={f.entity_type === "INDIVIDUAL"} maxLength={200} value={f.primary_contact || ""} onChange={set("primary_contact")} /></Field>
         </div>
+        {f.entity_type === "INDIVIDUAL" ? (
+          <Field label="Position in the organization (optional)" hint="Filled in as this person's title when they are chosen as a signer on the audit review signature page or the cash count sheet.">
+            <input maxLength={60} value={f.position || ""} placeholder="e.g. Treasurer" onChange={set("position")} />
+          </Field>
+        ) : null}
         <div className="row">
           <Field label="Email"><input type="email" value={f.email || ""} onChange={set("email")} /></Field>
           <Field label="Phone"><input value={f.phone || ""} onChange={set("phone")} /></Field>

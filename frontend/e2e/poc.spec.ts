@@ -14,7 +14,8 @@ async function login(page: Page, user: string, pw = PW) {
   await page.getByLabel("Username").fill(user);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
 }
 
 async function logout(page: Page) {
@@ -1051,7 +1052,10 @@ test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and 
   await page.getByRole("link", { name: "Harvest Dinner" }).click();
   await page.getByRole("button", { name: "Cash count sheet…" }).click();
   let dlg = page.getByRole("dialog", { name: "Cash count sheet" });
-  // 1.6.6: three empty rows by default = three blank Signature / Printed / Date rows; no fourth empty row
+  // 1.6.7: two empty rows by default, "+ Add signature line" offered right away; never a fourth empty row
+  await expect(dlg.locator(".sig-signer")).toHaveCount(2);
+  await expect(dlg.getByRole("link", { name: "Open sheet (PDF)" })).toHaveAttribute("href", /blank_lines=2$/);
+  await dlg.getByRole("button", { name: "+ Add signature line" }).click();
   await expect(dlg.locator(".sig-signer")).toHaveCount(3);
   await expect(dlg.getByRole("button", { name: "+ Add signature line" })).toHaveCount(0);
   const href = await dlg.getByRole("link", { name: "Open sheet (PDF)" }).getAttribute("href");
@@ -1062,6 +1066,23 @@ test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and 
   await dlg.getByLabel("Add page 2 for more checks").check();
   const pdf = await page.request.get(href!);
   expect(pdf.status()).toBe(200);
+  // 1.6.7: a person's saved position is filled in as the title when they are chosen; it stays editable,
+  // and a title typed by hand is not replaced
+  const post = await apiAs(page);
+  for (const [n, pos] of [["Petra Position", "Treasurer"], ["Quinn Plain", null]]) {
+    expect((await post("/api/entities", { entity_type: "INDIVIDUAL", primary_contact: n, position: pos, confirmations: ["DUPLICATE_ENTITY"] })).status()).toBe(201);
+  }
+  await dlg.getByRole("button", { name: "Close", exact: true }).last().click();
+  await page.getByRole("button", { name: "Cash count sheet…" }).click();
+  dlg = page.getByRole("dialog", { name: "Cash count sheet" });
+  await dlg.getByRole("combobox", { name: "Signer 1" }).fill("Petra");
+  await page.getByRole("listbox").getByRole("option", { name: /Petra Position/ }).click();
+  await expect(dlg.getByLabel("Signer 1 title")).toHaveValue("Treasurer");
+  await dlg.getByLabel("Signer 2 title").fill("Counter");
+  await dlg.getByRole("combobox", { name: "Signer 2" }).fill("Quinn");
+  await page.getByRole("listbox").getByRole("option", { name: /Quinn Plain/ }).click();
+  await expect(dlg.getByLabel("Signer 2 title")).toHaveValue("Counter");
+  await expect(dlg.getByRole("link", { name: "Open sheet (PDF)" })).toHaveAttribute("href", /signer_title=Treasurer.*signer_title=Counter&blank_lines=0$/);
   expect(pdf.headers()["content-type"]).toBe("application/pdf");
   await dlg.getByRole("button", { name: "Close", exact: true }).last().click();
   await page.getByRole("button", { name: "Mark as cancelled…" }).click();

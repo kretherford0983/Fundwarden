@@ -185,9 +185,9 @@ class _Block(Flowable):
 class _SignLine(Flowable):
     """v1.4.1 CR-016: a line to write on, with a caption (plain text, not markup) underneath."""
 
-    def __init__(self, width: float, caption: str, value: str | None = None):
+    def __init__(self, width: float, caption: str):
         super().__init__()
-        self.lw, self.caption, self.value = width, caption, value   # value: text pre-printed on the line (1.6.6)
+        self.lw, self.caption = width, caption
         self.width, self.height = width, 0.42 * inch
 
     def draw(self):
@@ -198,12 +198,6 @@ class _SignLine(Flowable):
         c.setFillColor(colors.black)
         c.setFont(_FONT, 10.5)
         c.drawString(0, 0.02 * inch, self.caption[:90])
-        if self.value:
-            size = 10.5
-            while size > 7 and c.stringWidth(self.value, _FONT, size) > self.lw:
-                size -= 0.5
-            c.setFont(_FONT, size)
-            c.drawString(0, 0.25 * inch, self.value[:90])
 
 
 def _signature_page(doc: "_AuditDoc", sp) -> list:
@@ -930,21 +924,23 @@ __all__ = ["build_audit_report", "entity_activity", "entity_activity_csv", "Keep
 # --------------------------------------------------------------------------- v1.6.4 CR-038 cash count sheet
 _BILLS = ["$100", "$50", "$20", "$10", "$5", "$2", "$1"]
 _COINS = ["$1 coin", "50¢", "25¢", "10¢", "5¢", "1¢"]
-_CHECK_LINES = 13          # 1.6.6: as many check lines as bill/coin lines; more checks go on page 2 (the back)
+_CHECK_LINES = 13          # 1.6.7: as many check lines as bill/coin lines; more checks go on page 2 (the back)
 _EXTRA_CHECK_LINES = 30    # page 2
 
 
 COUNT_SHEET_MAX_SIGNATURES = 5        # rows on the sheet in total
 COUNT_SHEET_MAX_BLANK = 3             # blank rows when no signer is chosen
+COUNT_SHEET_DEFAULT_BLANK = 2         # blank rows when nothing is asked for (the dialog starts with two)
 COUNT_SHEET_MAX_BLANK_WITH_NAMED = 2  # blank rows next to chosen signers
 
 
 def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str, str | None]],
                       blank_lines: int = 0, extra_checks: bool = True) -> tuple[str, str]:
     """One printable page, filled in by hand: bills and coins grid, checks list, totals (usable on their own when the
-    individual counts are not written down), two notes lines and one signature row per person (Signature | Printed |
-    Date): the chosen signers (name pre-printed on the "Printed" line) followed by `blank_lines` blank rows (1.6.6).
-    With neither, three blank rows. `extra_checks` adds page 2 (to print on the back): more check lines and their
+    individual counts are not written down), two notes lines and one signature row per person (1.6.7): the
+    chosen signers (signature line with the name under it, date) followed by `blank_lines` blank rows (Signature |
+    Printed | Date).
+    With neither, two blank rows. `extra_checks` adds page 2 (to print on the back): more check lines and their
     total."""
     ws = db.get(Workspace, ctx.workspace_id)
     title = f"Cash count sheet — {fr.name} — {ws.name}"
@@ -963,7 +959,7 @@ def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str,
         checks = [[PM("<b>#</b>", "cell"), PM("<b>Check no.</b>", "cell"), PM("<b>From</b>", "cell"), PM("<b>Amount</b>", "cell")]]
         checks += [[P(str(i + 1), "cell"), blank, blank, blank] for i in range(_CHECK_LINES)]
         caps: list[str | None] = [f"{name}, {t}" if t else name for name, t in signers]
-        caps += [None] * (blank_lines if (caps or blank_lines) else COUNT_SHEET_MAX_BLANK)   # None = blank row
+        caps += [None] * (blank_lines if (caps or blank_lines) else COUNT_SHEET_DEFAULT_BLANK)   # None = blank row
         caps = caps[:COUNT_SHEET_MAX_SIGNATURES]
         row_h = [0.2 * inch] + [0.235 * inch] * _CHECK_LINES
         left_w = [1.05 * inch, 0.7 * inch, 1.0 * inch]
@@ -1002,15 +998,18 @@ def build_count_sheet(db: Session, ctx, fr: Fundraiser, signers: list[tuple[str,
               Spacer(1, 10),
               P(f"We, the undersigned, counted the cash and checks received for {fr.name} and agree with the amounts "
                 "recorded on this sheet.", "body"), Spacer(1, 4)]
-        # 1.6.6: one row per person - Signature | Printed name | Date. A chosen signer's name is pre-printed on the
-        # "Printed" line; a blank row leaves it empty to fill in by hand.
+        # 1.6.7: one row per person. A chosen signer: the signature line with the name (and title) under it, and
+        # the date. A blank row: Signature | Printed | Date, all filled in by hand.
         w_sig, w_name, w_date, gap = 2.55 * inch, 2.45 * inch, 1.1 * inch, 0.22 * inch
-        lines = [[_SignLine(w_sig, "Signature"), _SignLine(w_name, "Printed", value=c), _SignLine(w_date, "Date")]
+        # (a chosen signer's line runs across both columns, up to the date - no empty gap)
+        lines = [[_SignLine(w_sig + gap + w_name, c), "", _SignLine(w_date, "Date")] if c else
+                 [_SignLine(w_sig, "Signature"), _SignLine(w_name, "Printed"), _SignLine(w_date, "Date")]
                  for c in caps]
         sig_t = Table(lines, hAlign="LEFT", colWidths=[w_sig + gap, w_name + gap, w_date], rowHeights=[h_row] * len(lines))
         sig_t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                                    ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0),
-                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]
+                                  + [("SPAN", (0, i), (1, i)) for i, c in enumerate(caps) if c]))
         f.append(sig_t)
         if extra_checks:   # page 2: print it on the back (duplex) or as a second sheet, only when it is needed
             wide = [0.4 * inch, 1.2 * inch, FRAME_W - 12 - 3.1 * inch, 1.5 * inch]
