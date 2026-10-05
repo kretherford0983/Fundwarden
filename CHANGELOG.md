@@ -31,6 +31,9 @@ Recurring organization reminders, cash count sheet refinements and a position fo
   with a screenshot (dashboard, budgets, register, audit report, closing the year, fundraisers, reminders), and a
   table of all capabilities. The screenshots come from a made-up organization: `scripts/demo_data.py` fills a new,
   empty installation through the normal API and `scripts/readme_screenshots.mjs` retakes them.
+- **Fiscal Year documentation review — links to the Register.** The transaction number of every item in the
+  documentation review is now a link: it opens the Register on that bank account (all dates), scrolls to the
+  transaction, highlights it and opens its details — where a document can be attached right away.
 - **Register — Attachments filter.** A new **Attachments** filter next to Status: *All* (default), *Yes* (only
   transactions that have an attachment, on the transaction or on one of its lines) or *No* (only those without).
   It counts exactly what the paperclip in the row counts, so a transaction marked "no attachment will be

@@ -574,6 +574,27 @@ test("1.6.7: the register's Attachments filter shows transactions with or withou
   await logout(page);
 });
 
+test("1.6.7: a documentation review item links to its transaction in the Register", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.goto("/fiscal-years/1");
+  const review = page.getByRole("heading", { name: /Documentation review/ }).locator("..");
+  // the last listed item: far down the register, so the page has to scroll to it
+  const link = review.getByRole("link", { name: /^Open transaction \d+ in the Register$/ }).last();
+  const id = (await link.textContent())!.trim();
+  const account = (await link.getAttribute("href"))!.match(/account=(\d+)/)![1];
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/register\\?account=${account}&txn=${id}$`));
+  await expect(page.getByLabel("Register bank account")).toHaveValue(account);
+  await expect(page.getByLabel("Register Fiscal Year filter")).toHaveValue(""); // all dates: the item is always listed
+  const row = page.locator(`#txn-${id}`);
+  await expect(row).toHaveClass(/linked/);
+  await expect(row).toBeInViewport();
+  await expect(page.getByRole("button", { name: `Details for transaction ${id}`, exact: true })).toHaveAttribute("aria-expanded", "true");
+  await page.screenshot({ path: "e2e-screenshots/light-register-linked-transaction.png" });
+  await logout(page);
+});
+
 test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nnnn", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");
   await page.getByRole("link", { name: "Entities" }).click();

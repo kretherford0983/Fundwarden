@@ -56,13 +56,14 @@ function DocumentationReview({ fyId }: { fyId: number }) {
   return (
     <section className="card">
       <h3>Documentation review <span className="muted">(warnings – not a closure blocker)</span></h3>
+      {items.length ? <p className="hint">Click a transaction number to open it in the Register, where a document can be attached.</p> : null}
       {items.length === 0 ? <p className="ok-text">All transactions affecting this Fiscal Year have supporting attachments or a stated reason for having none.</p> : (
         <table className="table compact">
           <thead><tr><th>Txn #</th><th>Date</th><th>Account</th><th>Type</th><th>Entity / description</th><th className="num">Amount</th><th>Warning</th></tr></thead>
           <tbody>
             {items.map((i) => (
               <tr key={i.transaction_id}>
-                <td>{i.transaction_id}</td><td>{i.transaction_date}</td><td>{i.bank_account.label}</td>
+                <td><Link to={`/register?account=${i.bank_account.id}&txn=${i.transaction_id}`} title="Open this transaction in the Register" aria-label={`Open transaction ${i.transaction_id} in the Register`}>{i.transaction_id}</Link></td><td>{i.transaction_date}</td><td>{i.bank_account.label}</td>
                 <td>{i.is_transfer ? "Transfer" : i.transaction_type.charAt(0) + i.transaction_type.slice(1).toLowerCase()}{i.is_split ? " (split)" : ""}</td>
                 <td>{i.entity?.display_name || i.description || ""}</td><td className="num">{money(i.total)}</td>
                 <td>{i.category === "NO_ATTACHMENT_MARKED"

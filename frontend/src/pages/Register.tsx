@@ -13,6 +13,9 @@ export default function Register() {
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
   const [open, setOpen] = useState<number | null>(null);
+  // 1.6.7: /register?account=<id>&txn=<id> (from the Fiscal Year documentation review) opens that transaction
+  const [focus, setFocus] = useState<number | null>(null);
+  const [focused, setFocused] = useState<number | null>(null);
   const [modal, setModal] = useState<any>(null);
   const [showReviews, setShowReviews] = useState(new URLSearchParams(window.location.search).has("reviews"));
   const manage = can("transaction.manage");
@@ -37,6 +40,7 @@ export default function Register() {
       const q = new URLSearchParams(window.location.search);
       const linked = reg.find((x: any) => String(x.id) === q.get("account"));
       if (linked) setF((p) => ({ ...p, bank_account_id: String(linked.id), fiscal_year_id: "", search: q.get("search") || "" }));
+      if (linked && Number(q.get("txn"))) setFocus(Number(q.get("txn")));
       else setF((p) => ({ ...p, bank_account_id: primary ? String(primary.id) : "", fiscal_year_id: nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "" }));
     }, setErr);
   }, []);
@@ -45,6 +49,15 @@ export default function Register() {
     api.get(`/api/register${qs(f)}`).then(setData, setErr);
   };
   useEffect(() => { load(); }, [f]);
+  useEffect(() => {
+    if (focus === null || !data?.transactions?.some((t: any) => t.id === focus)) return;
+    setOpen(focus);
+    setFocused(focus);
+    setFocus(null);
+    const id = focus;
+    // after the row and its details are drawn: bring it into view below the pinned header
+    window.setTimeout(() => document.getElementById(`txn-${id}`)?.scrollIntoView({ block: "center" }), 50);
+  }, [data, focus]);
   if (!accounts) return <><ErrorBox error={err} /><Loading /></>;
   const acct = data?.bank_account;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
@@ -113,7 +126,7 @@ export default function Register() {
                 {data.transactions.length === 0 ? <tr><td colSpan={12} className="muted">No transactions match.</td></tr> : null}
                 {data.transactions.map((t: any) => (
                   <Fragment key={t.id}>
-                    <tr className={`${t.status === "VOID" ? "void" : ""} ${t.has_pending_review ? "review" : ""}`}>
+                    <tr id={`txn-${t.id}`} className={`${t.status === "VOID" ? "void" : ""} ${t.has_pending_review ? "review" : ""} ${focused === t.id ? "linked" : ""}`}>
                       <td><button className="small" aria-expanded={open === t.id} aria-label={`Details for transaction ${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>{open === t.id ? "▾" : "▸"}</button></td>
                       <td>{t.transaction_date}</td><td>{t.clear_date || ""}</td><td>{t.entity?.display_name || ""}</td><td>{t.check_number || ""}</td>
                       <td>{t.invoice_numbers.join(", ")}</td>

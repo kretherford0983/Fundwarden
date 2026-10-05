@@ -99,6 +99,8 @@ tr.void td { color: var(--muted); text-decoration: line-through; text-decoration
 tr.void td:nth-child(11) { text-decoration: none; }
 tr.review td:first-child { box-shadow: inset 3px 0 0 var(--warn-border); }
 tr.detail-row > td { background: var(--surface-2); }
+tr.linked > td { background: var(--warn-bg, #fff7e0); } /* 1.6.7: the transaction a link led to */
+tr.linked > td:first-child { box-shadow: inset 3px 0 0 var(--primary, #1f5fbf); }
 .actions-cell { white-space: nowrap; }
 .bg-green td { background: var(--green-bg); }
 .bg-yellow td { background: var(--yellow-bg); }
