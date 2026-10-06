@@ -1,32 +1,109 @@
 <h1><img src="frontend/public/favicon.svg" alt="" width="36" align="top"> Fundwarden</h1>
 
-**Free financial ledger for small organizations** — clubs, associations, booster groups and similar bodies that
-keep a checkbook, a budget and an annual audit. Fundwarden runs on your own Windows PC or Linux server; your data
-stays in one folder you control. Current release: **1.6.6** (the first production release) —
-[download](https://github.com/kretherford0983/Fundwarden/releases/latest) · [changelog](CHANGELOG.md).
+**A free, self-hosted financial ledger for small organizations** — clubs, booster groups, associations, parent
+organizations and similar bodies that keep a checkbook, a budget and an annual audit. Fundwarden runs on your own
+Windows PC, Mac or Linux server; your data stays in one folder you control. No subscription, no cloud account.
 
-## What it does
+Current release: **1.6.7** · [Download](https://github.com/kretherford0983/Fundwarden/releases/latest) ·
+[Install](#install) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
-- **Fiscal years and budgets** — hierarchical income/expense budgets per Fiscal Year, budget adjustments, a
-  Fiscal Year close with a stored **Close report**.
-- **Registers** — continuous checking/savings/investment registers, split allocations across budgets, transfers
-  between accounts, void lifecycle, duplicate and check-number protection, missing-check review.
-- **Documentation** — attachments (PDF/PNG/JPEG) on transactions and allocations, typed Fiscal Year documents
-  (approval, audit signoff), a documentation review that shows what is still missing.
-- **Reports** — printable **End of Year Audit** PDF (budgets, every transaction with its attachments, signature
-  page), Entity activity report with CSV, Fiscal Year Close report, dashboard with charts and a per-user layout.
-- **Fundraisers** (optional module) — budgets, buckets, cash float, exclusions, documents, a fundraiser report,
-  cancelled fundraisers and a printable cash count sheet.
-- **Reminders** — personal and organization reminders with a notification bell and dashboard section.
-- **Roles** — Administrator, Budget Manager, Budget User, Register User, Auditor (read-only), with strict
-  separation between administration and financial work.
-- **Security** — Argon2id passwords, two-step verification (TOTP) with recovery codes, server-side sessions, CSRF
-  protection, AES-256-GCM encrypted bank account numbers, an append-only audit trail, encrypted backup/restore.
+<p align="center">
+  <img src="docs/screenshots/readme/dashboard.png" alt="The Fundwarden dashboard: due reminders, the current Fiscal Year, budget totals, bank balances and charts" width="900">
+</p>
+
+<sub>All screenshots show a made-up organization (`scripts/demo_data.py`).</sub>
+
+## Why Fundwarden
+
+A volunteer treasurer has to answer three questions at any time: *what did we plan, what actually happened, and
+can we prove it?* Fundwarden is built around those three — **budgets**, **bank registers** and **documentation
+that an auditor can follow** — and around the fact that treasurers change: everything a successor or an audit
+committee needs is in the application, not in someone's spreadsheet.
+
+## Core features
+
+### Budgets by Fiscal Year
+
+Plan income and expenses per Fiscal Year, with sub-budgets where you need detail. Every budget shows the plan,
+the actual amounts per quarter and what remains. Budgets are approved and locked together with the Fiscal Year; changing
+one afterwards means unlocking it with a stated reason, which is recorded.
+
+<p align="center"><img src="docs/screenshots/readme/budgets.png" alt="Income and expense budgets with quarterly actuals and remaining amounts" width="820"></p>
+
+### Bank registers
+
+One continuous register per checking, savings or investment account. A transaction can be split across several
+budgets, transfers between accounts are entered once, and cleared dates give a running balance you can compare
+with the bank statement. Duplicate transactions and check numbers are caught, missing check numbers are listed for
+review, and a mistake is voided — never silently deleted.
+
+<p align="center"><img src="docs/screenshots/readme/register.png" alt="The register of a checking account with cleared dates, check numbers, running balance and attachment counts" width="820"></p>
+
+### Audit-ready reports
+
+Attach the invoice, receipt or deposit slip (PDF, PNG, JPEG) to each transaction. The **End of Year Audit Report**
+is one printable PDF: the budgets, then every transaction followed directly by its own attachments, an optional
+signature page, and — when it covers several bank accounts — a start and an end page per account with page counts,
+so a reviewer can see that nothing is missing. A documentation review shows what still lacks a document before
+anyone asks.
+
+<p align="center">
+  <img src="docs/screenshots/readme/audit-report-cover.png" alt="Audit report: title page" width="270">
+  <img src="docs/screenshots/readme/audit-report-account.png" alt="Audit report: start page of a bank account with its page range" width="270">
+  <img src="docs/screenshots/readme/audit-report-transaction.png" alt="Audit report: a transaction with its attachment reproduced beneath it" width="270">
+</p>
+
+### Closing the year
+
+A Fiscal Year is approved, worked in and closed. Closing checks that everything has cleared, that the audit
+signoff is on file and that open review items are resolved, and stores a **Close report** with the year's
+documents. A closed year can no longer be changed.
+
+<p align="center"><img src="docs/screenshots/readme/fiscal-year.png" alt="A Fiscal Year with its budgets, closure readiness and documentation review" width="820"></p>
+
+### Fundraisers <sub>(optional module)</sub>
+
+Follow an event from the first poster to the last deposit: which budgets it uses, income and expenses, the net
+result, a breakdown by offering (tickets, auction, food…), the cash float, a fundraiser report — and a printable
+**cash count sheet** for the people counting the cash box.
+
+<p align="center">
+  <img src="docs/screenshots/readme/fundraiser.png" alt="A fundraiser with income, expenses, net result, buckets and charts" width="600">
+  <img src="docs/screenshots/readme/count-sheet-page.png" alt="The printable cash count sheet" width="270">
+</p>
+
+### Reminders
+
+Personal reminders and reminders for the whole organization, shown on the dashboard and behind the bell until
+someone resolves them. Organization reminders can **repeat** — reconcile the statements every month, file the
+return every quarter, renew the insurance every year — so duties survive a change of treasurer.
+
+<p align="center"><img src="docs/screenshots/readme/reminders.png" alt="Due reminders, two of them repeating" width="820"></p>
+
+## Everything it does
+
+| | |
+|---|---|
+| **Fiscal Years and budgets** | Hierarchical income and expense budgets, quarterly actuals, approval and lock, unlock with a reason, Fiscal Year close with a stored Close report |
+| **Registers** | Checking, savings and investment accounts; split allocations; transfers; cleared dates; void lifecycle; duplicate and check-number protection; missing-check review |
+| **Documentation** | Attachments on transactions and on single allocations; typed Fiscal Year documents (approval, audit signoff); documentation review; "no attachment" with a stated reason |
+| **Reports** | End of Year Audit PDF with signature page and account start/end pages; Fiscal Year Close report; Entity activity report with CSV export; fundraiser report; cash count sheet |
+| **Dashboard** | Bank balances, budget progress, items needing attention, charts; each user chooses and arranges their own sections; light and dark mode |
+| **Fundraisers** | Budgets, offerings ("buckets"), cash float, exclusions, documents, cancelled events, events spanning two Fiscal Years |
+| **Reminders** | Personal and organization reminders, show-before days, links to a Fiscal Year, budget or account, repeating organization reminders |
+| **People and vendors** | Entities for organizations and individuals, a person's position (offered as the title when they sign) |
+| **Roles** | Administrator, Budget Manager, Budget User, Register User and read-only Auditor; administration is kept strictly apart from financial work |
+| **Security** | Argon2id passwords, two-step verification (TOTP) with recovery codes, server-side sessions, CSRF protection, AES-256-GCM encrypted bank account numbers, an append-only audit log of every change |
+| **Your data** | One folder on your machine; encrypted backup and restore from inside the application; moves between Windows, Mac and Linux; upgrades never touch data or configuration |
+| **Where it runs** | Single user on a Windows PC or a Mac (Apple Silicon); several users on a Linux server behind HTTPS, or in Docker |
+
+<p align="center"><img src="docs/screenshots/readme/dashboard-dark.png" alt="The dashboard in dark mode" width="600"></p>
 
 ## Install
 
 | | |
 |---|---|
+| **Mac with Apple Silicon (single user)** | Download `Fundwarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest), drag Fundwarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* ([details](docs/deployment.md)). |
 | **Windows (single user)** | Download `Fundwarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest) and double-click it. |
 | **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
 
@@ -57,6 +134,8 @@ reminders).
 - [docs/branching.md](docs/branching.md) — branches, builds, releases and versioning (`Breaking.Major.Minor`)
 - [docs/implementation-notes.md](docs/implementation-notes.md) — design decisions, including every change request (§1a)
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each version
+- `scripts/demo_data.py` and `scripts/readme_screenshots.mjs` — fill a new, empty installation with a made-up
+  organization and retake the screenshots on this page
 
 **Origin.** Fundwarden started as an implementation of the *Financial Management POC Agent-Agnostic Benchmark v1.1*.
 The specification is kept unchanged in [`spec/`](spec/); [docs/acceptance-results.md](docs/acceptance-results.md),
@@ -105,6 +184,7 @@ bash scripts/security_check.sh                    # pip-audit + npm audit + secu
 | Linux x86-64 self-contained | `bash packaging/build_linux.sh` | PyInstaller onedir → `dist/Fundwarden-linux-x64.tar.gz` |
 | Windows x86-64 portable folder | `bash packaging/build_windows_portable.sh` | Runs on any OS; relocatable CPython + win_amd64 wheels → `dist/Fundwarden-windows-x64.zip`; launch `Fundwarden.cmd` |
 | Windows x86-64 one-file .exe | `pyinstaller --noconfirm --distpath dist packaging/pyinstaller/fmpoc-onefile.spec` | Build on Windows (CI: `windows-latest`) → `Fundwarden-<version>-windows-x64.exe` |
+| macOS arm64 app + disk image | `bash packaging/build_macos.sh` | Build on a Mac with Apple Silicon (CI: `macos-15`) → `dist/Fundwarden.app`, `Fundwarden-<version>-macos-arm64.dmg` (ad hoc signed) |
 | Windows x86-64 PyInstaller folder | `pwsh packaging/build_windows.ps1` | Build on Windows → `Fundwarden.exe` |
 | Linux one-command install | `packaging/linux/install.sh` | Published with every release — see [docs/deployment.md](docs/deployment.md) |
 | Docker (optional, server) | `docker build -f packaging/docker/Dockerfile -t fundwarden .` | plus `docker-compose.yml` with Caddy HTTPS |

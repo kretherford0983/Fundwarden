@@ -48,7 +48,7 @@ def delete(rid: int, db: Session = Depends(get_db), ctx: Ctx = Depends(viewer)):
 
 @router.post("/{rid}/resolve")
 def resolve(rid: int, body: ReminderResolveIn, db: Session = Depends(get_db), ctx: Ctx = Depends(viewer)):
-    r = svc.resolve(db, ctx, svc.get(db, ctx, rid), body.note)
+    r = svc.resolve(db, ctx, svc.get(db, ctx, rid), body.note, body.stop_repeating)
     db.commit()
     return svc.out(db, ctx, r)
 

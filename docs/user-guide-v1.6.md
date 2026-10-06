@@ -1,6 +1,6 @@
 # What's new in 1.6 — quick guide
 
-*1.6.6: the application is renamed Fundwarden. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
+*1.6.7: a person's position is filled in as the signer's title; count sheet refinements. 1.6.6: the application is renamed Fundwarden; cash count sheet with blank signature rows and a page for more checks. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
 1.6.2: the fundraiser report. 1.6.3: reminders and notifications. 1.6.4: cancelled fundraisers and the cash count sheet.*
 
 ## 1.6.6: a new name — Fundwarden
@@ -64,19 +64,47 @@ Register) and the transactions' attachments. Notices remind you, for example, to
   can be resolved by Budget Managers and Register Users; Budget Users and Auditors just see them. A resolved reminder
   can be **reopened**.
 - A reminder can be edited or deleted only before it is shown.
+- **Repeating organization reminders (1.6.7).** In *New reminder* for the whole organization, set **Repeat** to
+  *Repeats every…* and choose the number and the period (days, weeks, months, years), optionally an **Until** date.
+  The reminder shows "Repeats every 3 months". When it is resolved, the next one is created automatically, due one
+  interval after the due date of the one just resolved (resolving late does not shift the schedule). Budget Managers
+  see the next one under *Upcoming* and can still edit or delete it there. To end the series, tick **Stop repeating
+  after this one** when resolving, or delete the upcoming one. Reopening a resolved reminder removes the next one it
+  created; it is created again when you resolve.
 
 ## Cancelled fundraisers and the cash count sheet (1.6.4)
 - **Mark as cancelled…** (Budget Manager) when a fundraiser did not take place as planned; give the reason. The
   fundraiser shows *Cancelled* everywhere, including its report and the Audit / Close reports. Money already spent or
   received stays listed and counted. **Reinstate** undoes it.
-- **Cash count sheet…** opens a one-page PDF to print for the count: bills and coins, checks, the totals (you can
-  fill in just the totals), notes and one signature row per person: **Signature**, **Printed** name and **Date**
-  (1.6.6). The dialog starts with three empty rows — for when you do not yet know who will count. Choose a signer
-  in a row to have the name printed. Up to five rows; at most three may be empty (two next to chosen signers).
-  Page 1 has 13 check lines; **page 2** (optional, on by default) has 30 more — print it on the back or as a second
-  sheet. Scan the signed sheet and add it under *Fundraiser documents*.
+- **Cash count sheet…** opens a PDF to print for the count: bills and coins, 13 checks, the totals (you can fill
+  in just the totals), two lines for notes and one signature row per person. The dialog starts with two empty
+  rows — for when you do not yet know who will count; each prints **Signature**, **Printed** name and **Date**
+  lines. Choose a signer in a row to get one long signature line with the name and title printed under it. Up to
+  five rows; at most three may be empty (two next to chosen signers). **Page 2** (optional, on by default) has 30
+  more check lines — print it on the back or as a second sheet. Scan the signed sheet and add it under
+  *Fundraiser documents*.
+- **Position (1.6.7).** Under *Entities*, an individual can be given a **Position in the organization** (for
+  example "Treasurer"). It is filled in as the title when that person is chosen as a signer here or on the audit
+  review signature page; you can still change it for that one print.
 
 ## Archive or delete
 **Archive** hides a finished fundraiser from the list (tick *Show archived* to see it). **Delete** removes a
 fundraiser's settings (never transactions); it is not possible once one of its Fiscal Years is closed or while it
 has buckets, cash-float marks, exclusions or documents.
+
+## Account start and end pages in the Audit and Close reports (1.6.7)
+When the End of Year Audit Report or the Fiscal Year Close Report contains transactions of more than one bank
+account, the transactions are grouped by account and each group is framed:
+- a **Start of transactions** page before the account's first transaction and an **End of transactions** page after
+  its last one. Both show the account, how many transactions it has (active / VOID), deposits and withdrawals, the
+  first and last transaction, and the pages the account occupies — for example "pages 4 to 9 of 12 (6 pages)";
+- every page of the group shows the account and **section page k of n** at the bottom right, above "Page x of y".
+
+To check that a printed report is complete: for each account, find the start page, read its page range, and confirm
+that the section page numbers run from 1 to n up to the end page. A report limited to one account has no such pages.
+
+## Phone numbers of Entities (1.6.7)
+Type the number however is convenient: `5551234567`, `555-123-4567`, `555.123.4567`, `(555) 123-4567`, with or
+without a leading 1. Fundwarden stores the plain digits and shows **(555) 123-4567** everywhere. For an extension add
+`x204` (or `ext 204`); for a number in another country start with `+` and the country code. A number that is neither
+is refused, so a typing mistake (a missing digit) is caught when you save.

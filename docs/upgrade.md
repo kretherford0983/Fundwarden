@@ -1,4 +1,4 @@
-# Upgrading a Linux server install (current release: 1.6.6)
+# Upgrading a Linux server install (current release: 1.6.7)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
@@ -10,6 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.6.6 → 1.6.7 | migrations `0014` — **adds** column `entity.position` (empty for every existing Entity); `0015` — **adds** columns `reminder.repeat_every`, `repeat_unit`, `repeat_until`, `repeat_anchor`, `repeat_index`, `repeat_source_id` (existing reminders stay one-time); `0016` — **rewrites** `entity.phone` values that are clearly 10-digit numbers to plain digits (e.g. `555-123-4567` → `5551234567`); other values are left as they are | switch binaries **and** restore the pre-upgrade data backup |
 | 1.6.5 → 1.6.6 | none — the application is renamed to Fundwarden (see *1.6.6: the rename* below) | switch back to the old `fmpoc` service (left in place) |
 | 1.6.4 → 1.6.5 | none | switch binaries only |
 | 1.6.3 → 1.6.4 | migration `0013` — **adds** columns `fundraiser.cancelled_at`, `cancelled_by_user_id`, `cancel_reason` | switch binaries **and** restore the pre-upgrade data backup |
@@ -35,6 +36,17 @@ were then asked to set up two-step verification; a backup → restore round trip
 (including two-step verification from the backup). Rollback: the 1.4.0 binaries alone refuse the 1.4.1 database
 ("Can't locate revision"); restoring the installer's data snapshot with the 1.4.0 binaries returned exactly the
 pre-upgrade data.
+Verified for 1.6.7 (simulated systemd): a 1.6.6 `fundwarden` server with data was upgraded with `install-server.sh`:
+snapshot taken, `0014` applied (`entity.position` empty for every Entity), every other row, attachment, the key and a
+hand-edited `config.toml` identical. The 1.6.6 binaries alone refuse the 1.6.7 database ("Can't locate revision");
+with the snapshot restored they started on exactly the pre-upgrade data.
+Repeated for the complete 1.6.7 (migrations `0014`–`0016`, run from source rather than through the installer): a
+1.6.6 data directory with budgets, 25 transactions, attachments, fundraisers, reminders and Entities with phone
+numbers in several spellings was opened by 1.6.7. Every table kept its rows; the only changed values were the three
+phone numbers that are clearly 10-digit numbers (`555-123-4567` → `5551234567`, `(555) 987-6543 x12` →
+`5559876543x12`, `1.555.222.3333` → `5552223333`) — a 7-digit number and a `+44` number were left as they were;
+the new columns are empty; attachments and the key are byte-for-byte identical; register balance and the audit
+report are as before. 1.6.6 refuses the upgraded database and starts normally on the pre-upgrade copy.
 Verified for 1.6.1: a 1.6.0 server with fundraisers was upgraded with `install.sh`: files identical, every row kept,
 `0011` applied (four new empty tables); rollback started 1.6.0 on the identical data.
 Verified for 1.6.0: a 1.5.0 server with data was upgraded with `install.sh` (test channel): `config.toml`, the key and

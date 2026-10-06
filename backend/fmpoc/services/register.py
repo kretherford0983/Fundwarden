@@ -678,7 +678,9 @@ SORT_FIELDS = {"transaction_date", "entry_timestamp", "amount", "check_number", 
 
 def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYear | None, txn_type: str | None,
                   status: str | None, date_from: dt.date | None, date_to: dt.date | None, search: str | None,
-                  sort: str, direction: str) -> dict:
+                  sort: str, direction: str, attachments: str | None = None) -> dict:
+    """attachments (1.6.7): "yes" / "no" keeps the transactions with / without an attachment - counted exactly like
+    the paperclip in the register row (the transaction's own attachments plus those of its allocations)."""
     txns = list(db.scalars(select(RegisterTransaction).where(RegisterTransaction.bank_account_id == acct.id)
                            .order_by(RegisterTransaction.transaction_date, RegisterTransaction.entry_timestamp,
                                      RegisterTransaction.id)))
@@ -726,6 +728,9 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         "clear_date": lambda t: (t.clear_date or dt.date.min, t.id),
     }[sort]
     rows.sort(key=keyf, reverse=direction == "desc")
+    shown = [out(db, t, rb[t.id]) for t in rows]
+    if attachments in ("yes", "no"):
+        shown = [x for x in shown if (x["attachment_count"] > 0) == (attachments == "yes")]
     return {
         "bank_account": bank.out(db, acct),
         "fiscal_year": fy_brief(fiscal_year),
@@ -733,7 +738,7 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         "starting_balance": fmt(starting) if starting is not None else fmt(acct.opening_balance_cents or 0),
         "ending_balance": fmt(bank.balance_cents(db, acct, hi) if hi else bank.balance_cents(db, acct)),
         "current_balance": fmt(bank.balance_cents(db, acct)),
-        "transactions": [out(db, t, rb[t.id]) for t in rows],
+        "transactions": shown,
     }
 
 
