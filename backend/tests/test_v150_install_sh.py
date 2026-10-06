@@ -54,6 +54,10 @@ class Fake:
         self.latest: dict | None = None
         self.files: dict[str, bytes] = {}
         self.requests: list[str] = []
+        self.compact = False  # 1.6.7: GitHub answers on one line unless the client looks like curl
+
+    def dump(self, obj) -> bytes:
+        return (json.dumps(obj, separators=(",", ":")) if self.compact else json.dumps(obj, indent=2)).encode()
 
     def add_release(self, tag: str, prerelease: bool, *, draft=False, corrupt=False, html=False, sums_skip=()):
         tb, stub = _tarball(), STUB
@@ -83,11 +87,11 @@ def gh():
             fake.requests.append(self.path)
             path = self.path.split("?")[0]
             if path == "/api/releases":
-                return self._send(200, json.dumps(fake.releases, indent=2).encode())
+                return self._send(200, fake.dump(fake.releases))
             if path == "/api/releases/latest":
                 if fake.latest is None:
                     return self._send(404, b'{\n  "message": "Not Found"\n}')
-                return self._send(200, json.dumps(fake.latest, indent=2).encode())
+                return self._send(200, fake.dump(fake.latest))
             if path in fake.files:
                 return self._send(200, fake.files[path])
             self._send(404, b"Not Found")
@@ -187,3 +191,23 @@ def test_upgrade_health_checks_the_existing_port(gh, tmp_path):
     assert args[1:] == ["--port", "8899"]
     code, out, args = run(gh, tmp_path, "--port", "9000", config="[server]\nport = 8899\n")
     assert args[1:] == ["--port", "9000"]  # explicit wins
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_release_lookup_understands_both_api_formats(gh, tmp_path, compact):
+    """1.6.7: against the real GitHub the answer came on ONE line and 'latest' found nothing ("no release found")."""
+    gh.compact = compact
+    gh.add_release("v1.6.5-test.27", True)
+    gh.add_release("v1.6.6-test.31", True)
+    gh.releases[0]["body"] = 'notes that mention "tag_name": "v9.9.9" and "prerelease": false'
+    code, out, recorded = run(gh, tmp_path, "--channel", "test")
+    assert code == 0 and "Fundwarden v1.6.6-test.31" in out, out
+    code, out, _ = run(gh, tmp_path)   # auto: no production release yet -> newest test pre-release
+    assert code == 0 and "v1.6.6-test.31" in out and "TEST pre-release" in out, out
+    gh.add_release("v1.6.6", False)
+    gh.add_release("v1.6.7-test.40", True)
+    code, out, recorded = run(gh, tmp_path)   # auto: the production release wins over a newer test build
+    assert code == 0 and "Fundwarden v1.6.6 " in out and "TEST" not in out, out
+    assert recorded[0].endswith(PKG)
+    code, out, _ = run(gh, tmp_path, "--channel", "test")
+    assert code == 0 and "v1.6.7-test.40" in out, out

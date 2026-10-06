@@ -8,10 +8,14 @@ export default function Register() {
   const { can } = useMe();
   const [accounts, setAccounts] = useState<any[] | null>(null);
   const [fys, setFys] = useState<any[]>([]);
-  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "" });
+  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" });
+  const [defaultFy, setDefaultFy] = useState(""); // 1.6.7: what "Clear" goes back to (the current Fiscal Year)
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
   const [open, setOpen] = useState<number | null>(null);
+  // 1.6.7: /register?account=<id>&txn=<id> (from the Fiscal Year documentation review) opens that transaction
+  const [focus, setFocus] = useState<number | null>(null);
+  const [focused, setFocused] = useState<number | null>(null);
   const [modal, setModal] = useState<any>(null);
   const [showReviews, setShowReviews] = useState(new URLSearchParams(window.location.search).has("reviews"));
   const manage = can("transaction.manage");
@@ -32,9 +36,11 @@ export default function Register() {
       setFys(y);
       const primary = reg.find((x: any) => x.is_primary) || reg.find((x: any) => x.status === "ACTIVE") || reg[0];
       // v1.6.0: deep link from a fundraiser line - /register?account=<id>&search=<text> (all dates)
+      setDefaultFy(nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "");
       const q = new URLSearchParams(window.location.search);
       const linked = reg.find((x: any) => String(x.id) === q.get("account"));
       if (linked) setF((p) => ({ ...p, bank_account_id: String(linked.id), fiscal_year_id: "", search: q.get("search") || "" }));
+      if (linked && Number(q.get("txn"))) setFocus(Number(q.get("txn")));
       else setF((p) => ({ ...p, bank_account_id: primary ? String(primary.id) : "", fiscal_year_id: nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "" }));
     }, setErr);
   }, []);
@@ -43,9 +49,21 @@ export default function Register() {
     api.get(`/api/register${qs(f)}`).then(setData, setErr);
   };
   useEffect(() => { load(); }, [f]);
+  useEffect(() => {
+    if (focus === null || !data?.transactions?.some((t: any) => t.id === focus)) return;
+    setOpen(focus);
+    setFocused(focus);
+    setFocus(null);
+    const id = focus;
+    // after the row and its details are drawn: bring it into view below the pinned header
+    window.setTimeout(() => document.getElementById(`txn-${id}`)?.scrollIntoView({ block: "center" }), 50);
+  }, [data, focus]);
   if (!accounts) return <><ErrorBox error={err} /><Loading /></>;
   const acct = data?.bank_account;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
+  // 1.6.7: "Clear" puts every filter back to how the register opens; the chosen bank account stays
+  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" };
+  const filtered = (Object.keys(defaults) as (keyof typeof defaults)[]).some((k) => f[k] !== defaults[k]);
   return (
     <div className="register-page">
       <div className="register-sticky" ref={stickyRef}>
@@ -75,9 +93,12 @@ export default function Register() {
         </Field>
         <Field label="Type"><select value={f.transaction_type} onChange={set("transaction_type")}><option value="">All</option><option value="DEPOSIT">Deposits</option><option value="WITHDRAWAL">Withdrawals</option></select></Field>
         <Field label="Status"><select value={f.status} onChange={set("status")}><option value="">All</option><option value="cleared">Cleared</option><option value="uncleared">Uncleared</option><option value="void">Void</option></select></Field>
+        <Field label="Attachments"><select value={f.attachments} onChange={set("attachments")}><option value="">All</option><option value="yes">Yes</option><option value="no">No</option></select></Field>
         <Field label="From"><input type="date" value={f.date_from} onChange={set("date_from")} /></Field>
         <Field label="To"><input type="date" value={f.date_to} onChange={set("date_to")} /></Field>
         <Field label="Search"><input value={f.search} onChange={set("search")} placeholder="Entity, description, invoice, check #, amount" /></Field>
+        <button type="button" className="filters-clear" disabled={!filtered} onClick={() => setF({ ...f, ...defaults })}
+                title="Reset the filters to how the register opens (the bank account stays)">Clear</button>
       </div>
       {data && acct ? (
         <div className="tiles">
@@ -105,7 +126,7 @@ export default function Register() {
                 {data.transactions.length === 0 ? <tr><td colSpan={12} className="muted">No transactions match.</td></tr> : null}
                 {data.transactions.map((t: any) => (
                   <Fragment key={t.id}>
-                    <tr className={`${t.status === "VOID" ? "void" : ""} ${t.has_pending_review ? "review" : ""}`}>
+                    <tr id={`txn-${t.id}`} className={`${t.status === "VOID" ? "void" : ""} ${t.has_pending_review ? "review" : ""} ${focused === t.id ? "linked" : ""}`}>
                       <td><button className="small" aria-expanded={open === t.id} aria-label={`Details for transaction ${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>{open === t.id ? "▾" : "▸"}</button></td>
                       <td>{t.transaction_date}</td><td>{t.clear_date || ""}</td><td>{t.entity?.display_name || ""}</td><td>{t.check_number || ""}</td>
                       <td>{t.invoice_numbers.join(", ")}</td>

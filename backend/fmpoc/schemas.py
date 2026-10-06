@@ -205,6 +205,7 @@ class EntityFields(In):
     entity_type: Literal["INDIVIDUAL", "ORGANIZATION"] | None = None
     organization_name: OptStr(200) = None
     primary_contact: OptStr(200) = None
+    position: OptStr(60) = None  # 1.6.7: individuals only; same limit as a signer title
     address_line1: OptStr(200) = None
     address_line2: OptStr(200) = None
     city: OptStr(100) = None
@@ -212,7 +213,7 @@ class EntityFields(In):
     postal_code: OptStr(20) = None
     country: OptStr(100) = None
     phone: Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=40,
-                                                    pattern=r"^[0-9+().\-\s xX#]*$")] = None
+                                                    pattern=r"^[0-9+().\-\s xX#eEtT]*$")] = None  # 1.6.7: checked and tidied by fmpoc.phone
     email: OptEmail = None
     notes: OptStr(4000) = None
     is_financial_institution: bool | None = None
@@ -462,7 +463,12 @@ class ReminderIn(In):
     notify_days_before: int = Field(0, ge=0, le=365)
     link_type: Literal["FISCAL_YEAR", "BUDGET", "BANK_ACCOUNT"] | None = None
     link_id: int | None = None
+    # 1.6.7: organization reminders can repeat
+    repeat_every: int | None = Field(None, ge=1, le=365)
+    repeat_unit: Literal["DAY", "WEEK", "MONTH", "YEAR"] | None = None
+    repeat_until: Date | None = None
 
 
 class ReminderResolveIn(In):
     note: OptStr(500) = None
+    stop_repeating: bool = False

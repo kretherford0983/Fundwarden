@@ -12,6 +12,18 @@ Native packages need no separately installed Python, Node.js, SQLite, Docker or 
   the same release first if you like: `Get-FileHash .\Fundwarden-<version>-windows-x64.exe`). Data is kept in
   `%LOCALAPPDATA%\Fundwarden`, never inside the .exe, so replacing the .exe with a newer one keeps it.
   Server mode from a command prompt: `Fundwarden-<version>-windows-x64.exe --mode server`.
+- **Mac with Apple Silicon (since 1.6.7)**: download `Fundwarden-<version>-macos-arm64.dmg` from the GitHub release,
+  open it and drag **Fundwarden** onto **Applications**; then open Fundwarden from Applications. A small window
+  shows the address and has **Open Fundwarden** and **Quit** — closing it stops Fundwarden. For M1 or later, macOS 11
+  or later (not for Intel Macs). The app is signed "ad hoc" only — it is not signed with an Apple Developer ID and
+  not notarized — so **the first start needs one confirmation**: macOS says *"Fundwarden" Not Opened — Apple could
+  not verify…*; click **Done**, open **System Settings → Privacy & Security**, scroll to *Security* and click
+  **Open Anyway** next to the Fundwarden line, then confirm. (macOS 14 and earlier: right-click the app →
+  **Open** also works.) To check the download first: `shasum -a 256 Fundwarden-<version>-macos-arm64.dmg` against
+  `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/Fundwarden`, never inside
+  the app, so replacing the app with a newer one keeps it. To upgrade: quit Fundwarden, drag the new app onto
+  Applications and choose *Replace*. Server mode from Terminal:
+  `/Applications/Fundwarden.app/Contents/MacOS/Fundwarden --mode server`.
 - **Windows (portable folder)**: unzip `Fundwarden-windows-x64.zip` anywhere (e.g.
   `%LOCALAPPDATA%\Programs`), double-click `Fundwarden.cmd`.
 - **Linux**: `tar xzf Fundwarden-linux-x64.tar.gz && ./fundwarden/fundwarden`

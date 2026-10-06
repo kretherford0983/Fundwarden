@@ -2,6 +2,72 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.6.7 — 2026-10-06
+Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
+phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
+`0015` (new optional columns only) and `0016` (tidies stored phone numbers). Rolling back to 1.6.6 needs the data
+snapshot the installer takes before the upgrade (docs/upgrade.md).
+- **Recurring organization reminders.** An organization reminder can **repeat every N days, weeks, months or
+  years**, optionally **until** an end date (New reminder → *Repeat*). Each occurrence is its own reminder with its
+  own resolution note. **Resolving one creates the next**, due one interval after the *scheduled* due date — not the
+  day it was resolved — so a monthly reminder stays on its day of the month (the 31st falls on the last day of
+  shorter months). In the Resolve dialog, *Stop repeating after this one* ends the series; so does deleting the
+  upcoming occurrence. Reopening a resolved occurrence takes back the next one it created (refused once that next
+  one has itself been resolved). Personal reminders stay one-time. Existing reminders are unchanged.
+- **Audit and Fiscal Year Close reports — account start and end pages.** When the report covers more than one bank
+  account, each account's transactions now sit between a **"Start of transactions"** page and an **"End of
+  transactions"** page. Both name the account, its number of transactions, deposits, withdrawals, first and last
+  transaction, and state the account's page range ("pages 4 to 9 of 12 (6 pages…)"), each pointing at the other.
+  Every page in between shows the account and **"section page k of n"** at the bottom right, so a reviewer can see
+  which account a page belongs to and that no page is missing. A report for a single account is unchanged. The
+  page range of each account is also recorded with the report in the audit log.
+- **Mac app (Apple Silicon).** New download `Fundwarden-<version>-macos-arm64.dmg` for Macs with an M1 or later
+  chip (macOS 11+): open the disk image, drag **Fundwarden** to Applications and open it. A small Fundwarden window
+  shows the address, opens the browser and has **Quit**; closing the window stops Fundwarden. Data is kept in
+  `~/Library/Application Support/Fundwarden`, so replacing the app with a newer one keeps everything. Like the
+  Windows .exe, the app is **not signed with a paid developer certificate**: the first time, macOS says it could
+  not verify the app — open *System Settings → Privacy & Security* and click **Open Anyway** (once). The steps are
+  in *Read me first* inside the disk image and in docs/deployment.md. Built and smoke-tested by CI on a macOS
+  arm64 machine with every build.
+- **Documentation.** The README on the project page now presents what Fundwarden does: the core features, each
+  with a screenshot (dashboard, budgets, register, audit report, closing the year, fundraisers, reminders), and a
+  table of all capabilities. The screenshots come from a made-up organization: `scripts/demo_data.py` fills a new,
+  empty installation through the normal API and `scripts/readme_screenshots.mjs` retakes them.
+- **Fiscal Year documentation review — links to the Register.** The transaction number of every item in the
+  documentation review is now a link: it opens the Register on that bank account (all dates), scrolls to the
+  transaction, highlights it and opens its details — where a document can be attached right away.
+- **Register — Attachments filter.** A new **Attachments** filter next to Status: *All* (default), *Yes* (only
+  transactions that have an attachment, on the transaction or on one of its lines) or *No* (only those without).
+  It counts exactly what the paperclip in the row counts, so a transaction marked "no attachment will be
+  provided" is listed under *No*. It combines with the other filters; the balances stay those of the whole register.
+- **Register — Clear filters.** A **Clear** button next to the register's filters puts Fiscal Year, Type, Status,
+  Attachments, From, To and Search back to how the register opens (the current Fiscal Year, everything else
+  empty). The chosen bank account stays. The button is greyed out when no filter is set.
+- **Entity phone numbers.** Type a phone number any way you like — `5551234567`, `555-123-4567`, `555.123.4567`,
+  `(555) 123-4567`, with or without a leading 1. It is stored as plain digits and always shown as
+  **(555) 123-4567**; the field tidies itself when you leave it. An extension (`x204`, `ext 204`, `#204`) is kept
+  and shown as `x204`; a number from another country is entered with a leading `+` and kept as typed digits.
+  Anything else is refused with a hint. Database migration `0016` rewrites the numbers already stored that are
+  clearly 10-digit numbers; any other existing value is left untouched and can still be edited.
+- **Position of a person.** An individual Entity can have a **Position in the organization** (for example
+  "Treasurer"; optional, set by a Budget Manager or Register User on the Entity). When that person is chosen as a
+  signer on the **audit review signature page** or the **cash count sheet**, the position is filled in as the title.
+  It can still be changed or cleared for that one print. Not used anywhere else.
+- **Cash count sheet — chosen signers.** A chosen signer now gets one long signature line running across to the
+  date, with the name (and title) printed under it — no "Signature" / "Printed" labels and no empty gap. Rows left
+  empty are unchanged (Signature, Printed, Date to fill in by hand).
+- **Cash count sheet — dialog.** Starts with two empty rows and offers *+ Add signature line* right away (still at
+  most three empty rows, or two next to chosen signers, and five rows in total).
+- **Installer fix.** `curl …/releases/latest/download/install.sh | sudo bash` (without `--version`) stopped with
+  "no release found": GitHub answers the release lookup on one line and the installer only understood the
+  multi-line form. It now understands both. (Installing with `--version <tag>` was not affected.)
+- Build: a build tool's helper library (`source-map-js`, used only while building the web interface and not part
+  of what is installed) is updated to 1.2.2 after a security advisory published on the day of the release
+  (GHSA-68fv-2mgg-jv7q) stopped the release check.
+- Build: the Mac app's smoke test no longer fails at random ("LICENSE is not bundled" on one build of develop):
+  it searched the page while still downloading it.
+- Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
+
 ## 1.6.6 — 2026-10-02
 **First production release, under a new name: Fundwarden.** The application leaves its proof-of-concept names
 (*Financial Management POC*, *Freedger*, `fmpoc`) behind. No database change; nothing about how you work changes.

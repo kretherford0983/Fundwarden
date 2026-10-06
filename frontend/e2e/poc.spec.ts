@@ -14,7 +14,8 @@ async function login(page: Page, user: string, pw = PW) {
   await page.getByLabel("Username").fill(user);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
 }
 
 async function logout(page: Page) {
@@ -520,6 +521,103 @@ test("CR-013 / CR-014 / CR-015: fixed navigation, collapsible menu and pinned re
   await page.screenshot({ path: "e2e-screenshots/light-register-collapsed.png" });
   await page.getByRole("button", { name: "Expand navigation" }).click();
   await expect(nav.getByText("Register", { exact: true })).toBeVisible();
+});
+
+test("1.6.7: Clear puts the register filters back to their defaults and keeps the bank account", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Register" }).click();
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toBeVisible();
+  const clear = page.getByRole("button", { name: "Clear", exact: true });
+  const fy = page.getByLabel("Register Fiscal Year filter");
+  const account = page.getByLabel("Register bank account");
+  await expect(clear).toBeDisabled(); // nothing to clear yet
+  const defaultFy = await fy.inputValue();
+  const chosenAccount = await account.inputValue();
+  await page.getByLabel("Search").fill("Scroll 7");
+  await page.getByRole("combobox", { name: "Status" }).selectOption("uncleared");
+  await page.getByLabel("From").fill("2026-12-01");
+  await fy.selectOption("");
+  await expect(page.getByRole("row", { name: /Scroll 7/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toHaveCount(0);
+  await expect(clear).toBeEnabled();
+  await clear.click();
+  await expect(page.getByLabel("Search")).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: "Status" })).toHaveValue("");
+  await expect(page.getByLabel("From")).toHaveValue("");
+  await expect(fy).toHaveValue(defaultFy);
+  await expect(account).toHaveValue(chosenAccount);
+  await expect(page.getByRole("row", { name: /Scroll 29/ })).toBeVisible();
+  await expect(clear).toBeDisabled();
+  await logout(page);
+});
+
+test("1.6.7: the register's Attachments filter shows transactions with or without attachments", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Register" }).click();
+  const withoutAny = page.getByRole("row", { name: /Scroll 29/ }); // the "Scroll" transactions have no attachments
+  await expect(withoutAny).toBeVisible();
+  const att = page.getByRole("combobox", { name: "Attachments" });
+  await expect(att).toHaveValue(""); // All
+  const all = await page.locator("table.register tbody tr").count();
+  await att.selectOption("yes");
+  await expect(withoutAny).toHaveCount(0);
+  const yes = await page.locator("table.register tbody tr").count();
+  await att.selectOption("no");
+  await expect(withoutAny).toBeVisible();
+  const no = await page.locator("table.register tbody tr").count();
+  expect(yes).toBeGreaterThan(0);
+  expect(no).toBeGreaterThan(0);
+  expect(yes + no).toBe(all);
+  await page.screenshot({ path: "e2e-screenshots/light-register-attachments-filter.png" });
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(att).toHaveValue("");
+  await logout(page);
+});
+
+test("1.6.7: a documentation review item links to its transaction in the Register", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.goto("/fiscal-years/1");
+  const review = page.getByRole("heading", { name: /Documentation review/ }).locator("..");
+  // the last listed item: far down the register, so the page has to scroll to it
+  const link = review.getByRole("link", { name: /^Open transaction \d+ in the Register$/ }).last();
+  const id = (await link.textContent())!.trim();
+  const account = (await link.getAttribute("href"))!.match(/account=(\d+)/)![1];
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/register\\?account=${account}&txn=${id}$`));
+  await expect(page.getByLabel("Register bank account")).toHaveValue(account);
+  await expect(page.getByLabel("Register Fiscal Year filter")).toHaveValue(""); // all dates: the item is always listed
+  const row = page.locator(`#txn-${id}`);
+  await expect(row).toHaveClass(/linked/);
+  await expect(row).toBeInViewport();
+  await expect(page.getByRole("button", { name: `Details for transaction ${id}`, exact: true })).toHaveAttribute("aria-expanded", "true");
+  await page.screenshot({ path: "e2e-screenshots/light-register-linked-transaction.png" });
+  await logout(page);
+});
+
+test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nnnn", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Entities" }).click();
+  await page.getByRole("button", { name: "New entity" }).click();
+  let dlg = page.getByRole("dialog", { name: "New entity" });
+  await dlg.getByLabel(/Organization Name/).fill("Phone Format Co");
+  const phone = dlg.getByLabel("Phone");
+  await phone.fill("555.123.4567");
+  await phone.blur();
+  await expect(phone).toHaveValue("(555) 123-4567"); // tidied as soon as the field is left
+  await phone.fill("12345");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg).toContainText("Enter a 10-digit phone number");
+  await phone.fill("1 555 123 4567 ext 12");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  const row = page.getByRole("row", { name: /Phone Format Co/ });
+  await expect(row).toContainText("(555) 123-4567 x12");
+  await row.getByRole("button", { name: /Edit/ }).click();
+  dlg = page.getByRole("dialog", { name: /^Edit ENT-/ });
+  await expect(dlg.getByLabel("Phone")).toHaveValue("(555) 123-4567 x12");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(row).toContainText("(555) 123-4567 x12");
+  await logout(page);
 });
 
 // ---------------------------------------------------------------- v1.4 enhancements
@@ -1044,6 +1142,42 @@ test("CR-036: organization and personal reminders - bell, dashboard, resolve wit
   await logout(page);
 });
 
+// ---------------------------------------------------------------- 1.6.7: recurring organization reminders
+test("1.6.7: a recurring organization reminder creates its next occurrence when resolved", async ({ page }) => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  await login(page, "bm1");
+  await page.getByRole("link", { name: /Notifications/ }).click();
+  await page.getByRole("button", { name: "New reminder" }).click();
+  let dlg = page.getByRole("dialog", { name: "New reminder" });
+  await expect(dlg.getByRole("combobox", { name: "Repeat", exact: true })).toHaveCount(0); // personal reminders do not repeat
+  await dlg.getByRole("combobox").first().selectOption("ORGANIZATION");
+  await dlg.getByLabel("Reminder", { exact: true }).fill("Reconcile the bank statement");
+  await dlg.getByLabel("Due date").fill(today);
+  await dlg.getByRole("combobox", { name: "Repeat", exact: true }).selectOption("yes");
+  await dlg.getByRole("spinbutton", { name: "Every" }).fill("3");
+  await dlg.getByRole("combobox", { name: "Period" }).selectOption("MONTH");
+  await page.screenshot({ path: "e2e-screenshots/light-reminder-repeat-dialog.png" });
+  await dlg.getByRole("button", { name: "Save" }).click();
+  const item = page.getByTestId("reminder").filter({ hasText: "Reconcile the bank statement" });
+  await expect(item.getByTestId("reminder-repeat")).toHaveText("Repeats every 3 months");
+  // resolving it announces and creates the next one
+  await page.getByRole("button", { name: "Resolve Reconcile the bank statement" }).click();
+  dlg = page.getByRole("dialog", { name: "Resolve reminder" });
+  await expect(dlg).toContainText("The next one will be due");
+  await dlg.getByRole("button", { name: "Mark as resolved" }).click();
+  await expect(item).toHaveCount(0);
+  await page.getByRole("tab", { name: "Upcoming" }).click();
+  await expect(item).toHaveCount(1);
+  await expect(item.getByTestId("reminder-repeat")).toHaveText("Repeats every 3 months");
+  await page.screenshot({ path: "e2e-screenshots/light-reminder-repeat-upcoming.png" });
+  // deleting the upcoming occurrence ends the series
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Delete Reconcile the bank statement" }).click();
+  await expect(item).toHaveCount(0);
+  await logout(page);
+});
+
 // ---------------------------------------------------------------- v1.6.4 CR-037 / CR-038
 test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and reinstate it", async ({ page }) => {
   await login(page, "bm1");
@@ -1051,7 +1185,10 @@ test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and 
   await page.getByRole("link", { name: "Harvest Dinner" }).click();
   await page.getByRole("button", { name: "Cash count sheet…" }).click();
   let dlg = page.getByRole("dialog", { name: "Cash count sheet" });
-  // 1.6.6: three empty rows by default = three blank Signature / Printed / Date rows; no fourth empty row
+  // 1.6.7: two empty rows by default, "+ Add signature line" offered right away; never a fourth empty row
+  await expect(dlg.locator(".sig-signer")).toHaveCount(2);
+  await expect(dlg.getByRole("link", { name: "Open sheet (PDF)" })).toHaveAttribute("href", /blank_lines=2$/);
+  await dlg.getByRole("button", { name: "+ Add signature line" }).click();
   await expect(dlg.locator(".sig-signer")).toHaveCount(3);
   await expect(dlg.getByRole("button", { name: "+ Add signature line" })).toHaveCount(0);
   const href = await dlg.getByRole("link", { name: "Open sheet (PDF)" }).getAttribute("href");
@@ -1062,6 +1199,23 @@ test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and 
   await dlg.getByLabel("Add page 2 for more checks").check();
   const pdf = await page.request.get(href!);
   expect(pdf.status()).toBe(200);
+  // 1.6.7: a person's saved position is filled in as the title when they are chosen; it stays editable,
+  // and a title typed by hand is not replaced
+  const post = await apiAs(page);
+  for (const [n, pos] of [["Petra Position", "Treasurer"], ["Quinn Plain", null]]) {
+    expect((await post("/api/entities", { entity_type: "INDIVIDUAL", primary_contact: n, position: pos, confirmations: ["DUPLICATE_ENTITY"] })).status()).toBe(201);
+  }
+  await dlg.getByRole("button", { name: "Close", exact: true }).last().click();
+  await page.getByRole("button", { name: "Cash count sheet…" }).click();
+  dlg = page.getByRole("dialog", { name: "Cash count sheet" });
+  await dlg.getByRole("combobox", { name: "Signer 1" }).fill("Petra");
+  await page.getByRole("listbox").getByRole("option", { name: /Petra Position/ }).click();
+  await expect(dlg.getByLabel("Signer 1 title")).toHaveValue("Treasurer");
+  await dlg.getByLabel("Signer 2 title").fill("Counter");
+  await dlg.getByRole("combobox", { name: "Signer 2" }).fill("Quinn");
+  await page.getByRole("listbox").getByRole("option", { name: /Quinn Plain/ }).click();
+  await expect(dlg.getByLabel("Signer 2 title")).toHaveValue("Counter");
+  await expect(dlg.getByRole("link", { name: "Open sheet (PDF)" })).toHaveAttribute("href", /signer_title=Treasurer.*signer_title=Counter&blank_lines=0$/);
   expect(pdf.headers()["content-type"]).toBe("application/pdf");
   await dlg.getByRole("button", { name: "Close", exact: true }).last().click();
   await page.getByRole("button", { name: "Mark as cancelled…" }).click();

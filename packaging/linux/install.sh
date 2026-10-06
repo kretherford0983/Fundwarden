@@ -101,19 +101,21 @@ api() {  # GET a GitHub API path, print the body; non-2xx -> failure
   curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" -H "User-Agent: fundwarden-install" "$API/$1"
 }
 
+# The API answers pretty-printed or on one line depending on the client (1.6.7: the one-line form was not understood,
+# so "latest" found nothing). Reduce either form to one line per field: tag_name / draft / prerelease, in API order.
+fields() { grep -oE '"(tag_name|draft|prerelease)": *("[^"]*"|true|false)' | sed -E 's/^"([a-z_]+)": *"?([^"]*)"?$/\1 \2/'; }
+
 latest_production() {  # releases/latest never returns pre-releases or drafts
-  local t; t="$(api releases/latest 2>/dev/null | sed -n 's/^ *"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
+  local t; t="$(api releases/latest 2>/dev/null | fields | awk '$1 == "tag_name" { print $2; exit }')"
   [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "$t"
 }
 
 latest_test() {  # newest published pre-release named v*-test.N (the API lists newest first)
   local t
-  t="$(api "releases?per_page=30" | awk '
-    /^  [{]/ { tag=""; pre=""; draft="" }
-    /^    "tag_name":/ { tag=$2; gsub(/[",]/, "", tag) }
-    /^    "draft":/ { draft=$2; gsub(/,/, "", draft) }
-    /^    "prerelease":/ { pre=$2; gsub(/,/, "", pre) }
-    /^  [}]/ { if (pre=="true" && draft=="false" && tag ~ /^v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+$/) { print tag; exit } }')"
+  t="$(api "releases?per_page=30" | fields | awk '
+    $1 == "tag_name" { tag = $2; draft = "" }
+    $1 == "draft" { draft = $2 }
+    $1 == "prerelease" { if ($2 == "true" && draft == "false" && tag ~ /^v[0-9]+\.[0-9]+\.[0-9]+-test\.[0-9]+$/) { print tag; exit } }')"
   [ -n "$t" ] && echo "$t"
 }
 
