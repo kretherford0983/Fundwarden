@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.6.7 — 2026-10-05
+## 1.6.7 — 2026-10-06
 Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
 phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
 `0015` (new optional columns only) and `0016` (tidies stored phone numbers). Rolling back to 1.6.6 needs the data
