@@ -3,8 +3,10 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.7 — unreleased (in development)
-Recurring organization reminders, cash count sheet refinements and a position for people. Database migrations
-`0014`, `0015` (new optional columns only) and `0016` (tidies stored phone numbers).
+Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
+phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
+`0015` (new optional columns only) and `0016` (tidies stored phone numbers). Rolling back to 1.6.6 needs the data
+snapshot the installer takes before the upgrade (docs/upgrade.md).
 - **Recurring organization reminders.** An organization reminder can **repeat every N days, weeks, months or
   years**, optionally **until** an end date (New reminder → *Repeat*). Each occurrence is its own reminder with its
   own resolution note. **Resolving one creates the next**, due one interval after the *scheduled* due date — not the
@@ -59,6 +61,8 @@ Recurring organization reminders, cash count sheet refinements and a position fo
 - **Installer fix.** `curl …/releases/latest/download/install.sh | sudo bash` (without `--version`) stopped with
   "no release found": GitHub answers the release lookup on one line and the installer only understood the
   multi-line form. It now understands both. (Installing with `--version <tag>` was not affected.)
+- Build: the Mac app's smoke test no longer fails at random ("LICENSE is not bundled" on one build of develop):
+  it searched the page while still downloading it.
 - Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
 
 ## 1.6.6 — 2026-10-02
