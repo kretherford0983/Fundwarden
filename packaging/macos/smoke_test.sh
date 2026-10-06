@@ -44,8 +44,12 @@ echo "healthy after $i s ($HOW)"
 STATUS="$(curl -fs "http://127.0.0.1:$PORT/api/system/status")"; echo "$STATUS"
 [[ "$STATUS" == *"\"version\":\"$VERSION\""* ]] || fail "reports the wrong version"
 [[ "$STATUS" == *"\"mode\":\"local\""* ]] || fail "expected local mode by default"
-curl -fs "http://127.0.0.1:$PORT/" | grep -q '<div id="root">' || fail "the web interface is missing"
-curl -fs "http://127.0.0.1:$PORT/api/system/legal/license" | grep -q "GNU AFFERO GENERAL PUBLIC LICENSE" || fail "LICENSE is not bundled"
+# Download first, then search: "curl | grep -q" fails at random under pipefail, because grep stops reading at the
+# first match and curl then reports a write error (this failed one build of develop with "LICENSE is not bundled").
+curl -fs -o "$DATA.page" "http://127.0.0.1:$PORT/" || fail "the web interface did not answer"
+grep -q '<div id="root">' "$DATA.page" || fail "the web interface is missing"
+curl -fs -o "$DATA.license" "http://127.0.0.1:$PORT/api/system/legal/license" || fail "the license page did not answer"
+grep -q "GNU AFFERO GENERAL PUBLIC LICENSE" "$DATA.license" || fail "LICENSE is not bundled"
 [ -d "$DATA/database" ] || fail "the data folder was not used"
 kill "$PID"; for i in $(seq 1 20); do kill -0 "$PID" 2>/dev/null || break; sleep 0.5; done
 kill -0 "$PID" 2>/dev/null && fail "the app did not stop"
