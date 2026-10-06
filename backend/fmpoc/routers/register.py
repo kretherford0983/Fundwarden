@@ -28,6 +28,7 @@ def register_view(
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
     search: str | None = Query(None, max_length=200),
+    attachments: Literal["yes", "no"] | None = None,  # 1.6.7: only transactions with / without attachments
     sort: Literal["transaction_date", "entry_timestamp", "amount", "check_number", "clear_date"] = "transaction_date",
     direction: Literal["asc", "desc"] = "asc",
     db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view")),
@@ -47,7 +48,8 @@ def register_view(
         raise AppError(422, "NOT_REGISTER_ENABLED", "The Bank Account is not register-enabled.")
     fy = get_scoped(db, FiscalYear, fiscal_year_id, ctx, "Fiscal Year") if fiscal_year_id else None
     return svc.register_view(db, ctx, acct, fiscal_year=fy, txn_type=transaction_type, status=status,
-                             date_from=date_from, date_to=date_to, search=search, sort=sort, direction=direction)
+                             date_from=date_from, date_to=date_to, search=search, sort=sort, direction=direction,
+                             attachments=attachments)
 
 
 @router.get("/transactions/{txn_id}")
