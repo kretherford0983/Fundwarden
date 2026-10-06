@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.6.7 — unreleased (in development)
+## 1.6.7 — 2026-10-05
 Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
 phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
 `0015` (new optional columns only) and `0016` (tidies stored phone numbers). Rolling back to 1.6.6 needs the data
@@ -61,6 +61,9 @@ snapshot the installer takes before the upgrade (docs/upgrade.md).
 - **Installer fix.** `curl …/releases/latest/download/install.sh | sudo bash` (without `--version`) stopped with
   "no release found": GitHub answers the release lookup on one line and the installer only understood the
   multi-line form. It now understands both. (Installing with `--version <tag>` was not affected.)
+- Build: a build tool's helper library (`source-map-js`, used only while building the web interface and not part
+  of what is installed) is updated to 1.2.2 after a security advisory published on the day of the release
+  (GHSA-68fv-2mgg-jv7q) stopped the release check.
 - Build: the Mac app's smoke test no longer fails at random ("LICENSE is not bundled" on one build of develop):
   it searched the page while still downloading it.
 - Build: the browser tests wait longer for the page after signing in (a slow build machine failed one run of 1.6.6).
