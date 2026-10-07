@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Pull-request rules for the branch flow  feature/* -> develop -> test -> main   (hotfix/* -> main, then back-merged).
+# dependabot/* (1.6.8): dependency update pull requests opened by Dependabot - into develop only.
 # Usage: check_promotion.sh <base branch> <head branch>
 set -euo pipefail
 BASE="$1"; HEAD="$2"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 fail() { echo "::error::$1"; exit 1; }
 case "$BASE" in
-  develop) [[ "$HEAD" =~ ^(feature|hotfix)/ || "$HEAD" == "main" || "$HEAD" == "test" ]] \
-             || fail "Only feature/*, hotfix/* (or back-merges from test/main) may be merged into develop (got '$HEAD')." ;;
+  develop) [[ "$HEAD" =~ ^(feature|hotfix|dependabot)/ || "$HEAD" == "main" || "$HEAD" == "test" ]] \
+             || fail "Only feature/*, hotfix/*, dependabot/* (or back-merges from test/main) may be merged into develop (got '$HEAD')." ;;
   test)    [[ "$HEAD" == "develop" || "$HEAD" =~ ^hotfix/ || "$HEAD" == "main" ]] \
              || fail "Only develop (or hotfix/*, or a back-merge from main) may be merged into test (got '$HEAD')." ;;
   main)    [[ "$HEAD" == "test" || "$HEAD" =~ ^hotfix/ ]] \
