@@ -9,6 +9,9 @@ Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
   `pydantic_core` is only updated together with `pydantic`. The weekly grouped minor and patch updates are
   unchanged, and security updates are not held back by the new rules — also when the fix is a major version.
   No change to the application.
+- **Documentation after the rename.** New quick guide *What's new in 1.7* (the new name, and what to do on a
+  server, a Windows PC and a Mac). The 1.4, 1.5 and 1.6 guides use the name PennyWarden; the README's *Origin*
+  paragraph, docs/deployment.md and docs/implementation-notes.md record both renames.
 
 ## 1.7.0 — 2026-10-07
 **The application is renamed to PennyWarden** (#70). Another product in the financial field already uses the name
