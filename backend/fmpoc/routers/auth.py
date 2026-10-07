@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import secrets
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -18,6 +19,7 @@ from ..services.dashboard_layout import is_customized, layout_for
 from ..services.fundraisers import module_enabled
 
 router = APIRouter(prefix="/api", tags=["auth"])
+_PRE_CSRF_TOKEN = re.compile(r"[A-Za-z0-9_-]{43}")  # secrets.token_urlsafe(32)
 
 
 def _secure(request: Request) -> bool:
@@ -33,9 +35,16 @@ def set_session_cookie(request: Request, response: Response, token: str) -> None
 
 @router.get("/auth/csrf")
 def pre_auth_csrf(request: Request, response: Response):
-    """Double-submit token for the unauthenticated login/initialize forms."""
-    token = request.cookies.get(PRE_CSRF_COOKIE) or secrets.token_urlsafe(32)
-    response.set_cookie(PRE_CSRF_COOKIE, token, httponly=False, samesite="strict", secure=_secure(request), path="/")
+    """Double-submit token for the unauthenticated login/initialize forms.
+
+    1.6.8 (#66, CodeQL "construction of a cookie using user-supplied input"): the cookie is only ever written with a
+    token generated here. A browser that already has one gets it back in the answer and no cookie is set; a cookie
+    that does not look like one of our tokens is replaced."""
+    token = request.cookies.get(PRE_CSRF_COOKIE) or ""
+    if not _PRE_CSRF_TOKEN.fullmatch(token):
+        token = secrets.token_urlsafe(32)
+        response.set_cookie(PRE_CSRF_COOKIE, token, httponly=False, samesite="strict", secure=_secure(request),
+                            path="/")
     return {"csrf_token": token}
 
 
