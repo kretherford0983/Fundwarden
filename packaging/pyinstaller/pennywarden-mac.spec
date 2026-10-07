@@ -1,6 +1,6 @@
-# PyInstaller spec - macOS app bundle (1.6.7): dist/Fundwarden.app for Apple Silicon (arm64).
+# PyInstaller spec - macOS app bundle (1.6.7): dist/PennyWarden.app for Apple Silicon (arm64).
 # Double-click = local mode (127.0.0.1): a small window shows the address, opens the browser and has Quit.
-# Data stays in ~/Library/Application Support/Fundwarden, never inside the app.
+# Data stays in ~/Library/Application Support/PennyWarden, never inside the app.
 # Build ON a Mac with Apple Silicon (CI: macos-15) - use packaging/build_macos.sh, which also makes the .dmg.
 import os
 
@@ -9,7 +9,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 PKG = os.path.join(ROOT, "backend", "fmpoc")
 VERSION = os.environ.get("FM_VERSION", "0.0.0")
-ICON = os.path.join(ROOT, "packaging", "macos", "fundwarden.icns")
+ICON = os.path.join(ROOT, "packaging", "macos", "pennywarden.icns")
 
 datas = [
     (os.path.join(PKG, "static"), "fmpoc/static"),
@@ -28,15 +28,15 @@ a = Analysis([os.path.join(SPECPATH, "entry_mac.py")], pathex=[os.path.join(ROOT
              hiddenimports=hidden, excludes=["pytest", "PIL.ImageTk", "IPython"], noarchive=False)
 pyz = PYZ(a.pure)
 # A folder inside the app (not one-file): nothing is unpacked at start, so it opens quickly.
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Fundwarden", console=False, debug=False, strip=False,
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="PennyWarden", console=False, debug=False, strip=False,
           upx=False, target_arch="arm64", argv_emulation=False)
-coll = COLLECT(exe, a.binaries, a.datas, name="Fundwarden", strip=False, upx=False)
-app = BUNDLE(coll, name="Fundwarden.app", icon=ICON, bundle_identifier="io.github.kretherford0983.fundwarden",
+coll = COLLECT(exe, a.binaries, a.datas, name="PennyWarden", strip=False, upx=False)
+app = BUNDLE(coll, name="PennyWarden.app", icon=ICON, bundle_identifier="io.github.kretherford0983.pennywarden",
              version=VERSION,
              info_plist={
-                 "CFBundleName": "Fundwarden", "CFBundleDisplayName": "Fundwarden",
+                 "CFBundleName": "PennyWarden", "CFBundleDisplayName": "PennyWarden",
                  "CFBundleShortVersionString": VERSION, "CFBundleVersion": VERSION,
                  "NSHighResolutionCapable": True, "LSMinimumSystemVersion": "11.0",
                  "LSApplicationCategoryType": "public.app-category.finance",
-                 "NSHumanReadableCopyright": "Fundwarden is free software under the GNU AGPL-3.0.",
+                 "NSHumanReadableCopyright": "PennyWarden is free software under the GNU AGPL-3.0.",
              })

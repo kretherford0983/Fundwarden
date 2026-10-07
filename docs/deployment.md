@@ -5,28 +5,28 @@ Native packages need no separately installed Python, Node.js, SQLite, Docker or 
 
 ## Local installation (single user, loopback)
 
-- **Windows (one file, since 1.5.0)**: download `Fundwarden-<version>-windows-x64.exe` from the GitHub release and
-  double-click it. A console window shows the address and log — closing it stops Fundwarden. The .exe unpacks itself
+- **Windows (one file, since 1.5.0)**: download `PennyWarden-<version>-windows-x64.exe` from the GitHub release and
+  double-click it. A console window shows the address and log — closing it stops PennyWarden. The .exe unpacks itself
   to a temporary folder at each start, so starting takes a few seconds. It is not code-signed: Windows SmartScreen may
   say "Windows protected your PC" — click **More info → Run anyway** (check the file against `SHA256SUMS.txt` from
-  the same release first if you like: `Get-FileHash .\Fundwarden-<version>-windows-x64.exe`). Data is kept in
-  `%LOCALAPPDATA%\Fundwarden`, never inside the .exe, so replacing the .exe with a newer one keeps it.
-  Server mode from a command prompt: `Fundwarden-<version>-windows-x64.exe --mode server`.
-- **Mac with Apple Silicon (since 1.6.7)**: download `Fundwarden-<version>-macos-arm64.dmg` from the GitHub release,
-  open it and drag **Fundwarden** onto **Applications**; then open Fundwarden from Applications. A small window
-  shows the address and has **Open Fundwarden** and **Quit** — closing it stops Fundwarden. For M1 or later, macOS 11
+  the same release first if you like: `Get-FileHash .\PennyWarden-<version>-windows-x64.exe`). Data is kept in
+  `%LOCALAPPDATA%\PennyWarden`, never inside the .exe, so replacing the .exe with a newer one keeps it.
+  Server mode from a command prompt: `PennyWarden-<version>-windows-x64.exe --mode server`.
+- **Mac with Apple Silicon (since 1.6.7)**: download `PennyWarden-<version>-macos-arm64.dmg` from the GitHub release,
+  open it and drag **PennyWarden** onto **Applications**; then open PennyWarden from Applications. A small window
+  shows the address and has **Open PennyWarden** and **Quit** — closing it stops PennyWarden. For M1 or later, macOS 11
   or later (not for Intel Macs). The app is signed "ad hoc" only — it is not signed with an Apple Developer ID and
-  not notarized — so **the first start needs one confirmation**: macOS says *"Fundwarden" Not Opened — Apple could
+  not notarized — so **the first start needs one confirmation**: macOS says *"PennyWarden" Not Opened — Apple could
   not verify…*; click **Done**, open **System Settings → Privacy & Security**, scroll to *Security* and click
-  **Open Anyway** next to the Fundwarden line, then confirm. (macOS 14 and earlier: right-click the app →
-  **Open** also works.) To check the download first: `shasum -a 256 Fundwarden-<version>-macos-arm64.dmg` against
-  `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/Fundwarden`, never inside
-  the app, so replacing the app with a newer one keeps it. To upgrade: quit Fundwarden, drag the new app onto
+  **Open Anyway** next to the PennyWarden line, then confirm. (macOS 14 and earlier: right-click the app →
+  **Open** also works.) To check the download first: `shasum -a 256 PennyWarden-<version>-macos-arm64.dmg` against
+  `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/PennyWarden`, never inside
+  the app, so replacing the app with a newer one keeps it. To upgrade: quit PennyWarden, drag the new app onto
   Applications and choose *Replace*. Server mode from Terminal:
-  `/Applications/Fundwarden.app/Contents/MacOS/Fundwarden --mode server`.
-- **Windows (portable folder)**: unzip `Fundwarden-windows-x64.zip` anywhere (e.g.
-  `%LOCALAPPDATA%\Programs`), double-click `Fundwarden.cmd`.
-- **Linux**: `tar xzf Fundwarden-linux-x64.tar.gz && ./fundwarden/fundwarden`
+  `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden --mode server`.
+- **Windows (portable folder)**: unzip `PennyWarden-windows-x64.zip` anywhere (e.g.
+  `%LOCALAPPDATA%\Programs`), double-click `PennyWarden.cmd`.
+- **Linux**: `tar xzf PennyWarden-linux-x64.tar.gz && ./pennywarden/pennywarden`
 
 Startup applies pending Alembic migrations, binds to `127.0.0.1:8765`, waits for `/api/health`, and opens the
 default browser when a desktop session is available. Plain HTTP is acceptable because traffic stays on loopback.
@@ -39,31 +39,31 @@ default browser when a desktop session is available. Plain HTTP is acceptable be
 ### Linux: one command (since 1.5.0)
 
 ```bash
-curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh | sudo bash
 ```
 
 `install.sh` finds the release, downloads the Linux package, `install-server.sh` and `SHA256SUMS.txt` from it,
-verifies the checksums and runs that release's `install-server.sh` (systemd service `fundwarden`, `/opt/fundwarden`,
-data in `/var/lib/fundwarden`, a data snapshot before every upgrade, health check). The same command installs and
+verifies the checksums and runs that release's `install-server.sh` (systemd service `pennywarden`, `/opt/pennywarden`,
+data in `/var/lib/pennywarden`, a data snapshot before every upgrade, health check). The same command installs and
 upgrades; `config.toml`, the key, the database and attachments are never replaced. An installation from before
 1.6.6 (service `fmpoc`) is migrated to the new names by the same command — see [upgrade.md](upgrade.md).
 
 - **Which release:** by default the newest production release (1.6.6 was the first). `--channel test` installs the
   newest **test** pre-release instead (for a test server only); `--version <tag>` installs exactly that release:
-  `curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>`
+  `curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>`
 - **Port:** a new installation uses 8765 (`--port N` to change); an upgrade reads the port from the existing
   `config.toml`.
 - **Prefer to read it first?**
-  `curl -fsSLO https://github.com/kretherford0983/Fundwarden/releases/download/<tag>/install.sh`, read it, then
+  `curl -fsSLO https://github.com/kretherford0983/PennyWarden/releases/download/<tag>/install.sh`, read it, then
   `sudo bash install.sh --version <tag>`.
 
 The manual way (copy the package and `install-server.sh` to the server, then
-`sudo bash install-server.sh Fundwarden-linux-x64-portable.tar.gz`) still works.
+`sudo bash install-server.sh PennyWarden-linux-x64-portable.tar.gz`) still works.
 
 ### Any platform
 
 ```bash
-fundwarden --mode server --host 127.0.0.1 --port 8765 --no-browser     # behind a local reverse proxy
+pennywarden --mode server --host 127.0.0.1 --port 8765 --no-browser     # behind a local reverse proxy
 ```
 
 Authenticated network use must be served over HTTPS (BR-090). The application does not obtain certificates;
@@ -107,16 +107,16 @@ server {
 </VirtualHost>
 ```
 
-Run as a service: systemd unit (`ExecStart=/opt/fundwarden/current/fundwarden --mode server --no-browser`,
-`Environment=FM_DATA_DIR=/var/lib/fundwarden`, dedicated user) or on Windows with Task Scheduler/NSSM running
-`Fundwarden-Server.cmd`. Run a single application process per data directory (SQLite + in-process
+Run as a service: systemd unit (`ExecStart=/opt/pennywarden/current/pennywarden --mode server --no-browser`,
+`Environment=FM_DATA_DIR=/var/lib/pennywarden`, dedicated user) or on Windows with Task Scheduler/NSSM running
+`PennyWarden-Server.cmd`. Run a single application process per data directory (SQLite + in-process
 login rate limiter).
 
 ## Docker (optional)
 
 ```bash
-docker build -f packaging/docker/Dockerfile -t fundwarden .
-docker run -d -p 127.0.0.1:8765:8765 -v fundwarden-data:/data fundwarden
+docker build -f packaging/docker/Dockerfile -t pennywarden .
+docker run -d -p 127.0.0.1:8765:8765 -v pennywarden-data:/data pennywarden
 # or with automatic HTTPS:
 docker compose -f packaging/docker/docker-compose.yml up -d     # edit Caddyfile host name first
 ```
@@ -140,7 +140,7 @@ service account, because POSIX `chmod 600` is not meaningful there.
 
 ## License
 
-Fundwarden is free software under the GNU Affero General Public License v3.0 (`LICENSE`). Every package contains
+PennyWarden is free software under the GNU Affero General Public License v3.0 (`LICENSE`). Every package contains
 `LICENSE` and `THIRD-PARTY-NOTICES.txt` (all bundled components and their licenses). The app links to its source code
 (sign-in page, My Account, System/About) as AGPL section 13 requires. If you run a **modified** version for other
 people, publish your changes and point `SOURCE_URL` in `backend/fmpoc/legal.py` at them.

@@ -31,12 +31,12 @@ def _open_browser_when_ready(url: str) -> None:
 def reset_mfa_cli(argv: list[str]) -> int:
     """v1.4.1 CR-018: host-side MFA reset for a locked-out user (e.g. the only Administrator).
 
-        fundwarden reset-mfa --user NAME [--reason TEXT] [--data-dir DIR]
+        pennywarden reset-mfa --user NAME [--reason TEXT] [--data-dir DIR]
 
-    Run it as the account that owns the data directory (on the Linux server: sudo -u fundwarden ...). The user sets MFA
+    Run it as the account that owns the data directory (on the Linux server: sudo -u pennywarden ...). The user sets MFA
     up again at the next sign-in. Recorded in the audit log as MFA_RESET via "host_cli".
     """
-    p = argparse.ArgumentParser(prog="fundwarden reset-mfa", description="Reset a user's two-step verification")
+    p = argparse.ArgumentParser(prog="pennywarden reset-mfa", description="Reset a user's two-step verification")
     p.add_argument("--user", required=True, help="username")
     p.add_argument("--reason", default="Reset from the server command line")
     p.add_argument("--data-dir")
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None, window: bool = False) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "reset-mfa":
         return reset_mfa_cli(argv[1:])
-    p = argparse.ArgumentParser(prog="fundwarden", description="Fundwarden")
+    p = argparse.ArgumentParser(prog="pennywarden", description="PennyWarden")
     p.add_argument("--mode", choices=["local", "server"])
     p.add_argument("--host")
     p.add_argument("--port", type=int)
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None, window: bool = False) -> int:
 
     app = create_app(settings)
     url = f"http://{'127.0.0.1' if settings.host in ('0.0.0.0', '::') else settings.host}:{settings.port}"
-    print(f"Fundwarden {VERSION} - {settings.mode} mode - {url}")
+    print(f"PennyWarden {VERSION} - {settings.mode} mode - {url}")
     print(f"Application data: {settings.data_dir}")
     trusted = settings.trusted_proxies.strip()
     kwargs = dict(host=settings.host, port=settings.port, access_log=False, server_header=False,

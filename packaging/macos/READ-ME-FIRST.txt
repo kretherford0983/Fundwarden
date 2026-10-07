@@ -1,27 +1,27 @@
-Fundwarden for Mac (Apple Silicon)
+PennyWarden for Mac (Apple Silicon)
 ==================================
 
 Install
-  1. Drag Fundwarden onto the Applications folder in this window.
-  2. Open Fundwarden from Applications.
+  1. Drag PennyWarden onto the Applications folder in this window.
+  2. Open PennyWarden from Applications.
 
 The first time, macOS will say that it could not verify the app
-  Fundwarden is free, open-source software and is not registered with Apple,
+  PennyWarden is free, open-source software and is not registered with Apple,
   so macOS asks you to confirm once:
   1. In the message, click Done (not "Move to Trash").
   2. Open System Settings -> Privacy & Security and scroll down to Security.
-  3. Next to "Fundwarden was blocked...", click Open Anyway and confirm.
+  3. Next to "PennyWarden was blocked...", click Open Anyway and confirm.
   After that it opens normally. (On macOS 14 and earlier you can instead
-  right-click Fundwarden in Applications and choose Open.)
+  right-click PennyWarden in Applications and choose Open.)
 
   If you want to check the download first, compare it with SHA256SUMS.txt
-  from the same release:   shasum -a 256 Fundwarden-<version>-macos-arm64.dmg
+  from the same release:   shasum -a 256 PennyWarden-<version>-macos-arm64.dmg
 
 Use
-  A small Fundwarden window appears and your browser opens. Closing that
-  window (or Quit) stops Fundwarden. Your data is kept in
-  ~/Library/Application Support/Fundwarden - never inside the app - so
+  A small PennyWarden window appears and your browser opens. Closing that
+  window (or Quit) stops PennyWarden. Your data is kept in
+  ~/Library/Application Support/PennyWarden - never inside the app - so
   replacing the app with a newer version keeps everything.
 
 This app is for Macs with Apple Silicon (M1 or later), macOS 11 or later.
-Source code and license (AGPL-3.0): https://github.com/kretherford0983/Fundwarden
+Source code and license (AGPL-3.0): https://github.com/kretherford0983/PennyWarden

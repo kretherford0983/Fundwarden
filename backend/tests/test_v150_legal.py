@@ -6,7 +6,7 @@ from fmpoc import legal
 
 def test_status_and_version_offer_the_source(env):
     s = env.admin.get("/api/system/status").json()
-    assert s["license"] == "AGPL-3.0-only" and s["source_url"].startswith("https://github.com/kretherford0983/Fundwarden")
+    assert s["license"] == "AGPL-3.0-only" and s["source_url"].startswith("https://github.com/kretherford0983/PennyWarden")
     v = env.ru.get("/api/system/version").json()
     assert v["license"] == "AGPL-3.0-only" and v["source_url"] == s["source_url"]
 
@@ -25,6 +25,6 @@ def test_source_link_points_at_the_build_commit(monkeypatch, tmp_path):
     f = tmp_path / "build_info.json"
     f.write_text(json.dumps({"version": "1.5.0", "commit": "abc1234"}))
     monkeypatch.setattr("fmpoc.config.BUILD_INFO_FILE", f)
-    assert legal.source_url() == "https://github.com/kretherford0983/Fundwarden/tree/abc1234"
+    assert legal.source_url() == "https://github.com/kretherford0983/PennyWarden/tree/abc1234"
     f.write_text(json.dumps({"version": "1.5.0", "commit": "<script>"}))
-    assert legal.source_url() == "https://github.com/kretherford0983/Fundwarden"
+    assert legal.source_url() == "https://github.com/kretherford0983/PennyWarden"

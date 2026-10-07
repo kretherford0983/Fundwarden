@@ -2,6 +2,35 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.7.0 — 2026-10-07
+**The application is renamed to PennyWarden** (#70). Another product in the financial field already uses the name
+Fundwarden. This release contains the rename and nothing else: no database migration, no change to data, settings
+or the way anything works. The gold coin with the keyhole stays.
+- **What you see.** *PennyWarden* in the browser tab, on the sign-in page, in the top bar, in reports, in the Mac
+  window and in the documentation. New backups are named `pennywarden-backup-…`; backups made as Fundwarden restore
+  as before. Two-step verification keeps working — the entry in your authenticator app keeps its old label; new
+  set-ups are labelled *PennyWarden*.
+- **Downloads.** `PennyWarden-linux-x64-portable.tar.gz` (command `pennywarden`), `PennyWarden-windows-x64.zip`
+  (`PennyWarden.cmd`), `PennyWarden-<version>-windows-x64.exe`, `PennyWarden-<version>-macos-arm64.dmg`
+  (`PennyWarden.app`). The repository is `github.com/kretherford0983/PennyWarden` — **rename it on GitHub before
+  installing a 1.7.0 build**; the old address is forwarded.
+- **Server installs migrate themselves.** Run the normal upgrade command. The installer finds the Fundwarden
+  installation, stops it, **copies** `/var/lib/fundwarden` to `/var/lib/pennywarden` (compared file by file),
+  installs the service `pennywarden` under `/opt/pennywarden` on the same port and disables `fundwarden`. The old
+  installation is not changed: going back is `systemctl disable --now pennywarden && systemctl enable --now
+  fundwarden`, and the installer does that by itself when PennyWarden does not start. Remove the old installation
+  with the checklist in docs/upgrade.md (*Cleanup after the rename to PennyWarden*) when you are sure. A server that
+  still holds the stopped installation from before 1.6.6 (`fmpoc`) is handled too: the one in service is migrated.
+- **Windows, Mac and Linux PCs.** At its first start 1.7.0 renames the default data folder in place
+  (`…\Fundwarden` → `…\PennyWarden`); a folder you chose yourself is never touched. On a Mac the *Open Anyway* step
+  is needed once more, because macOS sees a new app.
+- **Docker.** Image `pennywarden`, volume `pennywarden-data`; docs/upgrade.md has the three commands that copy the
+  old volume.
+- **For scripts.** The rarely used `install.sh` overrides are now `PENNYWARDEN_REPO`, `PENNYWARDEN_API`,
+  `PENNYWARDEN_DOWNLOAD` and `PENNYWARDEN_CONFIG`. `install.sh --version v1.6.8` (or older) still installs that
+  release under the name it had.
+- Not renamed (internal): the database file `fmpoc.sqlite3`, the log file, the `FM_*` settings, the `.fmbak` format.
+
 ## 1.6.8 — 2026-10-07
 Maintenance of the build pipeline, repository security automation, one sign-in fix and two small hardening changes
 from the first CodeQL results. No database migration and no change to data or settings.

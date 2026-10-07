@@ -20,7 +20,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "packaging" / "linux" / "install.sh"
-PKG = "Fundwarden-linux-x64-portable.tar.gz"
+PKG = "PennyWarden-linux-x64-portable.tar.gz"
 
 pytestmark = pytest.mark.skipif(not (shutil.which("bash") and shutil.which("curl") and shutil.which("sha256sum")),
                                 reason="needs bash, curl and sha256sum")
@@ -37,14 +37,14 @@ def _tarball() -> bytes:
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as t:
         data = b"#!/bin/sh\necho fake\n"
-        info = tarfile.TarInfo("Fundwarden-linux-x64/fundwarden")
+        info = tarfile.TarInfo("PennyWarden-linux-x64/pennywarden")
         info.size = len(data)
         t.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
 
 STUB = b"""#!/usr/bin/env bash
-printf '%s\\n' "$@" > "$FUNDWARDEN_TEST_RECORD"
+printf '%s\\n' "$@" > "$PENNYWARDEN_TEST_RECORD"
 """
 
 
@@ -114,8 +114,8 @@ def run(gh, tmp_path, *args, config: str | None = None):
     cfg = tmp_path / "config.toml"
     if config is not None:
         cfg.write_text(config)
-    env = {**os.environ, "FUNDWARDEN_API": gh.base + "/api", "FUNDWARDEN_DOWNLOAD": gh.base + "/dl",
-           "FUNDWARDEN_TEST_NONROOT": "1", "FUNDWARDEN_TEST_RECORD": str(rec), "FUNDWARDEN_CONFIG": str(cfg)}
+    env = {**os.environ, "PENNYWARDEN_API": gh.base + "/api", "PENNYWARDEN_DOWNLOAD": gh.base + "/dl",
+           "PENNYWARDEN_TEST_NONROOT": "1", "PENNYWARDEN_TEST_RECORD": str(rec), "PENNYWARDEN_CONFIG": str(cfg)}
     # piped into bash exactly like `curl … | sudo bash -s -- …`
     p = subprocess.run(["bash", "-s", "--", "--yes", *args], input=SCRIPT.read_bytes(), env=env,
                        capture_output=True, timeout=60)
@@ -130,7 +130,7 @@ def test_auto_uses_newest_test_prerelease_while_in_beta(gh, tmp_path):
     gh.add_release("v1.5.0-test.11", True)
     code, out, args = run(gh, tmp_path)
     assert code == 0, out
-    assert "Fundwarden v1.5.0-test.11" in out and "TEST pre-release" in out
+    assert "PennyWarden v1.5.0-test.11" in out and "TEST pre-release" in out
     assert args is not None and args[0].endswith(PKG) and len(args) == 1
 
 
@@ -139,7 +139,7 @@ def test_auto_prefers_production_from_1_5_0(gh, tmp_path):
     gh.add_release("v1.6.0-test.3", True)
     code, out, args = run(gh, tmp_path, "--port", "9001")
     assert code == 0, out
-    assert "Fundwarden v1.5.0 " in out and "TEST" not in out
+    assert "PennyWarden v1.5.0 " in out and "TEST" not in out
     assert args[1:] == ["--port", "9001"]
 
 
@@ -147,7 +147,7 @@ def test_auto_ignores_production_older_than_the_installer(gh, tmp_path):
     gh.add_release("v1.2.1", False)
     gh.add_release("v1.5.0-test.2", True)
     code, out, _ = run(gh, tmp_path)
-    assert code == 0 and "Fundwarden v1.5.0-test.2" in out
+    assert code == 0 and "PennyWarden v1.5.0-test.2" in out
 
 
 def test_channels_and_pinned_version(gh, tmp_path):
@@ -158,7 +158,7 @@ def test_channels_and_pinned_version(gh, tmp_path):
     assert code == 0 and "v1.5.0-test.2" in out
     gh.add_release("v1.5.0-test.3", True)
     code, out, _ = run(gh, tmp_path, "--version", "v1.5.0-test.2")
-    assert code == 0 and "Fundwarden v1.5.0-test.2" in out
+    assert code == 0 and "PennyWarden v1.5.0-test.2" in out
     assert not any(r.startswith("/api") for r in gh.requests[-3:])  # pinned: no API lookup
     assert run(gh, tmp_path, "--version", "1.5;rm -rf /")[0] != 0
     assert run(gh, tmp_path, "--port", "http")[0] != 0
@@ -179,7 +179,7 @@ def test_requires_root(gh, tmp_path):
     if os.geteuid() == 0:
         pytest.skip("running as root")
     gh.add_release("v1.5.0-test.9", True)
-    env = {**os.environ, "FUNDWARDEN_API": gh.base + "/api", "FUNDWARDEN_DOWNLOAD": gh.base + "/dl"}
+    env = {**os.environ, "PENNYWARDEN_API": gh.base + "/api", "PENNYWARDEN_DOWNLOAD": gh.base + "/dl"}
     p = subprocess.run(["bash", "-s", "--", "--yes"], input=SCRIPT.read_bytes(), env=env, capture_output=True)
     assert p.returncode != 0 and b"run as root" in p.stderr
 
@@ -201,13 +201,13 @@ def test_release_lookup_understands_both_api_formats(gh, tmp_path, compact):
     gh.add_release("v1.6.6-test.31", True)
     gh.releases[0]["body"] = 'notes that mention "tag_name": "v9.9.9" and "prerelease": false'
     code, out, recorded = run(gh, tmp_path, "--channel", "test")
-    assert code == 0 and "Fundwarden v1.6.6-test.31" in out, out
+    assert code == 0 and "PennyWarden v1.6.6-test.31" in out, out
     code, out, _ = run(gh, tmp_path)   # auto: no production release yet -> newest test pre-release
     assert code == 0 and "v1.6.6-test.31" in out and "TEST pre-release" in out, out
     gh.add_release("v1.6.6", False)
     gh.add_release("v1.6.7-test.40", True)
     code, out, recorded = run(gh, tmp_path)   # auto: the production release wins over a newer test build
-    assert code == 0 and "Fundwarden v1.6.6 " in out and "TEST" not in out, out
+    assert code == 0 and "PennyWarden v1.6.6 " in out and "TEST" not in out, out
     assert recorded[0].endswith(PKG)
     code, out, _ = run(gh, tmp_path, "--channel", "test")
     assert code == 0 and "v1.6.7-test.40" in out, out

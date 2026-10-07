@@ -1,22 +1,22 @@
-<h1><img src="frontend/public/favicon.svg" alt="" width="36" align="top"> Fundwarden</h1>
+<h1><img src="frontend/public/favicon.svg" alt="" width="36" align="top"> PennyWarden</h1>
 
 **A free, self-hosted financial ledger for small organizations** — clubs, booster groups, associations, parent
-organizations and similar bodies that keep a checkbook, a budget and an annual audit. Fundwarden runs on your own
+organizations and similar bodies that keep a checkbook, a budget and an annual audit. PennyWarden runs on your own
 Windows PC, Mac or Linux server; your data stays in one folder you control. No subscription, no cloud account.
 
-Current release: **1.6.7** · [Download](https://github.com/kretherford0983/Fundwarden/releases/latest) ·
+Current release: **1.7.0** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
 [Install](#install) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
 <p align="center">
-  <img src="docs/screenshots/readme/dashboard.png" alt="The Fundwarden dashboard: due reminders, the current Fiscal Year, budget totals, bank balances and charts" width="900">
+  <img src="docs/screenshots/readme/dashboard.png" alt="The PennyWarden dashboard: due reminders, the current Fiscal Year, budget totals, bank balances and charts" width="900">
 </p>
 
 <sub>All screenshots show a made-up organization (`scripts/demo_data.py`).</sub>
 
-## Why Fundwarden
+## Why PennyWarden
 
 A volunteer treasurer has to answer three questions at any time: *what did we plan, what actually happened, and
-can we prove it?* Fundwarden is built around those three — **budgets**, **bank registers** and **documentation
+can we prove it?* PennyWarden is built around those three — **budgets**, **bank registers** and **documentation
 that an auditor can follow** — and around the fact that treasurers change: everything a successor or an audit
 committee needs is in the application, not in someone's spreadsheet.
 
@@ -103,41 +103,41 @@ return every quarter, renew the insurance every year — so duties survive a cha
 
 | | |
 |---|---|
-| **Mac with Apple Silicon (single user)** | Download `Fundwarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest), drag Fundwarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* ([details](docs/deployment.md)). |
-| **Windows (single user)** | Download `Fundwarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/Fundwarden/releases/latest) and double-click it. |
-| **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
+| **Mac with Apple Silicon (single user)** | Download `PennyWarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest), drag PennyWarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* ([details](docs/deployment.md)). |
+| **Windows (single user)** | Download `PennyWarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest) and double-click it. |
+| **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
 
 The first start shows the **Initialization Wizard** (organization name, administrator account). There are no
 default credentials. Details, HTTPS, Docker and moving data between machines: [docs/deployment.md](docs/deployment.md).
 Upgrades never touch your data or configuration: [docs/upgrade.md](docs/upgrade.md). **Make encrypted backups
 regularly** (System/About → Backup / Restore) and keep them off the machine: [docs/backup-restore.md](docs/backup-restore.md).
 
-Fundwarden is provided without warranty (see [License](#license)). It is a record-keeping tool, not accounting,
+PennyWarden is provided without warranty (see [License](#license)). It is a record-keeping tool, not accounting,
 tax or legal advice.
 
 ## Documentation
 
-**Using Fundwarden** — the guides describe what each release line added; read them in order for the full picture:
+**Using PennyWarden** — the guides describe what each release line added; read them in order for the full picture:
 [1.2](docs/user-guide-v1.2.md) (reports, transfers) · [1.3](docs/user-guide-v1.3.md) (Fiscal Year documents, close
 report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verification, charts, backup) ·
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
 reminders).
 
-**Running Fundwarden**
+**Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability
 - [docs/upgrade.md](docs/upgrade.md) — upgrading and rolling back; database changes per version
 - [docs/backup-restore.md](docs/backup-restore.md) — encrypted backups, restore, disaster recovery
 - [docs/configuration.md](docs/configuration.md) — settings, config file, environment variables, data layout
 - [docs/security.md](docs/security.md) — security controls and dependency-vulnerability checks
 
-**Developing Fundwarden**
+**Developing PennyWarden**
 - [docs/branching.md](docs/branching.md) — branches, builds, releases and versioning (`Breaking.Major.Minor`)
 - [docs/implementation-notes.md](docs/implementation-notes.md) — design decisions, including every change request (§1a)
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each version
 - `scripts/demo_data.py` and `scripts/readme_screenshots.mjs` — fill a new, empty installation with a made-up
   organization and retake the screenshots on this page
 
-**Origin.** Fundwarden started as an implementation of the *Financial Management POC Agent-Agnostic Benchmark v1.1*.
+**Origin.** PennyWarden started as an implementation of the *Financial Management POC Agent-Agnostic Benchmark v1.1*.
 The specification is kept unchanged in [`spec/`](spec/); [docs/acceptance-results.md](docs/acceptance-results.md),
 [docs/benchmark-results.md](docs/benchmark-results.md) and [docs/manual-verification.md](docs/manual-verification.md)
 record the results against that specification as of version 1.1 and are not updated for later versions. Until 1.6.5
@@ -172,7 +172,7 @@ Useful options: `--mode server --host 0.0.0.0 --port 8765 --data-dir DIR --no-br
 cd backend && python -m pytest                    # API tests incl. security negative tests
 cd frontend && npx tsc --noEmit -p . && npm run build
 cd frontend && FM_PYTHON=$(which python) npx playwright test                     # E2E vs source
-cd frontend && FM_BUNDLE=../dist/fundwarden/fundwarden npx playwright test   # E2E vs package
+cd frontend && FM_BUNDLE=../dist/pennywarden/pennywarden npx playwright test   # E2E vs package
 bash scripts/security_check.sh                    # pip-audit + npm audit + security tests
 ```
 
@@ -180,14 +180,14 @@ bash scripts/security_check.sh                    # pip-audit + npm audit + secu
 
 | Artifact | Command | Notes |
 |---|---|---|
-| Linux x86-64 portable (servers, glibc ≥ 2.27) | `bash packaging/build_linux_portable.sh` | → `dist/Fundwarden-linux-x64-portable.tar.gz`; install with `sudo bash packaging/linux/install-server.sh <tarball>` |
-| Linux x86-64 self-contained | `bash packaging/build_linux.sh` | PyInstaller onedir → `dist/Fundwarden-linux-x64.tar.gz` |
-| Windows x86-64 portable folder | `bash packaging/build_windows_portable.sh` | Runs on any OS; relocatable CPython + win_amd64 wheels → `dist/Fundwarden-windows-x64.zip`; launch `Fundwarden.cmd` |
-| Windows x86-64 one-file .exe | `pyinstaller --noconfirm --distpath dist packaging/pyinstaller/fmpoc-onefile.spec` | Build on Windows (CI: `windows-latest`) → `Fundwarden-<version>-windows-x64.exe` |
-| macOS arm64 app + disk image | `bash packaging/build_macos.sh` | Build on a Mac with Apple Silicon (CI: `macos-15`) → `dist/Fundwarden.app`, `Fundwarden-<version>-macos-arm64.dmg` (ad hoc signed) |
-| Windows x86-64 PyInstaller folder | `pwsh packaging/build_windows.ps1` | Build on Windows → `Fundwarden.exe` |
+| Linux x86-64 portable (servers, glibc ≥ 2.27) | `bash packaging/build_linux_portable.sh` | → `dist/PennyWarden-linux-x64-portable.tar.gz`; install with `sudo bash packaging/linux/install-server.sh <tarball>` |
+| Linux x86-64 self-contained | `bash packaging/build_linux.sh` | PyInstaller onedir → `dist/PennyWarden-linux-x64.tar.gz` |
+| Windows x86-64 portable folder | `bash packaging/build_windows_portable.sh` | Runs on any OS; relocatable CPython + win_amd64 wheels → `dist/PennyWarden-windows-x64.zip`; launch `PennyWarden.cmd` |
+| Windows x86-64 one-file .exe | `pyinstaller --noconfirm --distpath dist packaging/pyinstaller/fmpoc-onefile.spec` | Build on Windows (CI: `windows-latest`) → `PennyWarden-<version>-windows-x64.exe` |
+| macOS arm64 app + disk image | `bash packaging/build_macos.sh` | Build on a Mac with Apple Silicon (CI: `macos-15`) → `dist/PennyWarden.app`, `PennyWarden-<version>-macos-arm64.dmg` (ad hoc signed) |
+| Windows x86-64 PyInstaller folder | `pwsh packaging/build_windows.ps1` | Build on Windows → `PennyWarden.exe` |
 | Linux one-command install | `packaging/linux/install.sh` | Published with every release — see [docs/deployment.md](docs/deployment.md) |
-| Docker (optional, server) | `docker build -f packaging/docker/Dockerfile -t fundwarden .` | plus `docker-compose.yml` with Caddy HTTPS |
+| Docker (optional, server) | `docker build -f packaging/docker/Dockerfile -t pennywarden .` | plus `docker-compose.yml` with Caddy HTTPS |
 | Docker from bundle (no registry needed) | `bash packaging/docker/build_bundle_image.sh` | image from the self-contained Linux bundle |
 
 CI/CD (GitHub Actions, `.github/workflows/`): every pull request and feature branch runs the full test suite; merges
@@ -208,12 +208,12 @@ docs/                     user guides, operations and implementation documentati
 
 ## Issues and contributions
 
-Bugs and enhancement requests: [GitHub issues](https://github.com/kretherford0983/Fundwarden/issues). Please do **not**
+Bugs and enhancement requests: [GitHub issues](https://github.com/kretherford0983/PennyWarden/issues). Please do **not**
 put real financial data, account numbers or backups in an issue.
 
 ## License
 
-Fundwarden is free software: you can redistribute it and/or modify it under the terms of the
+PennyWarden is free software: you can redistribute it and/or modify it under the terms of the
 [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). If you run a modified version for other people
 over a network, you must offer them its source code. Bundled third-party components keep their own licenses — see
 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) (regenerate with `python scripts/third_party_notices.py`; CI
