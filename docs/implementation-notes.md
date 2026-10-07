@@ -44,6 +44,16 @@ could not otherwise be corrected. Scope and safeguards:
 - Audited as `TRANSACTION_VOID_DATE_CORRECTED` with before/after snapshots and the reason.
 - Tests: `backend/tests/test_cr001_void_date.py` (5 tests) and E2E "CR-001".
 
+**1.7.1 Display name required and shown in the top bar (issues #47, #46, #50).** `services/users.clean_display_name`
+(trimmed, at least 3 characters, messages as agreed in #47) on create and on every update that sends the field;
+`bootstrap` gives the first Administrator the username. Migration `0017` copies the username where the name is
+missing or too short and adds two triggers on `app_user`. Triggers, not `NOT NULL` + `CHECK`: SQLite can add those
+only by rebuilding the table, and `app_user` is referenced by almost every other table — a later migration that
+rebuilds it must recreate the triggers (`tests/test_v171_display_name.py` checks they exist at head). The model
+column therefore stays nullable in the schema. Top bar: `me.display_name` without roles; My account lists username,
+email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
+Administrator can see which users still show a username).
+
 **1.7.0 Rename to PennyWarden (product owner, 2026-10-07; issue #70).** Full record: `CHANGELOG.md` 1.7.0 and
 `docs/upgrade.md` ("1.7.0: the rename to PennyWarden").
 

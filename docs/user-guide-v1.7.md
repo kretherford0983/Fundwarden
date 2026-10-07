@@ -1,7 +1,19 @@
 # What's new in 1.7 — quick guide
 
-*1.7.0: the application is renamed PennyWarden. 1.7.1: maintenance of the repository; nothing changes in the
-application.*
+*1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user.*
+
+## 1.7.1: your name in the top bar
+The top bar now shows your **display name** — for example *Jordan Lee* — instead of your username, and no longer
+lists your roles next to it. Your username, email address and roles are on **My account**.
+
+**Administrators:** every user now has a display name of at least 3 characters.
+- **New user:** *Display name* must be filled in. Leaving it empty gives "Display name is required."; fewer than 3
+  characters gives "Display name must be at least 3 characters." Spaces before and after the name are removed.
+- **Editing a user:** the display name can be changed but not removed.
+- **Existing users** who had no display name were given their username as display name by the upgrade — nothing
+  looks different for them until you enter their real name under **Users → Edit**. The Users list has a
+  *Display name* column so you can see who still shows a username.
+- The first Administrator created by the Initialization Wizard also starts with the username as display name.
 
 ## 1.7.0: a new name — PennyWarden
 The application is now called **PennyWarden**. Another product in the financial field already uses the name it had

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { BuildDetails, ErrorBox, Field, GuardedForm } from "../components";
-import { useMe } from "../App";
+import { ROLE_NAMES, useMe } from "../App";
 import { SecuritySection } from "./Mfa";
 
 export default function Account() {
@@ -32,7 +32,13 @@ export default function Account() {
   return (
     <div>
       <h1>My account</h1>
-      <p>Signed in as <b>{me.username}</b> ({me.email})</p>
+      <p>Signed in as <b>{me.display_name || me.username}</b></p>
+      <dl className="dl" aria-label="Your account">
+        <dt>Username</dt><dd>{me.username}</dd>
+        <dt>Email</dt><dd>{me.email}</dd>
+        <dt>{me.roles.length === 1 ? "Role" : "Roles"}</dt>
+        <dd>{me.roles.length ? me.roles.map((r) => ROLE_NAMES[r] || r).join(", ") : "—"}</dd>
+      </dl>
       <section className="card">
         <h2>Appearance</h2>
         <div role="radiogroup" aria-label="Theme" className="row">

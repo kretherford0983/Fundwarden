@@ -21,9 +21,15 @@ import Reports from "./pages/Reports";
 import Fundraisers, { FundraiserDetail } from "./pages/Fundraisers";
 import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
 
+export const ROLE_NAMES: Record<string, string> = {
+  ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
+  REGISTER_USER: "Register User", AUDITOR: "Auditor",
+};
+
 export interface Me {
   id: number;
   username: string;
+  display_name?: string | null; // 1.7.1 (#47): always set; shown in the top bar (#46)
   email: string;
   security_domain: "ADMINISTRATOR" | "FINANCIAL" | "AUDITOR";
   roles: string[];
@@ -181,10 +187,6 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
   else if ((m = match("/fundraisers/:id", path))) page = guard("/fundraisers", <FundraiserDetail id={Number(m.id)} />);
   else page = <p>Page not found.</p>;
 
-  const roleNames: Record<string, string> = {
-    ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
-    REGISTER_USER: "Register User", AUDITOR: "Auditor",
-  };
   return (
     <div className={`shell${collapsed ? " nav-collapsed" : ""}`}>
       <header className="topbar">
@@ -192,7 +194,8 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
           <img className="logo" src="/favicon.svg" alt="" width={20} height={20} /> {workspace} <span className="muted">· PennyWarden</span>
         </div>
         <div className="userbox">
-          <span className="muted">{me.username} ({me.roles.map((r) => roleNames[r] || r).join(", ")})</span>
+          {/* 1.7.1: the display name (#46), without the roles - they are on My account (#50) */}
+          <span className="muted user-name">{me.display_name || me.username}</span>
           <button className="small" onClick={toggleTheme} aria-label={`Switch to ${me.theme === "dark" ? "light" : "dark"} mode`}>
             {me.theme === "dark" ? "☀ Light" : "☾ Dark"}
           </button>

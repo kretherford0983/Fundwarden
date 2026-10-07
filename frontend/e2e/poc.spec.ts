@@ -23,12 +23,16 @@ async function logout(page: Page) {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 }
 
+// 1.7.1 (#47): every user has a display name - it is what the top bar shows (#46)
+const SHOWN: Record<string, string> = { bm1: "Bea Manager", ru1: "Rae Register" };
+
 async function createUser(page: Page, username: string, roleLabel: string) {
   await page.goto("/users");
   await page.getByRole("button", { name: "New user" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Username").fill(username);
   await dlg.getByLabel("Email").fill(`${username}@example.org`);
+  await dlg.getByLabel("Display name").fill(SHOWN[username] || `${username} person`);
   await dlg.getByLabel("Initial password").fill(PW);
   await dlg.getByLabel("FINANCIAL").check();
   await dlg.getByLabel(roleLabel).check();
@@ -75,6 +79,59 @@ test("AC-UI-THEME-001..003: dark mode persists across logout/login", async ({ pa
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(bg).not.toBe("rgb(246, 247, 249)");
+});
+
+test("#47 / #46 / #50: display name is required; the top bar shows it without the roles; roles are on My account", async ({ page }) => {
+  await login(page, "admin");
+  const userName = page.locator("header.topbar .user-name");
+  await expect(userName).toHaveText("admin");                       // the first Administrator: the username
+  await expect(page.locator("header.topbar")).not.toContainText("Administrator");
+  await page.goto("/users");
+  await expect(page.getByRole("row", { name: /bm1/ })).toContainText("Bea Manager");
+  // new user: no display name, then one that is too short, then a valid one (stored trimmed)
+  await page.getByRole("button", { name: "New user" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Username").fill("dana");
+  await dlg.getByLabel("Email").fill("dana@example.org");
+  await dlg.getByLabel("Initial password").fill(PW);
+  await dlg.getByLabel("FINANCIAL").check();
+  await dlg.getByLabel("Budget User").check();
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg.getByRole("alert")).toContainText("Display name is required.");
+  await dlg.getByLabel("Display name").fill("  ab ");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg.getByRole("alert")).toContainText("Display name must be at least 3 characters.");
+  await dlg.getByLabel("Display name").fill("   Dana Display  ");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row", { name: /dana/ })).toContainText("Dana Display");
+  // editing: it cannot be removed or shortened
+  await page.getByRole("row", { name: /dana/ }).getByRole("button", { name: "Edit" }).click();
+  const ed = page.getByRole("dialog");
+  await expect(ed.getByLabel("Display name")).toHaveValue("Dana Display");
+  await ed.getByLabel("Display name").fill("");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(ed.getByRole("alert")).toContainText("Display name is required.");
+  await ed.getByLabel("Display name").fill("Da");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(ed.getByRole("alert")).toContainText("Display name must be at least 3 characters.");
+  await ed.getByLabel("Display name").fill("Dana D. Display");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row", { name: /dana/ })).toContainText("Dana D. Display");
+  await logout(page);
+  // a Budget Manager: the display name instead of the username, and no roles in the top bar
+  await login(page, "bm1");
+  await expect(userName).toHaveText("Bea Manager");
+  const bar = page.locator("header.topbar");
+  await expect(bar).not.toContainText("bm1");
+  await expect(bar).not.toContainText("Budget Manager");
+  await expect(bar.getByRole("link", { name: "My account" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await bar.getByRole("link", { name: "My account" }).click();
+  const facts = page.getByLabel("Your account");
+  await expect(facts).toContainText("bm1");
+  await expect(facts).toContainText("bm1@example.org");
+  await expect(facts).toContainText("Budget Manager");
+  await expect(page.getByText("Signed in as")).toContainText("Bea Manager");
 });
 
 test("#68: signing in while the page's first form-token request is still under way works", async ({ page }) => {

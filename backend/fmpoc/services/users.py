@@ -46,7 +46,22 @@ def _pw_check(pw: str, username: str) -> None:
         raise AppError(422, "PASSWORD_POLICY", " ".join(errs), errors=[{"field": "password", "message": e} for e in errs])
 
 
+DISPLAY_NAME_MIN = 3
+
+
+def clean_display_name(value: str | None) -> str:
+    """1.7.1 (#47): every user has a display name - trimmed, at least 3 characters (the database enforces the same
+    rule, migration 0017). It is what the top bar shows for the signed-in user (#46)."""
+    name = (value or "").strip()
+    if not name:
+        raise validation("Display name is required.", "display_name")
+    if len(name) < DISPLAY_NAME_MIN:
+        raise validation(f"Display name must be at least {DISPLAY_NAME_MIN} characters.", "display_name")
+    return name
+
+
 def create(db: Session, ctx, data) -> User:
+    display_name = clean_display_name(data.display_name)
     err = validate_role_set(data.security_domain, set(data.roles))
     if err:
         raise validation(err, "roles")
@@ -55,7 +70,7 @@ def create(db: Session, ctx, data) -> User:
         raise conflict("DUPLICATE_USERNAME", "That username is already in use.")
     _pw_check(data.password, data.username)
     u = User(workspace_id=ctx.workspace_id, username=data.username, username_normalized=data.username.lower(),
-             email=data.email, display_name=data.display_name, password_hash=hash_password(data.password),
+             email=data.email, display_name=display_name, password_hash=hash_password(data.password),
              active=True, security_domain=data.security_domain, theme="light", password_changed_at=utcnow(),
              created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id)
     db.add(u)
@@ -72,8 +87,8 @@ def update(db: Session, ctx, u: User, data) -> User:
         if not data.email:
             raise validation("Email is required.", "email")
         u.email = data.email
-    if "display_name" in f:
-        u.display_name = data.display_name
+    if "display_name" in f:   # sent empty = an attempt to remove it
+        u.display_name = clean_display_name(data.display_name)
     domain = data.security_domain if "security_domain" in f and data.security_domain else u.security_domain
     roles_changed = False
     if "roles" in f or domain != u.security_domain:

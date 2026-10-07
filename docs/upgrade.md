@@ -10,7 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
-| 1.7.0 → 1.7.1 | none | switch binaries only |
+| 1.7.0 → 1.7.1 | migration `0017` — no column added or removed: users without a display name (or with one shorter than 3 characters) get their **username** as display name, every other display name is left as it is; two database triggers then require a display name of at least 3 characters for every user | switch binaries **and** restore the pre-upgrade data backup (1.7.0 does not know revision 0017) |
 | 1.6.8 → 1.7.0 | none — the application is renamed to PennyWarden (see *1.7.0: the rename to PennyWarden* below) | switch back to the old `fundwarden` service (left in place) |
 | 1.6.7 → 1.6.8 | none | switch binaries only |
 | 1.6.6 → 1.6.7 | migrations `0014` — **adds** column `entity.position` (empty for every existing Entity); `0015` — **adds** columns `reminder.repeat_every`, `repeat_unit`, `repeat_until`, `repeat_anchor`, `repeat_index`, `repeat_source_id` (existing reminders stay one-time); `0016` — **rewrites** `entity.phone` values that are clearly 10-digit numbers to plain digits (e.g. `555-123-4567` → `5551234567`); other values are left as they are | switch binaries **and** restore the pre-upgrade data backup |

@@ -3,6 +3,20 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.7.1 — 2026-10-07
+Database migration `0017` (no column added or removed; fills in missing display names and adds the rule to the
+database). Rolling back to 1.7.0 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md).
+- **Your name in the top bar (#46).** The top bar shows the signed-in user's **display name** instead of the
+  username.
+- **Roles moved out of the top bar (#50).** The list of roles next to the name is gone; the top bar is the name,
+  the theme switch, reminders, *My account* and *Sign out*. **My account** now shows your username, email address
+  and roles.
+- **Every user has a display name (#47).** *Display name* is required when an Administrator creates a user and
+  cannot be removed when editing one. It is stored without leading or trailing spaces and must be at least 3
+  characters (at most 120, as before): "Display name is required." / "Display name must be at least 3
+  characters." Existing users without a display name — or with one shorter than 3 characters — get their
+  **username** as display name during the upgrade; all others are unchanged. The first Administrator created by
+  the Initialization Wizard starts with the username too. The database enforces the rule as well. The Users list
+  has a *Display name* column.
 - **Dependabot no longer proposes major versions (#80).** When 1.6.8 switched Dependabot on, it opened a pull
   request for every major upgrade it could find (React 19, TypeScript 7, Vite 8, …) and one for `pydantic_core`
   alone; none of them could pass the tests. Major upgrades are now left to be planned as issues, and
