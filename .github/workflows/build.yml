@@ -28,13 +28,13 @@ jobs:
 
   package:
     needs: tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -72,7 +72,7 @@ jobs:
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:8790/api/health >/dev/null && break; sleep 1; done
           STATUS=$(curl -fs http://127.0.0.1:8790/api/system/status); echo "$STATUS"
           [[ "$STATUS" == *"\"version\":\"$(bash scripts/version.sh)\""* ]] || { echo "::error::package reports the wrong version"; exit 1; }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-packages-${{ github.run_number }}
           path: release/
@@ -87,13 +87,13 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements*.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -117,7 +117,7 @@ jobs:
           python -m pip install --quiet -r backend/requirements.txt pyinstaller==6.22.3
           python -m PyInstaller --noconfirm --log-level WARN --distpath dist --workpath build/pyinstaller-onefile packaging/pyinstaller/fmpoc-onefile.spec
           Get-Item "dist/$env:FM_EXE_NAME.exe" | Format-List Name, Length
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: linux-packages-${{ github.run_number }}
           path: release
@@ -127,7 +127,7 @@ jobs:
         run: |
           Expand-Archive release/Fundwarden-windows-x64.zip -DestinationPath "$env:RUNNER_TEMP/zip"
           pwsh packaging/windows/smoke_test.ps1 -Command "$env:RUNNER_TEMP/zip/Fundwarden-windows-x64/Fundwarden.cmd" -Version "${{ needs.package.outputs.version }}" -Port 8792
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-exe-${{ github.run_number }}
           path: dist/Fundwarden-${{ needs.package.outputs.version }}-windows-x64.exe
@@ -139,13 +139,13 @@ jobs:
     runs-on: macos-15          # Apple Silicon (arm64) runner
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements*.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -170,7 +170,7 @@ jobs:
         run: bash packaging/macos/smoke_test.sh dist/Fundwarden.app "${{ needs.package.outputs.version }}" 8793 window
       - name: Smoke test the app from the disk image (no window)
         run: bash packaging/macos/smoke_test.sh "dist/Fundwarden-${{ needs.package.outputs.version }}-macos-arm64.dmg" "${{ needs.package.outputs.version }}" 8794 headless
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-app-${{ github.run_number }}
           path: dist/Fundwarden-${{ needs.package.outputs.version }}-macos-arm64.dmg
@@ -179,23 +179,23 @@ jobs:
   assemble:
     # All release files + SHA256SUMS.txt (install.sh verifies against it). Publishing waits for all smoke tests.
     needs: [package, windows-exe, macos-app]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: linux-packages-${{ github.run_number }}
           path: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: windows-exe-${{ github.run_number }}
           path: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: macos-app-${{ github.run_number }}
           path: release
       - name: Checksums
         run: (cd release && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Fundwarden-${{ needs.package.outputs.version }}-${{ github.ref_name }}-${{ github.run_number }}
           path: release/
@@ -206,14 +206,14 @@ jobs:
   publish:
     needs: [package, assemble]
     if: github.ref_name == 'test' || github.ref_name == 'main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Fundwarden-${{ needs.package.outputs.version }}-${{ github.ref_name }}-${{ github.run_number }}
           path: release

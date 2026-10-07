@@ -229,7 +229,9 @@ def main(base: str) -> None:
     bm.post("/api/reminders", {"scope": "ORGANIZATION", "title": "Renew the liability insurance",
                                "due_date": (today + dt.timedelta(days=75)).isoformat(), "notify_days_before": 30,
                                "repeat_every": 1, "repeat_unit": "YEAR"})
-    print(f"Demo organization '{ORG}' created at {base}. Sign in as treasurer / {PASSWORD}")
+    # 1.6.8 (#66): the password is not printed (CodeQL: clear-text logging) - it is the PASSWORD constant above.
+    print(f"Demo organization '{ORG}' created at {base}. Sign in as treasurer with the demo password "
+          f"(PASSWORD near the top of scripts/demo_data.py).")
 
 
 if __name__ == "__main__":

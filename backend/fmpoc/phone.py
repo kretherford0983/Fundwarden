@@ -13,7 +13,9 @@ import re
 
 HELP = ("Enter a 10-digit phone number, for example 555-123-4567. An extension (x204) and numbers from other "
         "countries starting with + are accepted.")
-_EXT = re.compile(r"\s*(?:ext\.?|x|#)\s*(\d{1,8})\s*$", re.I)
+# 1.6.8 (#66, CodeQL "polynomial regular expression"): no leading \s* - with search() it made the match start at
+# every space of a long run. Spaces left in front of the extension are dropped with the other separators below.
+_EXT = re.compile(r"(?:ext\.?|x|#)\s*(\d{1,8})\s*$", re.I)
 _STORED = re.compile(r"^(\d{10})(?:x(\d{1,8}))?$")
 
 

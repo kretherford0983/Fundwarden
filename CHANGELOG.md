@@ -2,6 +2,44 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.6.8 — 2026-10-07
+Maintenance of the build pipeline, repository security automation, one sign-in fix and two small hardening changes
+from the first CodeQL results. No database migration and no change to data or settings.
+- **Fixed: sign-in refused with "Missing or invalid CSRF token." (#68).** The sign-in page asks the server for its
+  form token when it opens and again when **Sign in** is pressed. When Sign in was pressed before the first answer
+  had arrived — a password manager that fills in and submits at once, or a slow connection — the two requests each
+  got their own token, the browser kept one and the page sent the other, and a correct username and password were
+  refused once (a second attempt worked). The page now never sends two of these requests at the same time. Found by
+  an E2E run that failed at exactly this point; a test now plays the overlap deliberately.
+- **GitHub Actions on Node.js 24 (#48).** The workflow actions ran on the deprecated Node.js 20 runtime and were
+  being forced onto Node.js 24 with a warning on every run. They now use the versions built for Node.js 24:
+  `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7` and
+  `actions/download-artifact@v8`. The Node.js version that builds the application (22) is unchanged.
+- **Linux jobs pinned to Ubuntu 26.04 (#49).** GitHub moves `ubuntu-latest` to Ubuntu 26.04 from 2026-10-19. The
+  five Linux jobs (tests, promotion rules, packages, assemble, publish) now name `ubuntu-26.04`, so the move happens
+  on our schedule and is proven by the pull request's own run. The E2E tests use **Playwright 1.63.0** (was 1.56.1,
+  which cannot install its browser on Ubuntu 26.04). Returning to `ubuntu-latest` is a later one-line change.
+- **Weekly security check (#64).** New workflow `security`: every Monday (and on demand from the Actions tab) GitHub
+  runs the dependency vulnerability checks and the security tests on `main`. A new advisory fails the run and GitHub
+  emails the repository owner, so it is noticed between releases — not, as with 1.6.7, at the release pull request.
+- **Dependabot (#65).** `.github/dependabot.yml`: weekly update pull requests into `develop` for the Python,
+  JavaScript and GitHub Actions dependencies — minor and patch updates grouped into one pull request per group,
+  major versions separately, at most 5 open per group. The promotion rules now accept `dependabot/*` branches into
+  `develop` (and only there). docs/branching.md describes how such a pull request is handled.
+- **Demo data script (#66).** `scripts/demo_data.py` no longer prints the demo password when it finishes (reported
+  by CodeQL as clear-text logging); it points to the `PASSWORD` constant in the script instead. The password was
+  always a made-up value in a public file — nothing was exposed.
+- **First CodeQL results reviewed (#66).** Four alerts, none exploitable. Two led to small changes: the pattern that
+  reads a phone extension (`x204`, `ext 204`) no longer does needless repeated work on a long run of spaces (the
+  field is limited to 40 characters, so this was never noticeable; the same numbers are accepted), and the
+  pre-sign-in form token cookie is now written only when the server generates a new token — a browser that already
+  has one gets it back without the cookie being set again, and a cookie that is not one of our tokens is replaced.
+  The other two ("clear-text storage of sensitive information") point at the session cookie and the trusted-browser
+  cookie; sending those tokens to the browser as HttpOnly, SameSite=Strict cookies is how sign-in sessions work (the
+  server stores only a hash), so they are dismissed as false positives.
+- **Issue templates.** New issue → *Enhancement*, *Feature* or *Bug* opens with the headings used for planning
+  (problem, proposed behavior, acceptance criteria, out of scope, open questions) and applies the label.
+
 ## 1.6.7 — 2026-10-06
 Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
 phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
