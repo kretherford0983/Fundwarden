@@ -2,6 +2,17 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.6.8 — 2026-10-07
+Maintenance of the build pipeline. No change to the application itself, its data or its settings.
+- **GitHub Actions on Node.js 24 (#48).** The workflow actions ran on the deprecated Node.js 20 runtime and were
+  being forced onto Node.js 24 with a warning on every run. They now use the versions built for Node.js 24:
+  `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7` and
+  `actions/download-artifact@v8`. The Node.js version that builds the application (22) is unchanged.
+- **Linux jobs pinned to Ubuntu 26.04 (#49).** GitHub moves `ubuntu-latest` to Ubuntu 26.04 from 2026-10-19. The
+  five Linux jobs (tests, promotion rules, packages, assemble, publish) now name `ubuntu-26.04`, so the move happens
+  on our schedule and is proven by the pull request's own run. The E2E tests use **Playwright 1.63.0** (was 1.56.1,
+  which cannot install its browser on Ubuntu 26.04). Returning to `ubuntu-latest` is a later one-line change.
+
 ## 1.6.7 — 2026-10-06
 Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,
 phone number formatting, cash count sheet refinements and a position for people. Database migrations `0014`,
