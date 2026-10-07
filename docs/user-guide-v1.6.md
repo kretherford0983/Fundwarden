@@ -1,17 +1,16 @@
 # What's new in 1.6 — quick guide
 
-> **Since 1.7.0 the application is called PennyWarden.** This guide was written for 1.6 and uses the name it had
-> then (Fundwarden); everything it describes works the same way. Nothing about your work changed with the new name:
-> same address, same sign-in, same data.
+> **Since 1.7.0 the application is called PennyWarden** (from 1.6.6 to 1.6.8 it was *Fundwarden*). Everything this
+> guide describes works the same way — see [What's new in 1.7](user-guide-v1.7.md).
 
-*1.6.7: a person's position is filled in as the signer's title; count sheet refinements. 1.6.6: the application is renamed Fundwarden; cash count sheet with blank signature rows and a page for more checks. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
+*1.6.7: a person's position is filled in as the signer's title; count sheet refinements. 1.6.6: the application is renamed (first to Fundwarden; it is PennyWarden since 1.7.0); cash count sheet with blank signature rows and a page for more checks. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
 1.6.2: the fundraiser report. 1.6.3: reminders and notifications. 1.6.4: cancelled fundraisers and the cash count sheet.*
 
-## 1.6.6: a new name — Fundwarden
-From 1.6.6 the application is called **Fundwarden** and has an icon (a gold coin with a keyhole) in the browser
-tab. Nothing about your work changes: same address, same sign-in, same data. If you set up two-step verification
+## 1.6.6: a new name and an icon
+With 1.6.6 the application got a new name — *Fundwarden* then, **PennyWarden** since 1.7.0 — and an icon (a gold
+coin with a keyhole) in the browser tab. Nothing about your work changes: same address, same sign-in, same data. If you set up two-step verification
 earlier, the entry in your authenticator app keeps its old label and keeps working. New backups are named
-`fundwarden-backup-…`; older backup files still restore.
+`pennywarden-backup-…` (1.6.6 to 1.6.8: `fundwarden-backup-…`); older backup files still restore.
 
 ## Turning the module on (Administrator)
 System/About → **Optional modules** → tick **Fundraiser module**. Budget Managers, Budget Users, Register Users and
@@ -109,6 +108,6 @@ that the section page numbers run from 1 to n up to the end page. A report limit
 
 ## Phone numbers of Entities (1.6.7)
 Type the number however is convenient: `5551234567`, `555-123-4567`, `555.123.4567`, `(555) 123-4567`, with or
-without a leading 1. Fundwarden stores the plain digits and shows **(555) 123-4567** everywhere. For an extension add
+without a leading 1. PennyWarden stores the plain digits and shows **(555) 123-4567** everywhere. For an extension add
 `x204` (or `ext 204`); for a number in another country start with `+` and the country code. A number that is neither
 is refused, so a typing mistake (a missing digit) is caught when you save.

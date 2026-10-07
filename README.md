@@ -4,7 +4,7 @@
 organizations and similar bodies that keep a checkbook, a budget and an annual audit. PennyWarden runs on your own
 Windows PC, Mac or Linux server; your data stays in one folder you control. No subscription, no cloud account.
 
-Current release: **1.7.0** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
+Current release: **1.7.1** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
 [Install](#install) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
 <p align="center">
@@ -121,7 +121,7 @@ tax or legal advice.
 [1.2](docs/user-guide-v1.2.md) (reports, transfers) · [1.3](docs/user-guide-v1.3.md) (Fiscal Year documents, close
 report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verification, charts, backup) ·
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
-reminders).
+reminders) · [1.7](docs/user-guide-v1.7.md) (the new name).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability
@@ -141,9 +141,9 @@ reminders).
 The specification is kept unchanged in [`spec/`](spec/); [docs/acceptance-results.md](docs/acceptance-results.md),
 [docs/benchmark-results.md](docs/benchmark-results.md) and [docs/manual-verification.md](docs/manual-verification.md)
 record the results against that specification as of version 1.1 and are not updated for later versions. Until 1.6.5
-the application was called *Financial Management POC* / *Freedger*; the Python package (`fmpoc`), the database file
-and the `FM_*` settings keep those internal names. Upgrading an installation from before the rename:
-[docs/upgrade.md](docs/upgrade.md).
+the application was called *Financial Management POC* / *Freedger*, from 1.6.6 to 1.6.8 *Fundwarden*, and since
+1.7.0 *PennyWarden*; the Python package (`fmpoc`), the database file and the `FM_*` settings keep the first internal
+names. Upgrading an installation from before a rename: [docs/upgrade.md](docs/upgrade.md).
 
 ## Technology
 

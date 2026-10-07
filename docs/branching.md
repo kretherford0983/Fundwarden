@@ -76,17 +76,21 @@ repository activity — it emails first, and **Enable workflow** on the Actions 
 
 **Dependabot** (`.github/dependabot.yml`). Once a week Dependabot opens pull requests **into `develop`** for the
 Python (`backend/`), JavaScript (`frontend/`) and GitHub Actions dependencies: routine minor and patch updates as
-one pull request per group, a major version as its own pull request, at most 5 open per group. Security updates
-arrive separately as soon as an advisory is published, once *Dependabot security updates* is turned on (Settings →
-Advanced Security). Its branches are named `dependabot/...`:
+one pull request per group, at most 5 open per group. **Major versions are not proposed** (since 1.7.1): an upgrade
+such as React 18 → 19 or TypeScript 5 → 7 needs planning and testing, so file it as an issue and it is done on a
+feature branch like any other change. `pydantic_core` is never proposed on its own either — it only changes
+together with `pydantic`. Security updates are not held back by either rule: they arrive separately as soon as an
+advisory is published, also when the fix is a major version, once *Dependabot security updates* is turned on
+(Settings → Advanced Security). Dependabot reads its settings from `main`, so a change to
+`.github/dependabot.yml` takes effect when it is released. Its branches are named `dependabot/...`:
 1. The `ci` workflow runs the full test suite on the pull request, like any other.
 2. If the update changes a dependency that ships in the packages, the *Third-party notices up to date* step fails
    until `THIRD-PARTY-NOTICES.txt` is regenerated on that branch (`python scripts/third_party_notices.py`) — ask me
    to do it, or close the pull request and have the update made on a feature branch.
 3. Merge when green. The update then travels develop → test → main with the next release; nothing is released by
    merging it.
-4. Not wanted? Close the pull request; comment `@dependabot ignore this major version` (or `this dependency`) to
-   stop it being proposed again.
+4. Not wanted? Close the pull request — Dependabot does not propose that version again. (Avoid the comment
+   `@dependabot ignore this dependency`: it also stops security fixes for that dependency.)
 
 ## One-time GitHub settings (Settings tab of the repository)
 1. **General → Default branch**: `main` — visitors then see the README and docs of the production release (choose

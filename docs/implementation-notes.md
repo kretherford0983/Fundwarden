@@ -44,6 +44,21 @@ could not otherwise be corrected. Scope and safeguards:
 - Audited as `TRANSACTION_VOID_DATE_CORRECTED` with before/after snapshots and the reason.
 - Tests: `backend/tests/test_cr001_void_date.py` (5 tests) and E2E "CR-001".
 
+**1.7.0 Rename to PennyWarden (product owner, 2026-10-07; issue #70).** Full record: `CHANGELOG.md` 1.7.0 and
+`docs/upgrade.md` ("1.7.0: the rename to PennyWarden").
+
+| Topic | Decision / implementation |
+|---|---|
+| Why | Another product in the financial field uses the name Fundwarden and has a website under it. |
+| Name | **PennyWarden** (one word, capital P and W) wherever it is displayed; `pennywarden` for the command, service, system user, folders, packages and Docker image — the full name, not `penny` (a common first name for a system account, and an existing package and command name). The gold coin with a keyhole stays. |
+| Release | 1.7.0 contains the rename and nothing else; other work starts with 1.7.1. |
+| What was renamed | The same things as in 1.6.6 (below), plus the Mac app, its bundle identifier and data folder. Internal names stay: package `fmpoc`, `fmpoc.sqlite3`, `FM_*`, `.fmbak`. |
+| Earlier names | `PREVIOUS_APP_NAMES` in `config.py` and `PREVIOUS` in `install-server.sh` list them newest first (Fundwarden, then the name before 1.6.6). Local default data folder: the newest earlier name that has a folder is renamed in place. Server: the installation in service is migrated, else the newest name with data; the 1.6.6 copy / compare / switch / automatic switch-back is unchanged. |
+| Backups | File name and manifest take the name from `config.APP_NAME`; the name is not checked on restore, so Fundwarden backups restore. |
+| Documentation | Current documents use the new name. The changelog entries of earlier versions, the migration instructions and this table keep the names that were true at the time. |
+| Tests | `backend/tests/test_v170_rename.py`, including a check that no user-facing file still carries the old name; upgrade simulation with the real 1.6.8 and 1.7.0 packages (recorded in `docs/upgrade.md`). |
+| Repository | Renamed to `kretherford0983/PennyWarden` on 2026-10-07; domain `pennywarden.org` registered the same day (product page: issue #83). |
+
 **1.6.6 Rename to Fundwarden, first production release (product owner, 2026-10-02).** Plan: project doc
 `claude/freedger-plan-1.6.6.md`.
 

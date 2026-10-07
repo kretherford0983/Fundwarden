@@ -1,4 +1,4 @@
-# Upgrading a Linux server install (current release: 1.7.0)
+# Upgrading a Linux server install (current release: 1.7.1)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
@@ -10,6 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.7.0 → 1.7.1 | none | switch binaries only |
 | 1.6.8 → 1.7.0 | none — the application is renamed to PennyWarden (see *1.7.0: the rename to PennyWarden* below) | switch back to the old `fundwarden` service (left in place) |
 | 1.6.7 → 1.6.8 | none | switch binaries only |
 | 1.6.6 → 1.6.7 | migrations `0014` — **adds** column `entity.position` (empty for every existing Entity); `0015` — **adds** columns `reminder.repeat_every`, `repeat_unit`, `repeat_until`, `repeat_anchor`, `repeat_index`, `repeat_source_id` (existing reminders stay one-time); `0016` — **rewrites** `entity.phone` values that are clearly 10-digit numbers to plain digits (e.g. `555-123-4567` → `5551234567`); other values are left as they are | switch binaries **and** restore the pre-upgrade data backup |

@@ -3,7 +3,7 @@
 *1.5.0 polishes existing features; nothing new is added.*
 
 ## Signing in from a bookmark
-Opening any bookmarked Fundwarden page while signed out shows the sign-in page, then two-step verification (or its
+Opening any bookmarked PennyWarden page while signed out shows the sign-in page, then two-step verification (or its
 setup), then the dashboard.
 
 ## Bank Accounts in two groups
@@ -21,13 +21,13 @@ it. Changes are saved for your account straight away. **Reset to default** bring
 Administrator dashboard cannot be customized.
 
 ## Installing
-- **Windows:** download `Fundwarden-<version>-windows-x64.exe` from the release page and double-click it. If Windows
+- **Windows:** download `PennyWarden-<version>-windows-x64.exe` from the release page and double-click it. If Windows
   says "Windows protected your PC", click **More info → Run anyway**. Keep the black window open while you use
-  Fundwarden; closing it stops the app. Your data is kept separately, so a newer .exe simply replaces the old one.
+  PennyWarden; closing it stops the app. Your data is kept separately, so a newer .exe simply replaces the old one.
 - **Linux server:** one command installs or upgrades — see docs/deployment.md (*Linux: one command*).
 
 ## License and source code
-Fundwarden is free software (AGPL-3.0). The sign-in page and **My account** show links to the source code, the license
+PennyWarden is free software (AGPL-3.0). The sign-in page and **My account** show links to the source code, the license
 and the third-party notices.
 
 ## Charts
