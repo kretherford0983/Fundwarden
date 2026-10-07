@@ -32,7 +32,7 @@ def _backup(env) -> bytes:
     assert r.status_code == 202, r.text
     j = _wait(a, f"/api/system/backups/{r.json()['id']}")
     assert j["state"] == "done", j
-    assert j["result"]["filename"].startswith("fundwarden-backup-acme-org-") and j["result"]["filename"].endswith(".fmbak")
+    assert j["result"]["filename"].startswith("pennywarden-backup-acme-org-") and j["result"]["filename"].endswith(".fmbak")
     assert "_path" not in j["result"]
     d = a.get(f"/api/system/backups/{r.json()['id']}/download")
     assert d.status_code == 200 and d.content.startswith(bk.MAGIC)
@@ -172,7 +172,7 @@ def test_damaged_truncated_and_foreign_files(env, data_env, tmp_path):
     j = _restore(env.admin, blob[:-40], password=PASSWORD, confirm="RESTORE")
     assert j["state"] == "failed" and ("incomplete" in j["error"] or "damaged" in j["error"])
     j = _restore(env.admin, b"PK\x03\x04 not a backup", password=PASSWORD, confirm="RESTORE")
-    assert j["state"] == "failed" and "not a Fundwarden backup" in j["error"]
+    assert j["state"] == "failed" and "not a PennyWarden backup" in j["error"]
     assert env.bu.get("/api/dashboard").status_code == 200  # nothing changed, still signed in
 
 

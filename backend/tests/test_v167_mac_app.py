@@ -73,9 +73,9 @@ def test_main_hands_local_mode_to_the_window(tmp_path, monkeypatch):
 
 
 def test_packaging_files():
-    spec = (ROOT / "packaging/pyinstaller/fundwarden-mac.spec").read_text()
+    spec = (ROOT / "packaging/pyinstaller/pennywarden-mac.spec").read_text()
     assert 'target_arch="arm64"' in spec and "console=False" in spec and "BUNDLE(" in spec and "entry_mac.py" in spec
-    assert (ROOT / "packaging/macos/fundwarden.icns").read_bytes()[:4] == b"icns"
+    assert (ROOT / "packaging/macos/pennywarden.icns").read_bytes()[:4] == b"icns"
     build = (ROOT / "packaging/build_macos.sh").read_text()
     assert "codesign --force --deep --sign -" in build and "hdiutil create" in build and "macos-arm64.dmg" in build
     assert "Open Anyway" in (ROOT / "packaging/macos/READ-ME-FIRST.txt").read_text()

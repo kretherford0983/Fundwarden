@@ -1,7 +1,7 @@
 // Takes the screenshots used in README.md from a demo organization (scripts/demo_data.py).
 //
-//   1. Start a NEW, empty Fundwarden (never one with real data):
-//        cd backend && python -m fmpoc --no-browser --port 8801 --data-dir /tmp/fundwarden-demo
+//   1. Start a NEW, empty PennyWarden (never one with real data):
+//        cd backend && python -m fmpoc --no-browser --port 8801 --data-dir /tmp/pennywarden-demo
 //   2. python scripts/demo_data.py http://127.0.0.1:8801
 //   3. node scripts/readme_screenshots.mjs http://127.0.0.1:8801        (needs `npm --prefix frontend ci`)
 //
@@ -18,9 +18,9 @@ const require = createRequire(join(ROOT, "frontend", "package.json"));
 const { chromium } = require("@playwright/test");
 const BASE = (process.argv[2] || "http://127.0.0.1:8801").replace(/\/$/, "");
 const OUT = join(ROOT, "docs", "screenshots", "readme");
-const PASSWORD = "Demo-Fundwarden-2026";
+const PASSWORD = "Demo-PennyWarden-2026";
 mkdirSync(OUT, { recursive: true });
-const TMP = mkdtempSync(join(tmpdir(), "fundwarden-shots-"));
+const TMP = mkdtempSync(join(tmpdir(), "pennywarden-shots-"));
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1360, height: 850 }, baseURL: BASE });

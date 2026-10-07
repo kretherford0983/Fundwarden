@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 1.6.7: smoke test of the macOS app - start it with an empty data folder, check /api/health, the version, the web
 # interface and the bundled license, then stop it.
-#   bash packaging/macos/smoke_test.sh <path to Fundwarden.app or .dmg> <version> [port] [window|headless]
+#   bash packaging/macos/smoke_test.sh <path to PennyWarden.app or .dmg> <version> [port] [window|headless]
 # "window" (default) starts it the way a double-click does (status window, server in a background thread);
 # "headless" sets FM_NO_WINDOW=1.
 set -euo pipefail
@@ -19,11 +19,11 @@ if [[ "$TARGET" == *.dmg ]]; then
   hdiutil attach "$TARGET" -nobrowse -readonly -mountpoint "$MNT" >/dev/null
   [ -L "$MNT/Applications" ] || fail "the disk image has no Applications shortcut"
   [ -f "$MNT/Read me first.txt" ] || fail "the disk image has no 'Read me first.txt'"
-  APP="$MNT/Fundwarden.app"
+  APP="$MNT/PennyWarden.app"
 else
   APP="$TARGET"
 fi
-BIN="$APP/Contents/MacOS/Fundwarden"
+BIN="$APP/Contents/MacOS/PennyWarden"
 [ -x "$BIN" ] || fail "$BIN not found"
 codesign --verify --deep --strict "$APP" || fail "the app's signature does not verify"
 file "$BIN" | grep -q arm64 || fail "the app is not arm64"

@@ -291,7 +291,7 @@ def _stamp_and_write(reader_bytes: bytes, doc: _AuditDoc, path: str, title: str)
         c.save()
         buf.seek(0)
         page.merge_page(PdfReader(buf).pages[0])
-    writer.add_metadata({"/Title": title, "/Producer": "Fundwarden"})
+    writer.add_metadata({"/Title": title, "/Producer": "PennyWarden"})
     with open(path, "wb") as fh:
         writer.write(fh)
     return total

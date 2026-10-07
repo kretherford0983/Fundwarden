@@ -1,15 +1,17 @@
-# Upgrading a Linux server install (current release: 1.6.7)
+# Upgrading a Linux server install (current release: 1.7.0)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
-- `/var/lib/fundwarden/config.toml` (only written when it does not exist)
-- `/var/lib/fundwarden/secrets/` (portable encryption key), `database/`, `attachments/`, `logs/`
+- `/var/lib/pennywarden/config.toml` (only written when it does not exist)
+- `/var/lib/pennywarden/secrets/` (portable encryption key), `database/`, `attachments/`, `logs/`
 
 Before switching versions the installer stops the service and copies the whole data directory to
-`/var/backups/fundwarden/<timestamp>/`. The previous release stays in `/opt/fundwarden/releases/` for rollback.
+`/var/backups/pennywarden/<timestamp>/`. The previous release stays in `/opt/pennywarden/releases/` for rollback.
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.6.8 → 1.7.0 | none — the application is renamed to PennyWarden (see *1.7.0: the rename to PennyWarden* below) | switch back to the old `fundwarden` service (left in place) |
+| 1.6.7 → 1.6.8 | none | switch binaries only |
 | 1.6.6 → 1.6.7 | migrations `0014` — **adds** column `entity.position` (empty for every existing Entity); `0015` — **adds** columns `reminder.repeat_every`, `repeat_unit`, `repeat_until`, `repeat_anchor`, `repeat_index`, `repeat_source_id` (existing reminders stay one-time); `0016` — **rewrites** `entity.phone` values that are clearly 10-digit numbers to plain digits (e.g. `555-123-4567` → `5551234567`); other values are left as they are | switch binaries **and** restore the pre-upgrade data backup |
 | 1.6.5 → 1.6.6 | none — the application is renamed to Fundwarden (see *1.6.6: the rename* below) | switch back to the old `fmpoc` service (left in place) |
 | 1.6.4 → 1.6.5 | none | switch binaries only |
@@ -70,11 +72,12 @@ documentation review worked on the pre-existing data.
 
 **One command on the server** (does steps 1–4 below; the data snapshot and rollback copy are the same):
 ```bash
-curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh | sudo bash
+curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh | sudo bash
 ```
 This installs the newest production release. A specific release (for example a test pre-release on a test server):
-`curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>`
-(`<tag>` e.g. `v1.6.6` or `v1.6.6-test.30`). A release from before 1.6.6 installs under the old name (service `fmpoc`).
+`curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>`
+(`<tag>` e.g. `v1.7.0` or `v1.7.0-test.3`). A release from before a rename installs under the name it had then:
+1.6.6 to 1.6.8 as service `fundwarden`, before 1.6.6 as service `fmpoc`.
 
 **From a test pre-release to the production release:** a server installed from any `v1.x.y-test.N` build upgrades
 to the production release with the same command; the table above applies unchanged (a test build and the release of
@@ -83,18 +86,18 @@ The port of the existing installation is read from `config.toml`. Then continue 
 
 **Manual:**
 
-1. Copy the new package and installer to the server (from the Fundwarden folder on your PC):
+1. Copy the new package and installer to the server (from the PennyWarden folder on your PC):
    ```powershell
-   scp dist\Fundwarden-linux-x64-portable.tar.gz packaging\linux\install-server.sh you@yourserver:~/
+   scp dist\PennyWarden-linux-x64-portable.tar.gz packaging\linux\install-server.sh you@yourserver:~/
    ```
 2. (Optional) note the current version: `curl -s http://127.0.0.1:8765/api/system/status`
 3. Run the installer — the same command as the first install:
    ```bash
-   sudo bash install-server.sh Fundwarden-linux-x64-portable.tar.gz
+   sudo bash install-server.sh PennyWarden-linux-x64-portable.tar.gz
    ```
    The port for the health check is read from your `config.toml` (which is never changed).
 4. Expected output ends with `"version":"<new version>"` and `Installed.` and names the backup folder
-   (`snapshotting data to /var/backups/fundwarden/<timestamp>`). The Cloudflare tunnel needs no change.
+   (`snapshotting data to /var/backups/pennywarden/<timestamp>`). The Cloudflare tunnel needs no change.
 5. Verify: sign in, check the version under System/About (or My Account), open a Fiscal Year page and a register.
 6. **Only when upgrading from a version before 1.3.0:** open each Fiscal Year that is not closed yet. Documents uploaded earlier are listed
    under *Other documents*; use the drop-down to mark the signoff as **Audit Signoff** and the budget approval as
@@ -106,12 +109,12 @@ Rolling back across a database change (see the table above) requires restoring t
 cannot open a database migrated by a newer one. **Anything entered after the upgrade is lost**, so export anything you need first.
 
 ```bash
-sudo systemctl stop fundwarden
-ls /opt/fundwarden/releases/ /var/backups/fundwarden/        # previous release + the snapshot taken at upgrade time
-sudo ln -sfn /opt/fundwarden/releases/<previous> /opt/fundwarden/current
-sudo mv /var/lib/fundwarden /var/lib/fundwarden.failed-upgrade      # keep it until you are sure
-sudo cp -a /var/backups/fundwarden/<timestamp> /var/lib/fundwarden
-sudo systemctl start fundwarden
+sudo systemctl stop pennywarden
+ls /opt/pennywarden/releases/ /var/backups/pennywarden/        # previous release + the snapshot taken at upgrade time
+sudo ln -sfn /opt/pennywarden/releases/<previous> /opt/pennywarden/current
+sudo mv /var/lib/pennywarden /var/lib/pennywarden.failed-upgrade      # keep it until you are sure
+sudo cp -a /var/backups/pennywarden/<timestamp> /var/lib/pennywarden
+sudo systemctl start pennywarden
 ```
 (Verified during release testing: the previous release starts normally on the restored snapshot. Switching only the
 symlink is not enough after a schema change — the older release refuses to start with "Can't locate revision".)
@@ -119,20 +122,146 @@ For 1.1.1 → 1.1.0 (no schema change) switching the symlink alone is enough.
 
 ## Notes
 
-- The installer rewrites `/etc/systemd/system/fundwarden.service` on every run. Put any service customisations in a
-  drop-in (`sudo systemctl edit fundwarden`), which is preserved.
-- Old backups in `/var/backups/fundwarden/` are not pruned automatically; remove ones you no longer need.
+- The installer rewrites `/etc/systemd/system/pennywarden.service` on every run. Put any service customisations in a
+  drop-in (`sudo systemctl edit pennywarden`), which is preserved.
+- Old backups in `/var/backups/pennywarden/` are not pruned automatically; remove ones you no longer need.
 
 ## Windows (local install)
 
-Data lives in `%LOCALAPPDATA%\Fundwarden` and is separate from the program folder.
+Data lives in `%LOCALAPPDATA%\PennyWarden` and is separate from the program folder.
 
 1. Close the running console window (Ctrl+C) so the app is stopped.
-2. Copy `%LOCALAPPDATA%\Fundwarden` somewhere safe (backup).
-3. Unzip the new `Fundwarden-windows-x64.zip` into a **new** folder (keep the old one for rollback).
-4. Run `Fundwarden.cmd` from the new folder. The database is migrated automatically on start.
+2. Copy `%LOCALAPPDATA%\PennyWarden` somewhere safe (backup).
+3. Unzip the new `PennyWarden-windows-x64.zip` into a **new** folder (keep the old one for rollback).
+4. Run `PennyWarden.cmd` from the new folder. The database is migrated automatically on start.
 
 To roll back: stop the app, restore the backed-up data folder, and run the old program folder.
+
+## 1.7.0: the rename to PennyWarden (server installs)
+
+From 1.6.6 to 1.6.8 the application was called *Fundwarden* and a server install used the service `fundwarden`,
+`/opt/fundwarden`, `/var/lib/fundwarden` and `/var/backups/fundwarden`. From 1.7.0 everything is called
+`pennywarden`. **First rename the GitHub repository** to `PennyWarden` (Settings → General → Repository name);
+GitHub forwards the old address to the new one, not the other way round, and the 1.7.0 installer downloads from
+the new name. Then run the normal upgrade command — you do not prepare anything on the server. When the installer
+finds a Fundwarden installation and no PennyWarden data yet, it migrates it:
+
+1. checks that there is room for a second copy of the data (otherwise it stops before changing anything);
+2. stops the `fundwarden` service and **copies** `/var/lib/fundwarden` to `/var/lib/pennywarden` (compared file by
+   file before it is used), owned by the new system user `pennywarden` — `config.toml`, the key, the database and
+   attachments arrive unchanged, so the port and your tunnel / reverse proxy stay as they are;
+3. installs the program under `/opt/pennywarden`, creates and starts the service `pennywarden`, and disables
+   `fundwarden`.
+
+**Nothing of the old installation is changed or removed.** If PennyWarden does not come up healthy, the installer
+switches back to `fundwarden` by itself and says so.
+
+| 1.6.6 to 1.6.8 | From 1.7.0 |
+|---|---|
+| service and system user `fundwarden` | `pennywarden` |
+| `/opt/fundwarden/current/fundwarden` | `/opt/pennywarden/current/pennywarden` |
+| `/var/lib/fundwarden` (data, `config.toml`) | `/var/lib/pennywarden` |
+| `/var/backups/fundwarden/<timestamp>` (snapshots) | `/var/backups/pennywarden/<timestamp>` |
+| `Fundwarden-linux-x64-portable.tar.gz`, `Fundwarden-windows-x64.zip`, `Fundwarden-<version>-windows-x64.exe`, `Fundwarden-<version>-macos-arm64.dmg` | `PennyWarden-linux-x64-portable.tar.gz`, `PennyWarden-windows-x64.zip`, `PennyWarden-<version>-windows-x64.exe`, `PennyWarden-<version>-macos-arm64.dmg` |
+| `%LOCALAPPDATA%\Fundwarden` (Windows), `~/Library/Application Support/Fundwarden` (Mac), `~/.local/share/fundwarden` (Linux, local) | `…\PennyWarden`, `…/PennyWarden`, `…/pennywarden` |
+| backups `fundwarden-backup-….fmbak` | `pennywarden-backup-….fmbak` (older backup files restore as before) |
+| `FUNDWARDEN_REPO`, `FUNDWARDEN_API`, `FUNDWARDEN_DOWNLOAD`, `FUNDWARDEN_CONFIG` (overrides for `install.sh`, rarely used) | `PENNYWARDEN_…` |
+| Docker image `fundwarden`, volume `fundwarden-data` | `pennywarden`, `pennywarden-data` (see *Docker* below) |
+
+Not renamed (internal, invisible in normal use): the database file `database/fmpoc.sqlite3`, the log file
+`logs/fmpoc.log`, the `FM_*` environment variables and the `.fmbak` extension. **Two-step verification** keeps
+working: the entry in each user's authenticator app keeps the label *Fundwarden* and its codes stay valid; new
+set-ups are labelled *PennyWarden*.
+
+A server that was installed before 1.6.6 and never cleaned up may still hold the stopped `fmpoc` installation as
+well. The installer migrates the installation that is **in service** (normally `fundwarden`) and leaves the other
+alone; both are listed in its `NOTE:` lines until you remove them.
+
+**Going back to 1.6.8** (no database change between 1.6.8 and 1.7.0): the old installation is still complete.
+```bash
+sudo systemctl disable --now pennywarden && sudo systemctl enable --now fundwarden
+```
+It continues with the data as it was at the moment of the migration; anything entered in PennyWarden since then
+stays in `/var/lib/pennywarden`. To migrate again later, move `/var/lib/pennywarden` away first and run the
+installer.
+
+Verified for 1.7.0 (simulated systemd, real packages): a 1.6.8 `fundwarden` server with a demo organization (28
+tables, 267 rows, 15 attachments), a hand-edited `config.toml`, one user with two-step verification set up, and a
+stopped leftover `fmpoc` data directory was upgraded with `install-server.sh`: `config.toml`, the key and every
+attachment byte-for-byte identical in `/var/lib/pennywarden`, every table identical, 1.7.0 answering on the same
+port, `fundwarden` stopped and disabled, the `fmpoc` leftover ignored; the user signed in with a code from the
+authenticator set up on 1.6.8. The switch back started 1.6.8 on its data and the switch forward 1.7.0 again. With
+PennyWarden data present and `fundwarden` running the installer refused and changed nothing. A package that does
+not start made the installer return to `fundwarden` by itself, its files and tables identical before and after. A
+second run was a normal upgrade with a snapshot in `/var/backups/pennywarden`; after the cleanup below 1.7.0 kept
+running on identical data and the `NOTE:` lines were gone; a fresh install on an empty machine used the new names.
+
+### Cleanup after the rename to PennyWarden
+
+Do this on each migrated server **once you are sure you will not go back** — for example after a few days of
+normal use and one fresh backup (System/About → Backup / Restore) stored off the server. Until then the leftovers
+only cost disk space. The installer reminds you with a `NOTE:` line as long as they exist.
+
+```bash
+# 0. PennyWarden is the one that is running, and the old service is not
+systemctl is-active pennywarden           # must print: active
+systemctl is-active fundwarden            # must print: inactive
+curl -s http://127.0.0.1:<port>/api/system/status      # "version":"1.7.0" (or later) and your organization's name
+
+# 1. optional: one last archive of the old data, kept somewhere safe (it contains the encryption key)
+sudo tar -C /var/lib -czf /root/fundwarden-final-data.tar.gz fundwarden
+
+# 2. remove the old service
+sudo systemctl disable --now fundwarden
+sudo rm -f /etc/systemd/system/fundwarden.service
+sudo rm -rf /etc/systemd/system/fundwarden.service.d   # only exists if you made a drop-in with "systemctl edit fundwarden"
+sudo systemctl daemon-reload
+
+# 3. remove the old program, data and snapshots
+sudo rm -rf /opt/fundwarden /var/lib/fundwarden /var/backups/fundwarden
+
+# 4. remove the old system user
+sudo userdel fundwarden
+
+# 5. check
+systemctl is-active pennywarden           # still: active
+ls -d /opt/fundwarden /var/lib/fundwarden /var/backups/fundwarden 2>&1    # "No such file or directory" three times
+```
+
+Also check, because the installer cannot know about them:
+- a **drop-in** you created for the old service (`/etc/systemd/system/fundwarden.service.d/`): recreate what you
+  still need with `sudo systemctl edit pennywarden` before deleting it;
+- your own **backup jobs, cron entries or monitoring** that mention `fundwarden`, `/var/lib/fundwarden` or
+  `/var/backups/fundwarden`: point them at the new names;
+- **downloaded installers** in home directories (`install-server.sh`, `Fundwarden-*.tar.gz`) and
+  `/var/lib/pennywarden.failed-migration-*` (only present if a migration attempt failed): delete them;
+- a bookmark or script with the old `…/kretherford0983/Fundwarden/…` download address keeps working (GitHub
+  forwards it), but update it when convenient;
+- the Cloudflare tunnel / reverse proxy needs **no** change (same address and port).
+
+### Windows, Mac and Linux PCs (local installs)
+
+Nothing needs cleaning up: at its first start 1.7.0 renames the data folder (`%LOCALAPPDATA%\Fundwarden` →
+`%LOCALAPPDATA%\PennyWarden`; on a Mac `~/Library/Application Support/Fundwarden` → `…/PennyWarden`; on Linux
+`~/.local/share/fundwarden` → `…/pennywarden`). It is a rename in place — nothing is copied; a data folder you
+chose yourself with `--data-dir` or `FM_DATA_DIR` is never touched. Delete the old `Fundwarden-…exe`, the
+`Fundwarden-windows-x64` folder or `Fundwarden.app` when you no longer want it. To go back to 1.6.8, close
+PennyWarden and rename the folder back first. On a Mac, PennyWarden is a new app to macOS, so the *Open Anyway*
+step in *Read me first* is needed once more.
+
+### Docker
+
+A container keeps its data in a named volume, which the installer does not touch. To keep the data under the new
+names, copy the volume once while the container is stopped, then start the new image on the copy:
+```bash
+docker compose down                                   # or: docker stop <container>
+docker volume create pennywarden-data
+docker run --rm -v fundwarden-data:/from -v pennywarden-data:/to alpine sh -c "cp -a /from/. /to/"
+# build / pull the 1.7.0 image as "pennywarden", start it with  -v pennywarden-data:/data
+```
+The old volume `fundwarden-data` is left as it is — that is the way back (start the 1.6.8 image on it). Remove it
+with `docker volume rm fundwarden-data` when you no longer need it. Keeping the old volume name also works: the
+name of a volume has no meaning to the application.
 
 ## 1.6.6: the rename to Fundwarden (server installs)
 

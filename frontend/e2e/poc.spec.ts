@@ -850,7 +850,7 @@ test("CR-023 / CR-025: Administrator creates an encrypted backup and restores it
   const dl = page.waitForEvent("download");
   await page.getByRole("button", { name: "Create backup" }).click();
   const download = await dl;
-  expect(download.suggestedFilename()).toMatch(/^fundwarden-backup-e2e-org-\d{8}-\d{6}\.fmbak$/);
+  expect(download.suggestedFilename()).toMatch(/^pennywarden-backup-e2e-org-\d{8}-\d{6}\.fmbak$/);
   backupFile = join(mkdtempSync(join(tmpdir(), "fm-bk-")), download.suggestedFilename());
   await download.saveAs(backupFile);
   await expect(page.getByRole("status")).toContainText("Backup ready");
@@ -1273,7 +1273,7 @@ test("CR-037 / CR-038: cash count sheet PDF; mark a fundraiser as cancelled and 
 test("v1.5.0: sign-in page and My Account offer the source code, license and third-party notices", async ({ page }) => {
   await page.goto("/");
   const legal = page.locator(".login-legal");
-  await expect(legal.getByRole("link", { name: "Source code" })).toHaveAttribute("href", /github\.com\/kretherford0983\/Fundwarden/);
+  await expect(legal.getByRole("link", { name: "Source code" })).toHaveAttribute("href", /github\.com\/kretherford0983\/PennyWarden/);
   const lic = await page.request.get(await legal.getByRole("link", { name: "License" }).getAttribute("href") as string);
   expect(await lic.text()).toContain("GNU AFFERO GENERAL PUBLIC LICENSE");
   const notices = await page.request.get(await legal.getByRole("link", { name: "Third-party notices" }).getAttribute("href") as string);
@@ -1285,21 +1285,21 @@ test("v1.5.0: sign-in page and My Account offer the source code, license and thi
   await logout(page);
 });
 
-// ---------------------------------------------------------------- 1.6.6: Fundwarden name and icon
-test("1.6.6: the page carries the Fundwarden name and the coin icon (browser tab, sign-in page, top bar)", async ({ page }) => {
+// ---------------------------------------------------------------- 1.6.6: PennyWarden name and icon
+test("1.6.6: the page carries the PennyWarden name and the coin icon (browser tab, sign-in page, top bar)", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle("Fundwarden");
+  await expect(page).toHaveTitle("PennyWarden");
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon.svg");
   const svg = await page.request.get("/favicon.svg");
   expect(svg.status()).toBe(200);
   expect(svg.headers()["content-type"]).toContain("image/svg+xml");
   expect((await page.request.get("/favicon-32.png")).headers()["content-type"]).toContain("image/png");
   expect((await page.request.get("/apple-touch-icon.png")).status()).toBe(200);
-  await expect(page.locator(".login-legal")).toContainText("Fundwarden");
+  await expect(page.locator(".login-legal")).toContainText("PennyWarden");
   await expect(page.locator(".login-legal img.logo")).toHaveJSProperty("complete", true);
   expect(await page.locator(".login-legal img.logo").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await login(page, "bm1");
-  await expect(page.locator("header.topbar .brand")).toContainText("Fundwarden");
+  await expect(page.locator("header.topbar .brand")).toContainText("PennyWarden");
   expect(await page.locator("header.topbar img.logo").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await logout(page);
 });

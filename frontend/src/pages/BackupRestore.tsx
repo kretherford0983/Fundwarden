@@ -143,7 +143,7 @@ export function RestorePanel({ wizard = false, maxMb }: { wizard?: boolean; maxM
     <section className={wizard ? "" : "card"} aria-labelledby="restore-h">
       <h2 id="restore-h">Restore from a backup</h2>
       {wizard ? (
-        <p>Set this installation up from a Fundwarden backup (<code>.fmbak</code>) instead of creating a new organization. Everything in the backup — users and their passwords, two-step verification, all financial data and attachments — is restored. Afterwards sign in with an account from the backup.</p>
+        <p>Set this installation up from a PennyWarden backup (<code>.fmbak</code>) instead of creating a new organization. Everything in the backup — users and their passwords, two-step verification, all financial data and attachments — is restored. Afterwards sign in with an account from the backup.</p>
       ) : (
         <div className="alert warn" role="note"><b>This replaces all current data</b> — users, financial records and attachments — with the contents of the backup. Everyone is signed out. The current data is kept as a safety copy (<code>pre-restore</code> folder in the data directory; only the latest copy is kept).</div>
       )}

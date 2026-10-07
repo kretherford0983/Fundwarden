@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Fundwarden one-command install / upgrade for Linux servers (v1.5.0 CR-027; renamed from Freedger in 1.6.6).
+# PennyWarden one-command install / upgrade for Linux servers (v1.5.0 CR-027; renamed from Freedger to Fundwarden in
+# 1.6.6 and to PennyWarden in 1.7.0).
 #
-#   curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/latest/download/install.sh | sudo bash
-#   curl -fsSL https://github.com/kretherford0983/Fundwarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>
+#   curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh | sudo bash
+#   curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>
 #
 # Options:
 #   --channel auto|production|test   which releases to pick from (default: auto)
@@ -11,7 +12,7 @@
 #                                      production = newest production release only
 #                                      test       = newest test pre-release
 #   --version <tag>                  install exactly this release (e.g. v1.5.0 or v1.5.0-test.42)
-#   --port <n>                       port of the app (default: the port in an existing /var/lib/fundwarden/config.toml,
+#   --port <n>                       port of the app (default: the port in an existing /var/lib/pennywarden/config.toml,
 #                                    else 8765). A new installation writes it to config.toml; an upgrade only uses
 #                                    it for the health check - an existing config.toml is never changed.
 #   --yes                            do not wait 5 seconds before installing
@@ -25,12 +26,13 @@
 set -euo pipefail
 
 main() {
-  local REPO="${FUNDWARDEN_REPO:-kretherford0983/Fundwarden}"
-  local API="${FUNDWARDEN_API:-https://api.github.com/repos/$REPO}"
-  local DL="${FUNDWARDEN_DOWNLOAD:-https://github.com/$REPO/releases/download}"
+  local REPO="${PENNYWARDEN_REPO:-kretherford0983/PennyWarden}"
+  local API="${PENNYWARDEN_API:-https://api.github.com/repos/$REPO}"
+  local DL="${PENNYWARDEN_DOWNLOAD:-https://github.com/$REPO/releases/download}"
   local MIN_PRODUCTION="1.5.0"   # first production version that ships this installer
-  local PKG="Fundwarden-linux-x64-portable.tar.gz"
-  local OLD_PKG="FinancialManagementPOC-linux-x64-portable.tar.gz"   # package name before 1.6.6
+  local PKG="PennyWarden-linux-x64-portable.tar.gz"
+  # package names of earlier releases: 1.6.6 to 1.6.8 (installs as service fundwarden), before 1.6.6 (service fmpoc)
+  local OLD_PKGS="Fundwarden-linux-x64-portable.tar.gz FinancialManagementPOC-linux-x64-portable.tar.gz"
   local CHANNEL=auto TAG="" PORT="" YES=0
 
   while [ $# -gt 0 ]; do
@@ -47,8 +49,8 @@ main() {
   if [ -n "$PORT" ]; then [[ "$PORT" =~ ^[0-9]+$ ]] && [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ] || die "invalid --port"; fi
   if [ -n "$TAG" ]; then [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-test\.[0-9]+)?$ ]] || die "invalid --version (expected vX.Y.Z or vX.Y.Z-test.N)"; fi
 
-  # (FUNDWARDEN_TEST_NONROOT=1 is used only by the automated tests, which replace install-server.sh)
-  [ "$(id -u)" = 0 ] || [ "${FUNDWARDEN_TEST_NONROOT:-}" = 1 ] || die "run as root, e.g.  curl -fsSL <url>/install.sh | sudo bash"
+  # (PENNYWARDEN_TEST_NONROOT=1 is used only by the automated tests, which replace install-server.sh)
+  [ "$(id -u)" = 0 ] || [ "${PENNYWARDEN_TEST_NONROOT:-}" = 1 ] || die "run as root, e.g.  curl -fsSL <url>/install.sh | sudo bash"
   for c in curl tar gzip sha256sum sort; do command -v "$c" >/dev/null || die "'$c' is required"; done
 
   if [ -z "$TAG" ]; then
@@ -64,18 +66,30 @@ main() {
         fi ;;
     esac
   fi
-  local CFG="${FUNDWARDEN_CONFIG:-/var/lib/fundwarden/config.toml}"
-  [ -f "$CFG" ] || [ -n "${FUNDWARDEN_CONFIG:-}" ] || CFG=/var/lib/fmpoc/config.toml   # installation from before 1.6.6
+  local CFG="${PENNYWARDEN_CONFIG:-/var/lib/pennywarden/config.toml}"
+  if [ ! -f "$CFG" ] && [ -z "${PENNYWARDEN_CONFIG:-}" ]; then   # installation under an earlier name (migrated by install-server.sh)
+    local old; for old in fundwarden fmpoc; do
+      if systemctl is-active --quiet "$old" 2>/dev/null && [ -f "/var/lib/$old/config.toml" ]; then CFG="/var/lib/$old/config.toml"; break; fi
+    done
+    if [ ! -f "$CFG" ]; then for old in fundwarden fmpoc; do
+      if [ -f "/var/lib/$old/config.toml" ]; then CFG="/var/lib/$old/config.toml"; break; fi
+    done; fi
+  fi
   if [ -z "$PORT" ] && [ -f "$CFG" ]; then  # upgrade: health-check the port the installation already uses
     PORT="$(sed -n 's/^[[:space:]]*port[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$CFG" | head -1)"
   fi
-  echo "==> Fundwarden $TAG from github.com/$REPO"
+  echo "==> PennyWarden $TAG from github.com/$REPO"
   if [ "$YES" = 0 ]; then echo "    installing in 5 seconds (Ctrl+C to cancel)"; sleep 5; fi
 
   WORK="$(mktemp -d)"; trap 'rm -rf "${WORK:-}"' EXIT
   fetch "$DL/$TAG/SHA256SUMS.txt" "$WORK/SHA256SUMS.txt"
-  if ! grep -qE "^[0-9a-f]{64}  \*?$PKG\$" "$WORK/SHA256SUMS.txt" && grep -qE "^[0-9a-f]{64}  \*?$OLD_PKG\$" "$WORK/SHA256SUMS.txt"; then
-    PKG="$OLD_PKG"; note "$TAG is from before the rename to Fundwarden (1.6.6): it installs under the old name (service fmpoc)."
+  if ! grep -qE "^[0-9a-f]{64}  \*?$PKG\$" "$WORK/SHA256SUMS.txt"; then
+    local old; for old in $OLD_PKGS; do
+      if grep -qE "^[0-9a-f]{64}  \*?$old\$" "$WORK/SHA256SUMS.txt"; then
+        PKG="$old"; note "$TAG is from before the rename to PennyWarden (1.7.0): it installs under the name it had then."
+        break
+      fi
+    done
   fi
   fetch "$DL/$TAG/$PKG" "$WORK/$PKG"
   fetch "$DL/$TAG/install-server.sh" "$WORK/install-server.sh"
@@ -89,7 +103,7 @@ main() {
   echo "==> running install-server.sh from $TAG"
   if [ -n "$PORT" ]; then bash "$WORK/install-server.sh" "$WORK/$PKG" --port "$PORT"
   else bash "$WORK/install-server.sh" "$WORK/$PKG"; fi
-  echo "==> Fundwarden $TAG installed"
+  echo "==> PennyWarden $TAG installed"
 }
 
 die() { echo "install.sh: $*" >&2; exit 1; }
@@ -98,7 +112,7 @@ plain() { local v="${1#v}"; echo "${v%%-*}"; }
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
 
 api() {  # GET a GitHub API path, print the body; non-2xx -> failure
-  curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" -H "User-Agent: fundwarden-install" "$API/$1"
+  curl -fsSL --retry 3 -H "Accept: application/vnd.github+json" -H "User-Agent: pennywarden-install" "$API/$1"
 }
 
 # The API answers pretty-printed or on one line depending on the client (1.6.7: the one-line form was not understood,
