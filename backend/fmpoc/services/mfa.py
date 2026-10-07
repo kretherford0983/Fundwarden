@@ -28,7 +28,7 @@ from ..models import MfaRecoveryCode, TrustedDevice, User, UserMfa, Workspace, u
 from ..security import crypto
 
 AAD = b"fmpoc:totp_secret:v1"
-ISSUER = "Fundwarden"
+ISSUER = "PennyWarden"
 RECOVERY_COUNT = 10
 RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
 TRUST_COOKIE = "fm_trusted"

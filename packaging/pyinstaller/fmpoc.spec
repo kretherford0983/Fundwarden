@@ -22,8 +22,8 @@ hidden = (collect_submodules("fmpoc") + collect_submodules("uvicorn") + collect_
 a = Analysis([os.path.join(SPECPATH, "entry.py")], pathex=[os.path.join(ROOT, "backend")], datas=datas,
              hiddenimports=hidden, excludes=["tkinter", "pytest", "PIL.ImageTk", "IPython"], noarchive=False)
 pyz = PYZ(a.pure)
-NAME = "Fundwarden" if sys.platform.startswith("win") else "fundwarden"  # dist/<NAME>/<NAME>[.exe]
+NAME = "PennyWarden" if sys.platform.startswith("win") else "pennywarden"  # dist/<NAME>/<NAME>[.exe]
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=True, debug=False,
-          icon=os.path.join(ROOT, "packaging", "windows", "fundwarden.ico"),
+          icon=os.path.join(ROOT, "packaging", "windows", "pennywarden.ico"),
           strip=False, upx=False)
 coll = COLLECT(exe, a.binaries, a.datas, name=NAME, strip=False, upx=False)

@@ -9,8 +9,8 @@ Separate from the replaceable binaries (BR-086). Set with `--data-dir` or `FM_DA
 
 | OS | Default |
 |---|---|
-| Windows | `%LOCALAPPDATA%\Fundwarden` |
-| Linux | `$XDG_DATA_HOME/fundwarden` or `~/.local/share/fundwarden` (a server install uses `/var/lib/fundwarden`) |
+| Windows | `%LOCALAPPDATA%\PennyWarden` |
+| Linux | `$XDG_DATA_HOME/pennywarden` or `~/.local/share/pennywarden` (a server install uses `/var/lib/pennywarden`) |
 
 Before 1.6.6 the default folders were `%LOCALAPPDATA%\FinancialManagementPOC` and
 `~/.local/share/financial-management-poc`. If the new folder does not exist yet and the old one does, 1.6.6 renames
@@ -59,7 +59,7 @@ hsts = true
 trusted_proxies = "127.0.0.1"
 ```
 
-Command line: `fundwarden --mode server --host 0.0.0.0 --port 8765 --data-dir /srv/fundwarden --no-browser`
-(`python -m fmpoc` from source, `fundwarden` / `Fundwarden.exe` or `Fundwarden.cmd` when packaged).
+Command line: `pennywarden --mode server --host 0.0.0.0 --port 8765 --data-dir /srv/pennywarden --no-browser`
+(`python -m fmpoc` from source, `pennywarden` / `PennyWarden.exe` or `PennyWarden.cmd` when packaged).
 
 Debug mode, interactive API docs (`/docs`, `/openapi.json`) and verbose exception pages are never enabled.

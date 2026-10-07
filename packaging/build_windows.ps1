@@ -6,5 +6,5 @@ npm --prefix frontend run build
 python -m venv build\venv-win
 build\venv-win\Scripts\pip install --quiet -r backend\requirements.txt pyinstaller==6.22.3
 build\venv-win\Scripts\pyinstaller --noconfirm --log-level WARN --distpath dist --workpath build\pyinstaller packaging\pyinstaller\fmpoc.spec
-Compress-Archive -Force -Path dist\Fundwarden -DestinationPath dist\Fundwarden-windows-x64-pyinstaller.zip
-Write-Host "Built dist\Fundwarden-windows-x64-pyinstaller.zip (run Fundwarden.exe)"
+Compress-Archive -Force -Path dist\PennyWarden -DestinationPath dist\PennyWarden-windows-x64-pyinstaller.zip
+Write-Host "Built dist\PennyWarden-windows-x64-pyinstaller.zip (run PennyWarden.exe)"

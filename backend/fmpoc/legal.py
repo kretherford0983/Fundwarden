@@ -14,7 +14,7 @@ from .config import build_info
 
 LICENSE_ID = "AGPL-3.0-only"
 LICENSE_NAME = "GNU Affero General Public License v3.0"
-SOURCE_URL = "https://github.com/kretherford0983/Fundwarden"
+SOURCE_URL = "https://github.com/kretherford0983/PennyWarden"
 DOCS = {"license": "LICENSE", "notices": "THIRD-PARTY-NOTICES.txt"}
 
 _PKG = Path(__file__).resolve().parent

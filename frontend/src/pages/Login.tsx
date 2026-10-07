@@ -31,7 +31,7 @@ export default function Login({ workspace, onLogin, legal }: { workspace: string
         <Field label="Password"><input required type="password" autoComplete="current-password" value={password} onChange={(e) => setP(e.target.value)} /></Field>
         <button className="primary" type="submit">Sign in</button>
       </GuardedForm>
-      {legal?.license ? <p className="hint login-legal"><img className="logo" src="/favicon.svg" alt="" width={16} height={16} /> Fundwarden · <LegalLinks license={legal.license} sourceUrl={legal.source_url} /></p> : null}
+      {legal?.license ? <p className="hint login-legal"><img className="logo" src="/favicon.svg" alt="" width={16} height={16} /> PennyWarden · <LegalLinks license={legal.license} sourceUrl={legal.source_url} /></p> : null}
     </div>
   );
 }
