@@ -23,7 +23,8 @@ Workflow-run copies of the packages are kept 7 days (develop) or 1 day (test/mai
 permanent copy), so Actions artifact storage stays well within the GitHub Pro allowance (1 GB).
 
 ## Rules enforced by the pipeline (`scripts/check_promotion.sh`)
-- Pull requests into **develop** come from `feature/*` or `hotfix/*` (or a back-merge from `test`/`main`).
+- Pull requests into **develop** come from `feature/*`, `hotfix/*` or `dependabot/*` (or a back-merge from
+  `test`/`main`). `dependabot/*` branches are accepted into develop only.
 - Pull requests into **test** come from `develop` (or `hotfix/*`, or a back-merge from `main`).
 - Pull requests into **main** come from `test` or `hotfix/*`, **and** the version must not be released yet and must
   have a `## <version>` section in `CHANGELOG.md`.
@@ -64,6 +65,28 @@ fixes simply went into the next version. From 1.6.6 on, `main` is what people ru
 
 **Hotfix** (urgent production fix): branch `hotfix/short-name` from `main`, bump the Minor number (e.g. 1.6.6 → 1.6.7),
 pull request into `main`; afterwards pull request `main → test` and `main → develop` so the fix is not lost.
+
+## Automatic checks between releases (since 1.6.8)
+
+**Weekly security check** (`.github/workflows/security.yml`). Every Monday GitHub runs
+`scripts/security_check.sh` (pip-audit, npm audit and the security tests) on `main`. When a new advisory affects a
+dependency the run fails and GitHub emails you; the reports are attached to the run. Start it by hand any time with
+Actions → security → Run workflow. GitHub pauses scheduled workflows in a public repository after 60 days without
+repository activity — it emails first, and **Enable workflow** on the Actions tab turns it back on.
+
+**Dependabot** (`.github/dependabot.yml`). Once a week Dependabot opens pull requests **into `develop`** for the
+Python (`backend/`), JavaScript (`frontend/`) and GitHub Actions dependencies: routine minor and patch updates as
+one pull request per group, a major version as its own pull request, at most 5 open per group. Security updates
+arrive separately as soon as an advisory is published, once *Dependabot security updates* is turned on (Settings →
+Advanced Security). Its branches are named `dependabot/...`:
+1. The `ci` workflow runs the full test suite on the pull request, like any other.
+2. If the update changes a dependency that ships in the packages, the *Third-party notices up to date* step fails
+   until `THIRD-PARTY-NOTICES.txt` is regenerated on that branch (`python scripts/third_party_notices.py`) — ask me
+   to do it, or close the pull request and have the update made on a feature branch.
+3. Merge when green. The update then travels develop → test → main with the next release; nothing is released by
+   merging it.
+4. Not wanted? Close the pull request; comment `@dependabot ignore this major version` (or `this dependency`) to
+   stop it being proposed again.
 
 ## One-time GitHub settings (Settings tab of the repository)
 1. **General → Default branch**: `main` — visitors then see the README and docs of the production release (choose

@@ -3,7 +3,8 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.6.8 — 2026-10-07
-Maintenance of the build pipeline. No change to the application itself, its data or its settings.
+Maintenance of the build pipeline and repository security automation. No change to the application itself, its data
+or its settings.
 - **GitHub Actions on Node.js 24 (#48).** The workflow actions ran on the deprecated Node.js 20 runtime and were
   being forced onto Node.js 24 with a warning on every run. They now use the versions built for Node.js 24:
   `actions/checkout@v7`, `actions/setup-node@v7`, `actions/setup-python@v7`, `actions/upload-artifact@v7` and
@@ -12,6 +13,16 @@ Maintenance of the build pipeline. No change to the application itself, its data
   five Linux jobs (tests, promotion rules, packages, assemble, publish) now name `ubuntu-26.04`, so the move happens
   on our schedule and is proven by the pull request's own run. The E2E tests use **Playwright 1.63.0** (was 1.56.1,
   which cannot install its browser on Ubuntu 26.04). Returning to `ubuntu-latest` is a later one-line change.
+- **Weekly security check (#64).** New workflow `security`: every Monday (and on demand from the Actions tab) GitHub
+  runs the dependency vulnerability checks and the security tests on `main`. A new advisory fails the run and GitHub
+  emails the repository owner, so it is noticed between releases — not, as with 1.6.7, at the release pull request.
+- **Dependabot (#65).** `.github/dependabot.yml`: weekly update pull requests into `develop` for the Python,
+  JavaScript and GitHub Actions dependencies — minor and patch updates grouped into one pull request per group,
+  major versions separately, at most 5 open per group. The promotion rules now accept `dependabot/*` branches into
+  `develop` (and only there). docs/branching.md describes how such a pull request is handled.
+- **Demo data script (#66).** `scripts/demo_data.py` no longer prints the demo password when it finishes (reported
+  by CodeQL as clear-text logging); it points to the `PASSWORD` constant in the script instead. The password was
+  always a made-up value in a public file — nothing was exposed.
 
 ## 1.6.7 — 2026-10-06
 Recurring organization reminders, a Mac app, account start and end pages in the audit report, register filters,

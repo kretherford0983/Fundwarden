@@ -1,0 +1,44 @@
+# 1.6.8 (#65): Dependabot proposes dependency updates as pull requests into develop, once a week.
+# - Routine minor/patch updates arrive as ONE pull request per ecosystem (groups below); a major version arrives as
+#   its own pull request, so a risky upgrade is never hidden inside a batch.
+# - Security updates (Settings -> Advanced Security -> "Dependabot security updates") are separate pull requests,
+#   opened as soon as an advisory is published, and also target develop.
+# - At most 5 open pull requests per ecosystem.
+# Branches are named dependabot/...; scripts/check_promotion.sh lets them into develop only. See docs/branching.md.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      javascript:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
