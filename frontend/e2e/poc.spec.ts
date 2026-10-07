@@ -77,6 +77,42 @@ test("AC-UI-THEME-001..003: dark mode persists across logout/login", async ({ pa
   expect(bg).not.toBe("rgb(246, 247, 249)");
 });
 
+test("#68: signing in while the page's first form-token request is still under way works", async ({ page }) => {
+  // The sign-in page asks for its form token when it opens and again when Sign in is pressed. Before 1.6.8 two such
+  // requests could overlap: each got its own token (neither carried the cookie yet), the browser kept the token of
+  // the answer that arrived last as its cookie while the page sent the other one, and the sign-in was refused with
+  // "Missing or invalid CSRF token." The two answers are played here exactly as the server gives them to two
+  // overlapping requests - a different token each, in the order that used to fail; the sign-in itself goes to the
+  // real server, which accepts it only when the cookie and the token sent with the form are the same.
+  let requests = 0;
+  let releaseFirst!: () => void;
+  const firstHeld = new Promise<void>((r) => (releaseFirst = r));
+  const answer = (route: import("@playwright/test").Route, token: string) =>
+    route.fulfill({
+      status: 200, contentType: "application/json", body: JSON.stringify({ csrf_token: token }),
+      headers: { "Set-Cookie": `fm_precsrf=${token}; Path=/; SameSite=Strict` },
+    });
+  await page.route("**/api/auth/csrf", async (route) => {
+    requests += 1;
+    if (requests === 1) {
+      await firstHeld;                       // still under way when Sign in is pressed
+      await answer(route, "A".repeat(43));
+    } else {
+      releaseFirst();                        // old behaviour: a second request - the first answer lands, then this one
+      await new Promise((r) => setTimeout(r, 300));
+      await answer(route, "B".repeat(43));
+    }
+  });
+  await page.goto("/");
+  await page.getByLabel("Username").fill("bm1");
+  await page.getByLabel("Password").fill(PW);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForTimeout(300);
+  releaseFirst();
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
+  expect(requests).toBe(1);                  // Sign in waited for the request that was already under way
+});
+
 test("AC-FY-VIS-001..007 + AC-BUD: Budget Manager creates Draft FY, budget, institution and account", async ({ page }) => {
   await login(page, "bm1");
   await page.getByRole("link", { name: "Fiscal Years" }).click();

@@ -110,10 +110,25 @@ export const api = {
   },
 };
 
-export async function preAuthCsrf() {
-  const gen = csrfGen;
-  const r = await api.get<{ csrf_token: string }>("/api/auth/csrf");
-  if (gen === csrfGen) setCsrf(r.csrf_token); // someone set a (session) token meanwhile: keep it
+// 1.6.8 (#68): never two of these requests at once. The sign-in page asks when it opens and again when Sign in is
+// pressed; two overlapping requests (neither carrying the cookie yet) each got their own token, the browser kept one
+// as the cookie, the page sent the other -> 403 "Missing or invalid CSRF token." A caller that arrives while a
+// request is under way waits for that one; a later request carries the cookie and gets the same token back.
+let preAuthInFlight: Promise<void> | null = null;
+
+export function preAuthCsrf(): Promise<void> {
+  if (!preAuthInFlight) {
+    const gen = csrfGen;
+    preAuthInFlight = api
+      .get<{ csrf_token: string }>("/api/auth/csrf")
+      .then((r) => {
+        if (gen === csrfGen) setCsrf(r.csrf_token); // someone set a (session) token meanwhile: keep it
+      })
+      .finally(() => {
+        preAuthInFlight = null;
+      });
+  }
+  return preAuthInFlight;
 }
 
 export function qs(params: Record<string, string | number | boolean | null | undefined>) {

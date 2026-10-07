@@ -19,6 +19,9 @@
 
 ## Dependency vulnerability checks (AC-SEC-024)
 
+Since 1.6.8 these checks also run **every week on `main`** (workflow `security`, a failure is emailed by GitHub) and
+Dependabot proposes dependency updates into `develop` — see docs/branching.md, *Automatic checks between releases*.
+
 ```bash
 . .venv/bin/activate
 bash scripts/security_check.sh          # writes build/security/{pip-audit,npm-audit,security-tests}.txt

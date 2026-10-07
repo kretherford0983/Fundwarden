@@ -14,7 +14,7 @@ from pathlib import Path
 
 APP_NAME = "Fundwarden"
 LEGACY_APP_NAME = "FinancialManagementPOC"  # name of the default data folder before 1.6.6
-VERSION = "1.6.7"
+VERSION = "1.6.8"
 
 
 BUILD_INFO_FILE = Path(__file__).with_name("build_info.json")
