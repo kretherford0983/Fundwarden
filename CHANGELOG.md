@@ -2,6 +2,14 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.7.1 — 2026-10-07
+- **Dependabot no longer proposes major versions (#80).** When 1.6.8 switched Dependabot on, it opened a pull
+  request for every major upgrade it could find (React 19, TypeScript 7, Vite 8, …) and one for `pydantic_core`
+  alone; none of them could pass the tests. Major upgrades are now left to be planned as issues, and
+  `pydantic_core` is only updated together with `pydantic`. The weekly grouped minor and patch updates are
+  unchanged, and security updates are not held back by the new rules — also when the fix is a major version.
+  No change to the application.
+
 ## 1.7.0 — 2026-10-07
 **The application is renamed to PennyWarden** (#70). Another product in the financial field already uses the name
 Fundwarden. This release contains the rename and nothing else: no database migration, no change to data, settings
