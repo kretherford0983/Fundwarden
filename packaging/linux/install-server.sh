@@ -1,38 +1,55 @@
 #!/usr/bin/env bash
-# Install or upgrade Fundwarden as an always-on systemd service (native, no Docker).
+# Install or upgrade PennyWarden as an always-on systemd service (native, no Docker).
 #
-#   sudo ./install-server.sh Fundwarden-linux-x64-portable.tar.gz [--port 8765]
+#   sudo ./install-server.sh PennyWarden-linux-x64-portable.tar.gz [--port 8765]
 #
-# Layout:  /opt/fundwarden/releases/<timestamp>/  binaries (replaceable)   /opt/fundwarden/current -> active release
-#          /var/lib/fundwarden/                    APP_DATA_DIR: database, attachments, secrets, logs, config.toml
-#          /var/backups/fundwarden/                automatic data snapshot taken before every upgrade
+# Layout:  /opt/pennywarden/releases/<timestamp>/  binaries (replaceable)   /opt/pennywarden/current -> active release
+#          /var/lib/pennywarden/                    APP_DATA_DIR: database, attachments, secrets, logs, config.toml
+#          /var/backups/pennywarden/                automatic data snapshot taken before every upgrade
 # The app listens on 127.0.0.1 only; publish it through Cloudflare Tunnel or a local HTTPS reverse proxy.
 #
-# 1.6.6 - the application was renamed (before: service "fmpoc", /opt/fmpoc, /var/lib/fmpoc). When this installer
-# finds such an installation and no Fundwarden data yet, it MIGRATES it: the old service is stopped and disabled and
-# its data directory is COPIED to /var/lib/fundwarden. Nothing of the old installation is changed or removed, so
-# going back is "systemctl disable --now fundwarden; systemctl enable --now fmpoc". Remove the old installation by
-# hand once you are satisfied (docs/upgrade.md, "Cleanup after the rename").
+# The application was renamed twice: 1.7.0 - PennyWarden (1.6.6 to 1.6.8: service "fundwarden", /opt/fundwarden,
+# /var/lib/fundwarden) and 1.6.6 - Fundwarden (before: service "fmpoc", /opt/fmpoc, /var/lib/fmpoc). When this
+# installer finds an installation under an earlier name and no PennyWarden data yet, it MIGRATES it: the old service
+# is stopped and disabled and its data directory is COPIED to /var/lib/pennywarden. Nothing of the old installation
+# is changed or removed, so going back is
+#   systemctl disable --now pennywarden; systemctl enable --now fundwarden      (or fmpoc)
+# Remove the old installation by hand once you are satisfied (docs/upgrade.md, "Cleanup after the rename").
 set -euo pipefail
 TARBALL="${1:-}"; shift || true
 PORT=""
 while [ $# -gt 0 ]; do case "$1" in --port) PORT="$2"; shift 2;; *) echo "unknown option $1"; exit 2;; esac; done
 [ "$(id -u)" = 0 ] || { echo "run as root (sudo)"; exit 1; }
-[ -f "$TARBALL" ] || { echo "usage: sudo $0 <Fundwarden-linux-x64-portable.tar.gz> [--port N]"; exit 2; }
+[ -f "$TARBALL" ] || { echo "usage: sudo $0 <PennyWarden-linux-x64-portable.tar.gz> [--port N]"; exit 2; }
 command -v systemctl >/dev/null || { echo "systemd is required"; exit 1; }
 
-SVC=fundwarden; USER_=fundwarden; OPT=/opt/fundwarden; DATA=/var/lib/fundwarden; BK=/var/backups/fundwarden
-OLD_SVC=fmpoc; OLD_OPT=/opt/fmpoc; OLD_DATA=/var/lib/fmpoc; OLD_BK=/var/backups/fmpoc   # names before 1.6.6
+SVC=pennywarden; USER_=pennywarden; OPT=/opt/pennywarden; DATA=/var/lib/pennywarden; BK=/var/backups/pennywarden
+PREVIOUS="fundwarden fmpoc"   # earlier names, newest first: fundwarden = 1.6.6 to 1.6.8, fmpoc = before 1.6.6
 STAMP="$(date +%Y%m%d-%H%M%S)"; REL="$OPT/releases/$STAMP"
+set_old() { OLD_SVC="$1"; OLD_OPT="/opt/$1"; OLD_DATA="/var/lib/$1"; OLD_BK="/var/backups/$1"; }
 
-MIGRATE=0
-if [ ! -d "$DATA/database" ] && [ -d "$OLD_DATA/database" ]; then MIGRATE=1; fi
-if [ "$MIGRATE" = 0 ] && [ -d "$DATA/database" ] && systemctl is-active --quiet "$OLD_SVC"; then
-  echo "Both a Fundwarden installation ($DATA) and a RUNNING old '$OLD_SVC' service exist."
-  echo "Decide which one is current first:"
-  echo "  keep Fundwarden:        sudo systemctl disable --now $OLD_SVC     (then run this installer again)"
-  echo "  migrate the old one again: stop here, move $DATA away, then run this installer again"
-  exit 1
+MIGRATE=0; set_old fundwarden
+if [ ! -d "$DATA/database" ]; then
+  # no PennyWarden data yet: migrate the installation that is in service; if none is running, the newest name
+  # that has data (a server can still hold the stopped fmpoc installation next to the Fundwarden one)
+  for n in $PREVIOUS; do
+    if [ -d "/var/lib/$n/database" ] && systemctl is-active --quiet "$n"; then MIGRATE=1; set_old "$n"; break; fi
+  done
+  if [ "$MIGRATE" = 0 ]; then
+    for n in $PREVIOUS; do
+      if [ -d "/var/lib/$n/database" ]; then MIGRATE=1; set_old "$n"; break; fi
+    done
+  fi
+else
+  for n in $PREVIOUS; do
+    if systemctl is-active --quiet "$n"; then
+      echo "Both a PennyWarden installation ($DATA) and a RUNNING old '$n' service exist."
+      echo "Decide which one is current first:"
+      echo "  keep PennyWarden:          sudo systemctl disable --now $n     (then run this installer again)"
+      echo "  migrate the old one again: stop here, move $DATA away, then run this installer again"
+      exit 1
+    fi
+  done
 fi
 
 id "$USER_" >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin "$USER_"
@@ -42,10 +59,10 @@ echo "==> unpacking release $STAMP"
 install -d -m 0755 "$REL"
 tar -xzf "$TARBALL" -C "$REL" --strip-components=1 --no-same-owner
 chown -R root:root "$REL"; chmod -R go-w "$REL"
-"$REL/fundwarden" --version >/dev/null
+"$REL/pennywarden" --version >/dev/null
 
 if [ "$MIGRATE" = 1 ]; then
-  echo "==> found an installation under the old name ($OLD_SVC): migrating it to Fundwarden"
+  echo "==> found an installation under the old name ($OLD_SVC, $OLD_DATA): migrating it to PennyWarden"
   NEED=$(du -sk "$OLD_DATA" | cut -f1); AVAIL=$(df -Pk "$(dirname "$DATA")" | awk 'NR==2 {print $4}')
   if [ "$AVAIL" -lt $((NEED + NEED / 10 + 10240)) ]; then
     echo "not enough free space in $(dirname "$DATA") to copy $OLD_DATA (needs about $((NEED / 1024 + 10)) MB) - nothing was changed"
@@ -79,7 +96,7 @@ if [ ! -f "$DATA/config.toml" ]; then
   [ -n "$PORT" ] || PORT=8765
   echo "==> writing $DATA/config.toml"
   cat > "$DATA/config.toml" <<CFG
-# Fundwarden - server settings (see docs/configuration.md)
+# PennyWarden - server settings (see docs/configuration.md)
 [server]
 mode = "server"
 host = "127.0.0.1"          # loopback only; Cloudflare Tunnel / reverse proxy connects locally
@@ -97,7 +114,7 @@ fi
 
 cat > /etc/systemd/system/$SVC.service <<UNIT
 [Unit]
-Description=Fundwarden
+Description=PennyWarden
 After=network-online.target
 Wants=network-online.target
 
@@ -105,7 +122,7 @@ Wants=network-online.target
 Type=simple
 User=$USER_
 Group=$USER_
-ExecStart=$OPT/current/fundwarden --mode server --no-browser --data-dir $DATA
+ExecStart=$OPT/current/pennywarden --mode server --no-browser --data-dir $DATA
 Restart=on-failure
 RestartSec=3
 UMask=0077
@@ -141,7 +158,7 @@ for i in $(seq 1 60); do
   if [ "$i" = 60 ]; then
     echo " FAILED"; journalctl -u "$SVC" -n 40 --no-pager || true
     if [ "$MIGRATE" = 1 ]; then
-      echo "==> Fundwarden did not start after the migration - switching back to the old installation"
+      echo "==> PennyWarden did not start after the migration - switching back to the old installation"
       systemctl disable --now "$SVC" >/dev/null 2>&1 || true
       mv "$DATA" "$DATA.failed-migration-$STAMP"
       systemctl enable --now "$OLD_SVC" >/dev/null 2>&1 || true
@@ -161,7 +178,9 @@ if [ "$MIGRATE" = 1 ]; then
   echo "The old installation was left in place, stopped and disabled, so you can go back:"
   echo "    sudo systemctl disable --now $SVC && sudo systemctl enable --now $OLD_SVC"
 fi
-if [ -e "$OLD_DATA" ] || [ -e "$OLD_OPT" ] || [ -e "$OLD_BK" ] || [ -e /etc/systemd/system/$OLD_SVC.service ]; then
-  echo "NOTE: files of the old installation still exist ($OLD_OPT, $OLD_DATA, $OLD_BK, $OLD_SVC.service)."
-  echo "      Remove them when you no longer need them: docs/upgrade.md, \"Cleanup after the rename\"."
-fi
+for n in $PREVIOUS; do
+  if [ -e "/var/lib/$n" ] || [ -e "/opt/$n" ] || [ -e "/var/backups/$n" ] || [ -e "/etc/systemd/system/$n.service" ]; then
+    echo "NOTE: files of the old '$n' installation still exist (/opt/$n, /var/lib/$n, /var/backups/$n, $n.service)."
+    echo "      Remove them when you no longer need them: docs/upgrade.md, \"Cleanup after the rename\"."
+  fi
+done

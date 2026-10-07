@@ -1,4 +1,4 @@
-"""PyInstaller entry point for Fundwarden.app (macOS, 1.6.7): local mode behind a small status window."""
+"""PyInstaller entry point for PennyWarden.app (macOS, 1.6.7): local mode behind a small status window."""
 import multiprocessing
 import sys
 

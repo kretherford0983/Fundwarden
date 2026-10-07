@@ -1,5 +1,5 @@
-# PyInstaller spec - ONE-FILE build (v1.5.0 CR-026): a single Fundwarden-<version>-windows-x64.exe.
-# Double-click = local mode (127.0.0.1, opens the browser). Data stays in %LOCALAPPDATA%\Fundwarden,
+# PyInstaller spec - ONE-FILE build (v1.5.0 CR-026): a single PennyWarden-<version>-windows-x64.exe.
+# Double-click = local mode (127.0.0.1, opens the browser). Data stays in %LOCALAPPDATA%\PennyWarden,
 # never inside the .exe. The .exe unpacks itself to a temporary folder at each start (a few seconds).
 # Usage (repo root, after `npm --prefix frontend run build`):
 #   pyinstaller --noconfirm --distpath dist --workpath build/pyinstaller-onefile packaging/pyinstaller/fmpoc-onefile.spec
@@ -9,8 +9,8 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 PKG = os.path.join(ROOT, "backend", "fmpoc")
-NAME = os.environ.get("FM_EXE_NAME", "Fundwarden")
-ICON = os.path.join(ROOT, "packaging", "windows", "fundwarden.ico")  # 1.6.6: the coin-with-keyhole app icon
+NAME = os.environ.get("FM_EXE_NAME", "PennyWarden")
+ICON = os.path.join(ROOT, "packaging", "windows", "pennywarden.ico")  # 1.6.6: the coin-with-keyhole app icon
 
 datas = [
     (os.path.join(PKG, "static"), "fmpoc/static"),
@@ -28,6 +28,6 @@ hidden = (collect_submodules("fmpoc") + collect_submodules("uvicorn") + collect_
 a = Analysis([os.path.join(SPECPATH, "entry.py")], pathex=[os.path.join(ROOT, "backend")], datas=datas,
              hiddenimports=hidden, excludes=["tkinter", "pytest", "PIL.ImageTk", "IPython"], noarchive=False)
 pyz = PYZ(a.pure)
-# console=True: the window shows the address and log; closing it stops Fundwarden.
+# console=True: the window shows the address and log; closing it stops PennyWarden.
 exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name=NAME, console=True, debug=False, strip=False, upx=False,
           runtime_tmpdir=None, icon=ICON, version=os.environ.get("FM_EXE_VERSION_FILE") or None)

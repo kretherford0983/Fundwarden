@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fills a NEW, empty Fundwarden installation with a small made-up organization - for screenshots and demos.
+"""Fills a NEW, empty PennyWarden installation with a small made-up organization - for screenshots and demos.
 
     python scripts/demo_data.py http://127.0.0.1:8787
 
@@ -20,7 +20,7 @@ import httpx
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-PASSWORD = "Demo-Fundwarden-2026"
+PASSWORD = "Demo-PennyWarden-2026"
 ORG = "Riverside Band Boosters"
 
 

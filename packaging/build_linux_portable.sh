@@ -2,12 +2,12 @@
 # Self-contained Linux x86-64 distribution that runs on virtually any glibc distro (glibc >= 2.17):
 # relocatable CPython from astral-sh/python-build-standalone + manylinux wheels. No Python/Node/SQLite needed
 # on the target. Preferred over the PyInstaller build for servers (PyInstaller inherits the build host's glibc).
-# Usage (repo root): bash packaging/build_linux_portable.sh  -> dist/Fundwarden-linux-x64-portable.tar.gz
+# Usage (repo root): bash packaging/build_linux_portable.sh  -> dist/PennyWarden-linux-x64-portable.tar.gz
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PBS_TAG="${PBS_TAG:-20251014}"
 PYVER="${PYVER:-3.12.12}"
-NAME="Fundwarden-linux-x64"
+NAME="PennyWarden-linux-x64"
 OUT="$ROOT/dist/portable/$NAME"
 CACHE="$ROOT/build/cache"
 ARCHIVE="cpython-${PYVER}+${PBS_TAG}-x86_64-unknown-linux-gnu-install_only.tar.gz"
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fmpoc.__main__ import main
 sys.exit(main())
 PY
-cat > "$OUT/fundwarden" <<'SH'
+cat > "$OUT/pennywarden" <<'SH'
 #!/bin/sh
 # Self-contained launcher. Local mode by default; use --mode server for servers.
 case "$0" in */*) HERE="${0%/*}" ;; *) HERE="." ;; esac
@@ -37,7 +37,7 @@ HERE="$(cd "$HERE" && pwd)"
 export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
 exec "$HERE/python/bin/python3" -I "$HERE/app/launch.py" "$@"
 SH
-chmod +x "$OUT/fundwarden"
+chmod +x "$OUT/pennywarden"
 # prune parts of the runtime the server never uses (tests, GUI toolkits, headers, pip)
 L="$OUT/python/lib/python3.12"
 rm -rf "$L/test" "$L/idlelib" "$L/tkinter" "$L/turtledemo" "$L/ensurepip" "$L/lib2to3" "$L/site-packages/pip" \

@@ -127,7 +127,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
 
-    app = FastAPI(title="Fundwarden", version=VERSION, debug=False,
+    app = FastAPI(title="PennyWarden", version=VERSION, debug=False,
                   docs_url=None, redoc_url=None, openapi_url=None,  # no dev consoles in production (BR-107)
                   dependencies=[Depends(enforce_csrf)])
     app.state.settings = settings

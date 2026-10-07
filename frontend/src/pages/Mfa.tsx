@@ -135,7 +135,7 @@ export function Enrollment({ currentCode, onFinished, onCancel }: { currentCode?
 function RecoveryCodes({ codes, onContinue }: { codes: string[]; onContinue: () => void }) {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const text = `Fundwarden recovery codes (each works once)\n\n${codes.join("\n")}\n`;
+  const text = `PennyWarden recovery codes (each works once)\n\n${codes.join("\n")}\n`;
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setCopied(false); }
   };
@@ -143,7 +143,7 @@ function RecoveryCodes({ codes, onContinue }: { codes: string[]; onContinue: () 
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "fundwarden-recovery-codes.txt";
+    a.download = "pennywarden-recovery-codes.txt";
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };

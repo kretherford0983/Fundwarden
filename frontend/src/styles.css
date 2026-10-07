@@ -58,7 +58,7 @@ fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; p
 .shell > .topbar, .shell > .banner { flex-shrink: 0; }
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap; }
 .brand { font-weight: 700; }
-.logo { vertical-align: -4px; margin-right: 2px; }  /* 1.6.6: the Fundwarden coin */
+.logo { vertical-align: -4px; margin-right: 2px; }  /* 1.6.6: the PennyWarden coin */
 .userbox { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .small-link { font-size: 13px; }
 .body { display: flex; flex: 1; min-height: 0; }

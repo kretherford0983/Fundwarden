@@ -13,8 +13,8 @@
 | `test` | release candidate being tested | tests + packages + **GitHub pre-release** `v<version>-test.<n>` | test server |
 | `main` | production | tests + packages + **GitHub release** `v<version>` and git tag | production server |
 
-Packages in every build: `Fundwarden-linux-x64-portable.tar.gz` (servers), `Fundwarden-windows-x64.zip`,
-`Fundwarden-<version>-windows-x64.exe` (one file, since 1.5.0), `install.sh` (one-command Linux install, since 1.5.0),
+Packages in every build: `PennyWarden-linux-x64-portable.tar.gz` (servers), `PennyWarden-windows-x64.zip`,
+`PennyWarden-<version>-windows-x64.exe` (one file, since 1.5.0), `install.sh` (one-command Linux install, since 1.5.0),
 `install-server.sh`, `build-info.json` (version, branch, commit, run) and `SHA256SUMS.txt`. Each package is smoke-tested
 (started from a clean environment and checked for the expected version — the Windows .exe and zip on a Windows
 runner) before it is published. To try the packages of a feature branch without publishing anything, run the
@@ -33,16 +33,16 @@ permanent copy), so Actions artifact storage stays well within the GitHub Pro al
 
 ## Day-to-day flow
 1. **Start an enhancement** – make sure your local `develop` is current (`git checkout develop && git pull`), then ask
-   me to start it. I create `feature/cr-NNN-short-name` from `develop` in the Fundwarden folder, implement it, run the
+   me to start it. I create `feature/cr-NNN-short-name` from `develop` in the PennyWarden folder, implement it, run the
    full backend + E2E suite and package build locally, and commit on that branch. (I can't push: pushing needs your
    GitHub credentials.)
-2. **Push the feature branch** (Windows terminal in the Fundwarden folder):
+2. **Push the feature branch** (Windows terminal in the PennyWarden folder):
    `git push -u origin feature/cr-NNN-short-name` → the `ci` workflow runs.
 3. **Pull request feature → develop** on GitHub; merge when green (squash or merge commit — your choice).
 4. **Promote to test**: pull request **develop → test**, merge with *Create a merge commit*. The build publishes a
    pre-release `v<version>-test.N`; install it on the test server with the command in its release notes
    (`curl -fsSL …/releases/download/<tag>/install.sh | sudo bash -s -- --version <tag>`), or as before with
-   `sudo bash install-server.sh Fundwarden-linux-x64-portable.tar.gz`.
+   `sudo bash install-server.sh PennyWarden-linux-x64-portable.tar.gz`.
 5. **Release**: when testing is accepted, pull request **test → main**, merge with *Create a merge commit*. The build
    publishes release `v<version>` (notes = that version's CHANGELOG section) and marks it *latest*. Install it in
    production with `curl -fsSL …/releases/latest/download/install.sh | sudo bash`.
@@ -60,7 +60,7 @@ pipeline are unchanged):
 The first feature of a new release bumps the version on its feature branch (e.g. 1.5.0 → 1.6.0) and adds the
 CHANGELOG section; later features of the same release add to that section.
 
-**Production releases started with 1.6.6** (the release that renamed the application to Fundwarden). Before that (beta) every version existed only as a test pre-release and
+**Production releases started with 1.6.6** (the release that renamed the application to Fundwarden; it is PennyWarden since 1.7.0). Before that (beta) every version existed only as a test pre-release and
 fixes simply went into the next version. From 1.6.6 on, `main` is what people run:
 
 **Hotfix** (urgent production fix): branch `hotfix/short-name` from `main`, bump the Minor number (e.g. 1.6.6 → 1.6.7),

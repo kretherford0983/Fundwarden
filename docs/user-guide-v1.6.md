@@ -1,5 +1,9 @@
 # What's new in 1.6 — quick guide
 
+> **Since 1.7.0 the application is called PennyWarden.** This guide was written for 1.6 and uses the name it had
+> then (Fundwarden); everything it describes works the same way. Nothing about your work changed with the new name:
+> same address, same sign-in, same data.
+
 *1.6.7: a person's position is filled in as the signer's title; count sheet refinements. 1.6.6: the application is renamed Fundwarden; cash count sheet with blank signature rows and a page for more checks. 1.6.0: the optional Fundraiser module (core). 1.6.1: buckets, cash float, exclusions and fundraiser documents.
 1.6.2: the fundraiser report. 1.6.3: reminders and notifications. 1.6.4: cancelled fundraisers and the cash count sheet.*
 

@@ -1,6 +1,6 @@
 ---
 name: Enhancement
-about: An improvement to something Fundwarden already does
+about: An improvement to something PennyWarden already does
 title: ""
 labels: enhancement
 ---

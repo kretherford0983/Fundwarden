@@ -41,7 +41,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
-from .. import VERSION
+from .. import VERSION, config
 from ..security import crypto
 
 log = logging.getLogger("fmpoc")
@@ -102,7 +102,7 @@ def _read_exact(f, n: int) -> bytes:
 
 def read_header(f) -> tuple[bytes, dict]:
     if f.read(len(MAGIC)) != MAGIC:
-        raise BackupError("This is not a Fundwarden backup file (.fmbak).")
+        raise BackupError("This is not a PennyWarden backup file (.fmbak).")
     hl = int.from_bytes(_read_exact(f, 2), "big")
     raw = _read_exact(f, hl)
     try:
@@ -281,7 +281,7 @@ def create_backup(settings, passphrase: str, job: Job | None = None) -> tuple[Pa
             job.advance("Taking a consistent copy of the database")
         _snapshot_db(settings, snap)
         facts = _db_facts(snap)
-        name = f"fundwarden-backup-{_slug(facts['workspace'] or 'organization')}-{stamp}.fmbak"
+        name = f"{config.APP_NAME.lower()}-backup-{_slug(facts['workspace'] or 'organization')}-{stamp}.fmbak"
         files: list[tuple[str, Path]] = [(f"database/{DB_NAME}", snap)]
         key_file = crypto.key_path(settings.secrets_dir)
         if key_file.is_file():
@@ -313,7 +313,7 @@ def create_backup(settings, passphrase: str, job: Job | None = None) -> tuple[Pa
                     ti.mode = 0o600
                     with open(p, "rb") as fh:
                         tar.addfile(ti, fh)
-                manifest = {"format": FORMAT, "app": "Fundwarden", "app_version": VERSION,
+                manifest = {"format": FORMAT, "app": config.APP_NAME, "app_version": VERSION,
                             "created_at": dt.datetime.utcnow().isoformat() + "Z",
                             "alembic_revision": facts["alembic_revision"], "workspace": facts["workspace"],
                             "counts": facts["counts"], "files": manifest_files}

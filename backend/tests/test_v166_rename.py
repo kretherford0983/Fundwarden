@@ -1,5 +1,7 @@
 """1.6.6: rename to Fundwarden - the default data folder of a local installation is adopted, an explicitly chosen
-data directory is never touched, and install.sh can still install a release from before the rename."""
+data directory is never touched, and install.sh can still install a release from before the rename.
+(1.7.0 renamed the application again, to PennyWarden; the folder from before 1.6.6 is still adopted - these tests -
+and so is the Fundwarden one: test_v170_rename.py.)"""
 from __future__ import annotations
 
 import hashlib
@@ -18,12 +20,12 @@ def _old_and_new(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("FM_DATA_DIR", raising=False)
-    return config.legacy_default_data_dir(), config.default_data_dir()
+    return config.previous_default_data_dirs()[-1], config.default_data_dir()   # the name before 1.6.6
 
 
 def test_default_data_dir_uses_the_new_name(tmp_path, monkeypatch):
     old, new = _old_and_new(tmp_path, monkeypatch)
-    assert new.name.lower() == "fundwarden" and old != new
+    assert new.name.lower() == "pennywarden" and old != new
     assert old.name in ("FinancialManagementPOC", "financial-management-poc")
 
 

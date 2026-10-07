@@ -12,9 +12,12 @@ import tomllib
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 
-APP_NAME = "Fundwarden"
-LEGACY_APP_NAME = "FinancialManagementPOC"  # name of the default data folder before 1.6.6
-VERSION = "1.6.8"
+APP_NAME = "PennyWarden"
+# Earlier names of the default data folder, newest first: (Windows / macOS folder name, Linux folder name)
+PREVIOUS_APP_NAMES = (("Fundwarden", "fundwarden"),                            # 1.6.6 - 1.6.8
+                      ("FinancialManagementPOC", "financial-management-poc"))  # before 1.6.6
+LEGACY_APP_NAME = PREVIOUS_APP_NAMES[-1][0]
+VERSION = "1.7.0"
 
 
 BUILD_INFO_FILE = Path(__file__).with_name("build_info.json")
@@ -45,18 +48,27 @@ def _default_data_dir(name: str, unix_name: str) -> Path:
 
 def default_data_dir() -> Path:
     """OS-appropriate default application-data directory (separate from binaries, BR-086)."""
-    return _default_data_dir(APP_NAME, "fundwarden")
+    return _default_data_dir(APP_NAME, "pennywarden")
+
+
+def previous_default_data_dirs() -> list[Path]:
+    """Default data directories under the application's earlier names, newest name first (1.7.0)."""
+    return [_default_data_dir(name, unix_name) for name, unix_name in PREVIOUS_APP_NAMES]
 
 
 def legacy_default_data_dir() -> Path:
-    """Default data directory used before the 1.6.6 rename (Financial Management POC / Freedger)."""
-    return _default_data_dir(LEGACY_APP_NAME, "financial-management-poc")
+    """The default data directory to adopt on a first start under the current name: the newest earlier name that
+    has a folder (Fundwarden, 1.6.6 - 1.6.8; else Financial Management POC / Freedger, before 1.6.6). With none on
+    disk, the newest earlier name."""
+    dirs = previous_default_data_dirs()
+    return next((d for d in dirs if d.is_dir()), dirs[0])
 
 
 def adopt_legacy_data_dir(new: Path, old: Path) -> Path:
-    """1.6.6 rename: a local installation that still has its data in the old default folder keeps it - the folder
-    is renamed once (same parent folder, nothing is copied or rewritten). If that is not possible (e.g. the folder is
-    in use), the old folder is used where it is. Never called when the data directory was chosen explicitly."""
+    """Renames (1.6.6, 1.7.0): a local installation that still has its data in the default folder of an earlier
+    name keeps it - the folder is renamed once (same parent folder, nothing is copied or rewritten). If that is not
+    possible (e.g. the folder is in use), the old folder is used where it is. Never called when the data directory
+    was chosen explicitly."""
     if new.exists() or not old.is_dir():
         return new
     try:
