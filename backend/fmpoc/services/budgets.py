@@ -363,6 +363,41 @@ def _amt(s):
     return pa(s, allow_negative=True)
 
 
+def filter_options(db: Session, ws_id: int, fy: FiscalYear | None) -> list[dict]:
+    """1.7.3 (#104): budgets for the Register's Budget filter - one Fiscal Year, or every year when fy is None.
+    Label `<FY> - <Budget ID> - <Budget Name>`; order: Fiscal Year (newest first), Income before Expense, code.
+    Budget 0 is left out. A parent stands for itself and its sub-budgets; a parent without explicit sub-budgets is
+    listed once (its hidden Other budget is covered by it), an Other next to explicit sub-budgets is listed."""
+    fys = [fy] if fy is not None else list(db.scalars(select(FiscalYear).where(FiscalYear.workspace_id == ws_id)))
+    fys.sort(key=lambda f: f.start_date, reverse=True)
+    out = []
+    for f in fys:
+        budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == f.id)
+                                  .order_by(Budget.parent_code, Budget.child_code)))
+        for btype in ("INCOME", "EXPENSE"):
+            for p in (b for b in budgets if b.parent_budget_id is None and b.budget_type == btype):
+                if p.is_budget_zero:
+                    continue
+                out.append({"id": p.id, "fiscal_year_id": f.id, "budget_type": btype, "parent_budget_id": None,
+                            "label": f"{f.display_name} - {budget_display_code(p, None)} - {p.name}"})
+                kids = [k for k in budgets if k.parent_budget_id == p.id]
+                if not any(not k.is_other for k in kids):
+                    continue
+                totals = active_allocation_totals(db, [k.id for k in kids if k.is_other])
+                # as on the Budgets page: explicit sub-budgets, then Other unless it is zero and unused (BR-019)
+                kids = [k for k in kids if not k.is_other] + [k for k in kids if k.is_other and (k.amount_cents > 0
+                                                                                              or totals.get(k.id, 0))]
+                for k in kids:
+                    out.append({"id": k.id, "fiscal_year_id": f.id, "budget_type": btype, "parent_budget_id": p.id,
+                                "label": f"{f.display_name} - {budget_display_code(k, p)} - {k.name}"})
+    return out
+
+
+def with_sub_budgets(db: Session, b: Budget) -> set[int]:
+    """1.7.3 (#104): a parent budget stands for itself and its sub-budgets (the roll-up of the Budgets page)."""
+    return {b.id, *db.scalars(select(Budget.id).where(Budget.parent_budget_id == b.id))}
+
+
 def selectable(db: Session, ws_id: int, fy: FiscalYear, txn_type: str | None) -> list[dict]:
     """Leaf budgets eligible for new allocations (BR-019/020/025/050)."""
     if fy.status == "CLOSED":

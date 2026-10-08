@@ -8,7 +8,9 @@ export default function Register() {
   const { can } = useMe();
   const [accounts, setAccounts] = useState<any[] | null>(null);
   const [fys, setFys] = useState<any[]>([]);
-  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" });
+  const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "", budget_id: "" });
+  // 1.7.3 (#104): the Budget filter's choices follow the Fiscal Year filter (every year's budgets for "All dates")
+  const [budgetOpts, setBudgetOpts] = useState<any[]>([]);
   const [defaultFy, setDefaultFy] = useState(""); // 1.6.7: what "Clear" goes back to (the current Fiscal Year)
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
@@ -39,9 +41,16 @@ export default function Register() {
       setDefaultFy(nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "");
       const q = new URLSearchParams(window.location.search);
       const linked = reg.find((x: any) => String(x.id) === q.get("account"));
-      if (linked) setF((p) => ({ ...p, bank_account_id: String(linked.id), fiscal_year_id: "", search: q.get("search") || "" }));
-      if (linked && Number(q.get("txn"))) setFocus(Number(q.get("txn")));
-      else setF((p) => ({ ...p, bank_account_id: primary ? String(primary.id) : "", fiscal_year_id: nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "" }));
+      const defFy = nat.default_fiscal_year_id ? String(nat.default_fiscal_year_id) : "";
+      if (linked) {
+        setF((p) => ({ ...p, bank_account_id: String(linked.id), fiscal_year_id: "", search: q.get("search") || "" }));
+        if (Number(q.get("txn"))) setFocus(Number(q.get("txn")));
+      } else {
+        // 1.7.3 (#105): /register?budget=<id>&fiscal_year=<id> from the Budgets page - default account, that budget,
+        // that budget's Fiscal Year
+        setF((p) => ({ ...p, bank_account_id: primary ? String(primary.id) : "",
+                       fiscal_year_id: q.get("fiscal_year") || defFy, budget_id: q.get("budget") || "" }));
+      }
     }, setErr);
   }, []);
   const load = () => {
@@ -49,6 +58,10 @@ export default function Register() {
     api.get(`/api/register${qs(f)}`).then(setData, setErr);
   };
   useEffect(() => { load(); }, [f]);
+  useEffect(() => {
+    if (!accounts) return;
+    api.get(`/api/budgets/filter-options${qs({ fiscal_year_id: f.fiscal_year_id })}`).then(setBudgetOpts, setErr);
+  }, [f.fiscal_year_id, accounts]);
   useEffect(() => {
     if (focus === null || !data?.transactions?.some((t: any) => t.id === focus)) return;
     setOpen(focus);
@@ -62,7 +75,12 @@ export default function Register() {
   const acct = data?.bank_account;
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   // 1.6.7: "Clear" puts every filter back to how the register opens; the chosen bank account stays
-  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "" };
+  const defaults = { fiscal_year_id: defaultFy, transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "", budget_id: "" };
+  // the chosen budget stays listed even when the Fiscal Year filter no longer includes it (it is only removed by hand
+  // or by Clear)
+  const budgetChoices = f.budget_id && data?.budget && !budgetOpts.some((b) => String(b.id) === f.budget_id)
+    ? [{ id: data.budget.id, label: data.budget.label }, ...budgetOpts] : budgetOpts;
+  const byBudget = !!f.budget_id;
   const filtered = (Object.keys(defaults) as (keyof typeof defaults)[]).some((k) => f[k] !== defaults[k]);
   return (
     <div className="register-page">
@@ -93,6 +111,12 @@ export default function Register() {
         </Field>
         <Field label="Type"><select value={f.transaction_type} onChange={set("transaction_type")}><option value="">All</option><option value="DEPOSIT">Deposits</option><option value="WITHDRAWAL">Withdrawals</option></select></Field>
         <Field label="Status"><select value={f.status} onChange={set("status")}><option value="">All</option><option value="cleared">Cleared</option><option value="uncleared">Uncleared</option><option value="void">Void</option></select></Field>
+        <Field label="Budget">
+          <select aria-label="Register Budget filter" value={f.budget_id} onChange={set("budget_id")} className="budget-filter">
+            <option value="">All</option>
+            {budgetChoices.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+        </Field>
         <Field label="Attachments"><select value={f.attachments} onChange={set("attachments")}><option value="">All</option><option value="yes">Yes</option><option value="no">No</option></select></Field>
         <Field label="From"><input type="date" value={f.date_from} onChange={set("date_from")} /></Field>
         <Field label="To"><input type="date" value={f.date_to} onChange={set("date_to")} /></Field>
@@ -127,7 +151,9 @@ export default function Register() {
                       <td>{t.transaction_date}</td><td>{t.clear_date || ""}</td><td>{t.entity?.display_name || ""}</td><td>{t.check_number || ""}</td>
                       <td>{t.invoice_numbers.join(", ")}</td>
                       <td>{t.is_split ? `Split (${t.allocations.length})` : t.allocations[0]?.description || t.allocations[0]?.budget.label}</td>
-                      <td className="num">{t.deposit ? money(t.deposit) : ""}</td><td className="num">{t.withdrawal ? money(t.withdrawal) : ""}</td>
+                      {/* 1.7.3 (#104): with the Budget filter, the budget's share of the transaction ("$40.00 of $100.00") */}
+                      <td className="num">{t.deposit ? (byBudget ? <Share part={t.budget_share} total={t.deposit} /> : money(t.deposit)) : ""}</td>
+                      <td className="num">{t.withdrawal ? (byBudget ? <Share part={t.budget_share} total={t.withdrawal} /> : money(t.withdrawal)) : ""}</td>
                       <td className="num">{money(t.running_balance)}</td>
                       <td>{t.status === "VOID" ? <span className="badge red">VOID</span> : t.cleared ? "Cleared" : "Uncleared"}{t.has_pending_review ? <span className="badge yellow">Review</span> : null}{t.transfer ? <span className="badge blue">Transfer</span> : null}{t.no_attachment ? <span className="badge grey" title={t.no_attachment_reason || ""}>No attachment</span> : null}</td>
                       <td>{t.attachment_count ? <span aria-label={`${t.attachment_count} attachments`}>📎{t.attachment_count}</span> : ""}</td>
@@ -847,5 +873,12 @@ function ReconModal({ title, recon, label, onClose }: { title: string; recon: an
       </table>
       <div className="actions"><button type="button" onClick={onClose}>Close</button></div>
     </Modal>
+  );
+}
+
+
+function Share({ part, total }: { part: string; total: string }) {
+  return Number(part) === Number(total) ? <>{money(total)}</> : (
+    <span className="budget-share">{money(part)}<span className="muted small"> of {money(total)}</span></span>
   );
 }

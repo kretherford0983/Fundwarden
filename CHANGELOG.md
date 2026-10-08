@@ -2,6 +2,18 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.7.3 — unreleased
+- **Register: filter by budget (#104).** A new **Budget** filter in the Register shows only the transactions with
+  an allocation to that budget; a parent budget includes its sub-budgets. A split transaction is shown with the
+  budget's share, e.g. "$40.00 of $100.00", so the amounts listed add up to the budget's activity. The choices follow
+  the Fiscal Year filter (with "All dates": every year's budgets, labelled `FY2026 - 1000 - Operations`). Changing the
+  bank account keeps the filter; **Clear** removes it. The Balance column and the balance tiles are not affected.
+- **Budgets page: each budget opens its transactions (#105).** A budget's code and name are a link to the Register,
+  on the default account (Primary, or the first in the set order), with the Budget filter set to it and the Fiscal
+  Year filter set to the budget's year — also for a prior year chosen on the Budgets page. Budget 0 has no link.
+- **Fixed: a link from a fundraiser line to the Register** (1.6.0) opened the Primary account and the current Fiscal
+  Year instead of the line's account with all dates; it now opens the right account again.
+
 ## 1.7.2 — 2026-10-08
 No database migration.
 - **Administrators cannot change their own roles on a server (#55).** In server mode, the *Security domain* and

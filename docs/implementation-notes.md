@@ -54,6 +54,18 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.3 Register Budget filter and Budgets links (issues #104, #105).** `GET /api/register?budget_id=` keeps the
+transactions with a live allocation to the budget or its sub-budgets (`budgets.with_sub_budgets`) and adds
+`budget_share` to each row (the sum of those allocations) and `budget` to the payload; running balances and
+balance tiles are computed as before. `GET /api/budgets/filter-options[?fiscal_year_id=]` lists the choices: Fiscal
+Year newest first, Income before Expense, by code; label `<FY> - <display code> - <name>`; Budget 0 left out; a
+parent without explicit sub-budgets once (its hidden Other is covered); Other next to explicit sub-budgets only when
+the Budgets page shows it (amount > 0 or used, BR-019). Frontend: `budget_id` is one of the Register filters
+(kept on account change, reset by Clear); the chosen budget stays in the list when the Fiscal Year filter changes.
+Budgets page rows link to `/register?budget=<id>&fiscal_year=<id>`; Register opens on the default account. The
+initial-load code also fixes the fundraiser deep link (`?account=&search=`), which since 1.6.7 fell through to the
+default account. Tests: `tests/test_v173_budget_filter.py`, E2E "#104 / #105".
+
 **1.7.2 Current and Available balances (issues #56, #57; product owner decisions 2026-10-08, recorded in the
 issues).** `services/bank_accounts.current_cents(as_of)` = opening balance + ACTIVE allocations of transactions with a
 Clear/Post Date (on or before `as_of`); `available_cents(as_of)` = the former `balance_cents` (Transaction Date on or

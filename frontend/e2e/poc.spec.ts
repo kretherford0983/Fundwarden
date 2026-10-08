@@ -1164,6 +1164,38 @@ test("#56 / #57: the Register shows Opening, Current (bank) and Available; the b
   await page.screenshot({ path: "e2e-screenshots/light-register-balances.png" });
 });
 
+// ---------------------------------------------------------------- 1.7.3 #104/#105: Budget filter and Budgets links
+test("#104 / #105: a budget on the Budgets page opens the Register filtered to it; the filter survives an account change", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Budgets", exact: true }).click();
+  const link = page.getByRole("link", { name: /^1000 .*: show its transactions in the Register$/ }).first();
+  await expect(link).toBeVisible();
+  const fySel = await page.locator("select").first().inputValue().catch(() => "");
+  await link.click();
+  await expect(page).toHaveURL(/\/register\?budget=\d+&fiscal_year=\d+/);
+  const budgetSel = page.getByLabel("Register Budget filter");
+  await expect(budgetSel).not.toHaveValue("");
+  await expect(budgetSel.locator("option:checked")).toHaveText(/ - 1000 - /);
+  const fyFilter = page.getByLabel("Register Fiscal Year filter");
+  if (fySel) await expect(fyFilter).toHaveValue(fySel);
+  // every listed transaction has the budget (the API agrees with the page)
+  const bid = await budgetSel.inputValue();
+  const acct = await page.getByLabel("Register bank account").inputValue();
+  const reg = await (await page.request.get(`/api/register?bank_account_id=${acct}&budget_id=${bid}&fiscal_year_id=${await fyFilter.inputValue()}`)).json();
+  await expect(page.locator("table.register tbody tr[id^='txn-']")).toHaveCount(reg.transactions.length);
+  // changing the account keeps the Budget filter
+  const accts = page.getByLabel("Register bank account").locator("option");
+  if (await accts.count() > 1) {
+    const other = await accts.nth(1).getAttribute("value");
+    await page.getByLabel("Register bank account").selectOption(other!);
+    await expect(budgetSel).toHaveValue(bid);
+  }
+  await page.screenshot({ path: "e2e-screenshots/light-register-budget-filter.png" });
+  // Clear removes it
+  await page.getByRole("button", { name: "Clear" }).click();
+  await expect(budgetSel).toHaveValue("");
+});
+
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
 test("CR-031: dashboard sections can be hidden, reordered and reset; saved per user", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");

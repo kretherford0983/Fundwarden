@@ -687,7 +687,7 @@ SORT_FIELDS = {"transaction_date", "entry_timestamp", "amount", "check_number", 
 
 def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYear | None, txn_type: str | None,
                   status: str | None, date_from: dt.date | None, date_to: dt.date | None, search: str | None,
-                  sort: str, direction: str, attachments: str | None = None) -> dict:
+                  sort: str, direction: str, attachments: str | None = None, budget: Budget | None = None) -> dict:
     """attachments (1.6.7): "yes" / "no" keeps the transactions with / without an attachment - counted exactly like
     the paperclip in the register row (the transaction's own attachments plus those of its allocations)."""
     txns = list(db.scalars(select(RegisterTransaction).where(RegisterTransaction.bank_account_id == acct.id)
@@ -708,6 +708,10 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         starting = bank.available_cents(db, acct, lo - dt.timedelta(days=1))
     rows = []
     needle = (search or "").strip().lower()
+    # 1.7.3 (#104): Budget filter - the transactions with a (live) allocation to the budget or its sub-budgets, and
+    # that budget's share of each one
+    bids = bsvc.with_sub_budgets(db, budget) if budget is not None else None
+    share: dict[int, int] = {}
     for t in txns:
         if lo and t.transaction_date < lo or hi and t.transaction_date > hi:
             continue
@@ -721,6 +725,11 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
             continue
         if status == "active" and t.status != "ACTIVE":
             continue
+        if bids is not None:
+            part = [a.amount_cents for a in t.live_allocations if a.budget_id in bids]
+            if not part:
+                continue
+            share[t.id] = sum(part)
         if needle:
             hay = [t.check_number or "", t.notes or "", fmt(t.total_cents) or "",
                    t.parent_entity.display_name if t.parent_entity else ""]
@@ -738,6 +747,9 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
     }[sort]
     rows.sort(key=keyf, reverse=direction == "desc")
     shown = [out(db, t, rb[t.id]) for t in rows]
+    if bids is not None:
+        for x in shown:
+            x["budget_share"] = fmt(share[x["id"]])
     if attachments in ("yes", "no"):
         shown = [x for x in shown if (x["attachment_count"] > 0) == (attachments == "yes")]
     return {
@@ -753,7 +765,13 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         "opening_reconciliation": reconciliation(db, acct, lo - dt.timedelta(days=1)) if lo is not None else None,
         "ending_reconciliation": reconciliation(db, acct, hi) if hi is not None else None,
         "transactions": shown,
+        "budget": _budget_brief(db, budget) if budget is not None else None,
     }
+
+
+def _budget_brief(db: Session, b: Budget) -> dict:
+    parent = db.get(Budget, b.parent_budget_id) if b.parent_budget_id else None
+    return {"id": b.id, "label": budget_label(b, parent), "fiscal_year_id": b.fiscal_year_id}
 
 
 def reconciliation(db: Session, acct: BankAccount, as_of: dt.date) -> dict:

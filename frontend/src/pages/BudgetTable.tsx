@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { money } from "../api";
 import { BudgetState, Remaining } from "../components";
+import { Link } from "../router";
 
 export interface BudgetActions {
   onEdit?: (row: any) => void;
@@ -12,8 +13,9 @@ export interface BudgetActions {
 }
 
 /** Holistic budget table: Q1-Q4 + yearly actuals, amount, remaining, state icon + text (BR-079/080). */
-export function BudgetSection({ title, rows, summary, fyStatus, actions, showOutside }: {
+export function BudgetSection({ title, rows, summary, fyStatus, actions, showOutside, registerLinks }: {
   title: string; rows: any[]; summary: any; fyStatus: string; actions?: BudgetActions; showOutside?: boolean;
+  registerLinks?: boolean; // 1.7.3 (#105): each budget links to its transactions in the Register
 }) {
   const editable = !!actions && fyStatus !== "CLOSED";
   return (
@@ -33,8 +35,8 @@ export function BudgetSection({ title, rows, summary, fyStatus, actions, showOut
             {rows.length === 0 ? <tr><td colSpan={12} className="muted">No {title.toLowerCase()} budgets.</td></tr> : null}
             {rows.map((r) => (
               <Fragment key={r.id}>
-                <Row r={r} level={0} editable={editable} actions={actions} showOutside={showOutside} />
-                {r.children.map((c: any) => <Row key={c.id} r={c} level={1} editable={editable} actions={actions} parent={r} showOutside={showOutside} />)}
+                <Row r={r} level={0} editable={editable} actions={actions} showOutside={showOutside} registerLinks={registerLinks} />
+                {r.children.map((c: any) => <Row key={c.id} r={c} level={1} editable={editable} actions={actions} parent={r} showOutside={showOutside} registerLinks={registerLinks} />)}
               </Fragment>
             ))}
           </tbody>
@@ -53,7 +55,7 @@ export function BudgetSection({ title, rows, summary, fyStatus, actions, showOut
   );
 }
 
-function Row({ r, level, editable, actions, parent, showOutside }: { r: any; level: number; editable: boolean; actions?: BudgetActions; parent?: any; showOutside?: boolean }) {
+function Row({ r, level, editable, actions, parent, showOutside, registerLinks }: { r: any; level: number; editable: boolean; actions?: BudgetActions; parent?: any; showOutside?: boolean; registerLinks?: boolean }) {
   const tone = r.state.tone;
   const locked = parent ? parent.locked : r.locked;
   const canEdit = editable && !r.system_managed && !locked && !["REJECTED", "INACTIVE"].includes(r.status);
@@ -61,7 +63,12 @@ function Row({ r, level, editable, actions, parent, showOutside }: { r: any; lev
     <tr className={`bg-${tone}${level ? " child" : ""}`}>
       <td><BudgetState state={r.state} /></td>
       <td className={level ? "indent" : ""}>
-        <span className="code">{r.display_code}</span> {r.name}
+        {registerLinks ? (
+          <Link to={`/register?budget=${r.id}&fiscal_year=${r.fiscal_year_id}`} className="budget-link"
+                aria-label={`${r.display_code} ${r.name}: show its transactions in the Register`} title="Show this budget's transactions in the Register">
+            <span className="code">{r.display_code}</span> {r.name}
+          </Link>
+        ) : <><span className="code">{r.display_code}</span> {r.name}</>}
         {r.is_other ? <span className="muted"> (system-managed, calculated)</span> : null}
         {r.status === "REJECTED" && r.requested_amount ? <span className="muted"> · requested {money(r.requested_amount)}</span> : null}
       </td>
