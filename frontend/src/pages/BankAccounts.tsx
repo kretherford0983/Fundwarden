@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, money, todayIso } from "../api";
 import { ErrorBox, Field, Loading, Modal, GuardedForm } from "../components";
 import { useMe } from "../App";
@@ -25,8 +25,37 @@ export default function BankAccounts() {
     } catch (e) { setErr(e); }
   };
   const primary = async (a: any) => { try { await api.post(`/api/bank-accounts/${a.id}/set-primary`); load(); } catch (e) { setErr(e); } };
-  const renderRow = (a: any) => (
+  // 1.7.1 (#74): Budget Managers set the order within each group (used here, on the Dashboard and in the Register).
+  // After a move the focus stays on the moved account's button and the new position is announced.
+  const [announce, setAnnounce] = useState("");
+  const refocus = useRef<{ id: number; dir: string } | null>(null);
+  const move = async (a: any, dir: "up" | "down") => {
+    try {
+      const r = await api.post(`/api/bank-accounts/${a.id}/move`, { direction: dir });
+      refocus.current = { id: a.id, dir };
+      setList(await api.get("/api/bank-accounts"));
+      const label = GROUPS.find(([k]) => k === r.group)?.[1] || "";
+      setAnnounce(`${a.account_name} moved to position ${r.position} of ${r.group_size} in ${label}.`);
+    } catch (e) { setErr(e); }
+  };
+  useEffect(() => {
+    const t = refocus.current;
+    if (!t) return;
+    refocus.current = null;
+    const btn = (d: string) => document.querySelector<HTMLButtonElement>(`[data-move="${t.id}-${d}"]`);
+    const b = btn(t.dir);
+    (b && !b.disabled ? b : btn(t.dir === "up" ? "down" : "up"))?.focus();
+  }, [list]);
+  const renderRow = (a: any, i: number, rows: any[]) => (
             <tr key={a.id} className={a.status === "CLOSED" ? "inactive" : ""}>
+              {manage ? (
+                <td className="order-cell">
+                  <button type="button" className="small icon" data-move={`${a.id}-up`} disabled={i === 0}
+                          aria-label={`Move ${a.account_name} up`} title="Move up" onClick={() => move(a, "up")}>▲</button>
+                  <button type="button" className="small icon" data-move={`${a.id}-down`} disabled={i === rows.length - 1}
+                          aria-label={`Move ${a.account_name} down`} title="Move down" onClick={() => move(a, "down")}>▼</button>
+                </td>
+              ) : null}
               <td>{a.account_name}</td>
               <td><code>{revealed[a.id] || a.account_number_masked}</code>{can("bank_account.reveal") ? <button className="small" onClick={() => reveal(a)}>{revealed[a.id] ? "Hide" : "Reveal"}</button> : null}</td>
               <td>{a.financial_institution?.display_name}</td><td>{a.account_type}{a.account_subtype ? ` / ${a.account_subtype}` : ""}</td>
@@ -54,6 +83,8 @@ export default function BankAccounts() {
         {manage ? <button className="primary" onClick={() => setModal({ kind: "edit", account: null })}>New bank account</button> : null}
       </div>
       <ErrorBox error={err} />
+      {manage ? <p className="hint">Use ▲ and ▼ to set the order of the accounts in each group. The same order is used on the Dashboard and in the Register.</p> : null}
+      <div className="sr-only" role="status" aria-live="polite" data-testid="order-status">{announce}</div>
       {/* v1.5.0 CR-028: one table per group, each with a total of its active accounts */}
       {GROUPS.map(([key, label]) => {
         const rows = list.filter((a) => a.group === key);
@@ -62,13 +93,13 @@ export default function BankAccounts() {
           <section key={key} className="account-group" aria-labelledby={`grp-${key}`}>
             <h2 id={`grp-${key}`}>{label}</h2>
             <table className="table" data-testid={`accounts-${key}`}>
-              <thead><tr><th>Account</th><th>Account #</th><th>Financial Institution</th><th>Type</th><th>Register</th><th>Primary</th><th className="num">Current balance</th><th>Status</th>{manage ? <th /> : null}</tr></thead>
+              <thead><tr>{manage ? <th className="order-cell">Order</th> : null}<th>Account</th><th>Account #</th><th>Financial Institution</th><th>Type</th><th>Register</th><th>Primary</th><th className="num">Current balance</th><th>Status</th>{manage ? <th /> : null}</tr></thead>
               <tbody>
-                {rows.length === 0 ? <tr><td colSpan={manage ? 9 : 8} className="muted">No accounts in this group.</td></tr> : null}
+                {rows.length === 0 ? <tr><td colSpan={manage ? 10 : 8} className="muted">No accounts in this group.</td></tr> : null}
                 {rows.map(renderRow)}
               </tbody>
               {rows.length ? (
-                <tfoot><tr className="total-row"><th colSpan={6} scope="row">Total {label}{rows.some((a) => a.status !== "ACTIVE") ? " (active accounts)" : ""}</th>
+                <tfoot><tr className="total-row"><th colSpan={manage ? 7 : 6} scope="row">Total {label}{rows.some((a) => a.status !== "ACTIVE") ? " (active accounts)" : ""}</th>
                   <th className={`num ${total < 0 ? "neg" : ""}`}>{money((total / 100).toFixed(2))}</th><th colSpan={manage ? 2 : 1} /></tr></tfoot>
               ) : null}
             </table>

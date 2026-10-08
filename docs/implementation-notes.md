@@ -54,6 +54,20 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.1 Bank account order set by Budget Managers (issue #74, option 2).** Migration `0018` adds
+`bank_account.sort_order` (integer, default 0) and numbers each group of each workspace 1..n — Primary first, then
+by name, then id — with the group rule written out in the migration. `services/bank_accounts.listing_order()`
+(group: Checking & Savings first, then `sort_order`, then `id`) is used by `GET /api/bank-accounts` (Bank Accounts
+page, Register selector), the Dashboard, the balances chart and the Register's fallback when no account is Primary.
+`POST /api/bank-accounts/{id}/move` `{"direction": "up"|"down"}` (`bank_account.manage`, i.e. Budget Managers)
+swaps the account with its neighbour in the group — closed accounts included, since the page lists them — and
+renumbers the group 1..n; past either end it is refused (409 `CANNOT_MOVE`). Audited as
+`BANK_ACCOUNT_ORDER_CHANGED` with group, position and the group's id order before and after. Create and a type
+change into the other group put the account at the end of its group. Reports (and the missing-check review) keep
+their own order, as #74 leaves them out of scope. UI: ▲ ▼ buttons with `aria-label="Move <name> up/down"`, disabled
+at the ends; after a move the focus returns to the moved account's button (the other one when it has become
+disabled) and a polite live region announces the position. Tests: `tests/test_v171_bank_account_order.py`, E2E "#74".
+
 **1.7.0 Rename to PennyWarden (product owner, 2026-10-07; issue #70).** Full record: `CHANGELOG.md` 1.7.0 and
 `docs/upgrade.md` ("1.7.0: the rename to PennyWarden").
 

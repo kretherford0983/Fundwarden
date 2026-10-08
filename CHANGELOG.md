@@ -3,8 +3,9 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.7.1 — 2026-10-07
-Database migration `0017` (no column added or removed; fills in missing display names and adds the rule to the
-database). Rolling back to 1.7.0 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md).
+Database migrations `0017` (no column added or removed; fills in missing display names and adds the rule to the
+database) and `0018` (adds the bank account order). Rolling back to 1.7.0 needs the data snapshot the installer
+takes before the upgrade (docs/upgrade.md).
 - **Your name in the top bar (#46).** The top bar shows the signed-in user's **display name** instead of the
   username.
 - **Roles moved out of the top bar (#50).** The list of roles next to the name is gone; the top bar is the name,
@@ -24,6 +25,16 @@ database). Rolling back to 1.7.0 needs the data snapshot the installer takes bef
   the start page lists the fundraisers in order. Every page in between shows **"Fundraisers - section page k of
   n"** at the bottom right. One fundraiser gets the two pages as well; a report without fundraisers is unchanged.
   The page range is recorded with the report in the audit log.
+- **Bank accounts in the order you choose (#74).** On the Bank Accounts page a Budget Manager moves accounts up
+  and down with the new **▲ ▼** buttons (mouse or keyboard; each button names its account for screen readers and
+  the new position is announced, e.g. "Savings moved to position 1 of 3 in Checking & Savings."). The order is kept
+  separately for *Checking & Savings* and *Investments and Other*, and is used on the Bank Accounts page, the
+  Dashboard (also the balances chart) and in the Register's account list. The Primary account is not pinned — it
+  goes wherever it is placed — and the Register still opens on the Primary account. After the upgrade each group
+  lists the Primary account first and the others by name, as before; a new account is added at the end of its
+  group (also an account whose type moves it to the other group). Only Budget Managers can change the order (also
+  refused through the API); each change is recorded in the audit log (`BANK_ACCOUNT_ORDER_CHANGED`, with the
+  order before and after). Totals are unchanged. Reports keep their own order.
 - **Entity form — Email and Phone line up (#51).** The two labels and the two boxes are level; the hint stays under
   the Phone box and is shorter ("Any format, e.g. 555-123-4567. Shown as (555) 123-4567.").
 - **Fixed: new bank account form lost what was typed after "+ New institution".** After a new institution was saved
