@@ -49,6 +49,11 @@ takes before the upgrade (docs/upgrade.md).
 - **Documentation after the rename.** New quick guide *What's new in 1.7* (the new name, and what to do on a
   server, a Windows PC and a Mac). The 1.4, 1.5 and 1.6 guides use the name PennyWarden; the README's *Origin*
   paragraph, docs/deployment.md and docs/implementation-notes.md record both renames.
+- **Mac installation guide with pictures (#61).** New page *docs/install-macos.md*: download, copy to
+  Applications, and the one-time *Open Anyway* step in System Settings, each with an illustration marking where to
+  click; the shorter right-click → *Open* way for macOS 14 and earlier; upgrading; and what to do when something
+  looks different. The README and docs/deployment.md link to it. The illustrations are drawings (marked
+  "Illustration"), made by `scripts/macos_install_mockups.mjs`.
 
 ## 1.7.0 — 2026-10-07
 **The application is renamed to PennyWarden** (#70). Another product in the financial field already uses the name

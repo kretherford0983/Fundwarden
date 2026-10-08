@@ -103,7 +103,7 @@ return every quarter, renew the insurance every year — so duties survive a cha
 
 | | |
 |---|---|
-| **Mac with Apple Silicon (single user)** | Download `PennyWarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest), drag PennyWarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* ([details](docs/deployment.md)). |
+| **Mac with Apple Silicon (single user)** | Download `PennyWarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest), drag PennyWarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* — [step by step with pictures](docs/install-macos.md). |
 | **Windows (single user)** | Download `PennyWarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest) and double-click it. |
 | **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
 
@@ -125,6 +125,7 @@ reminders) · [1.7](docs/user-guide-v1.7.md) (the new name).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability
+- [docs/install-macos.md](docs/install-macos.md) — installing on a Mac, step by step with pictures (including *Open Anyway*)
 - [docs/upgrade.md](docs/upgrade.md) — upgrading and rolling back; database changes per version
 - [docs/backup-restore.md](docs/backup-restore.md) — encrypted backups, restore, disaster recovery
 - [docs/configuration.md](docs/configuration.md) — settings, config file, environment variables, data layout
@@ -135,7 +136,8 @@ reminders) · [1.7](docs/user-guide-v1.7.md) (the new name).
 - [docs/implementation-notes.md](docs/implementation-notes.md) — design decisions, including every change request (§1a)
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each version
 - `scripts/demo_data.py` and `scripts/readme_screenshots.mjs` — fill a new, empty installation with a made-up
-  organization and retake the screenshots on this page
+  organization and retake the screenshots on this page; `scripts/macos_install_mockups.mjs` redraws the
+  illustrations of [docs/install-macos.md](docs/install-macos.md)
 
 **Origin.** PennyWarden started as an implementation of the *Financial Management POC Agent-Agnostic Benchmark v1.1*.
 The specification is kept unchanged in [`spec/`](spec/); [docs/acceptance-results.md](docs/acceptance-results.md),

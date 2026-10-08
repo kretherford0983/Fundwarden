@@ -41,6 +41,8 @@ missing, the same way as for each bank account's transactions.
 - **Entities:** on the Entity form the Email and Phone boxes are level, with a shorter hint under Phone.
 - **Bank Accounts:** creating an institution from the New bank account form no longer clears what you typed
   while it was being added.
+- **Installing on a Mac:** a new page, [Installing PennyWarden on a Mac](install-macos.md), shows each step with
+  a picture — including the one-time *Open Anyway* in System Settings.
 
 ## 1.7.0: a new name — PennyWarden
 The application is now called **PennyWarden**. Another product in the financial field already uses the name it had
