@@ -1,7 +1,15 @@
 # What's new in 1.7 — quick guide
 
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
-bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.*
+bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.
+1.7.2: on a server, Administrators cannot change their own roles.*
+
+## 1.7.2: on a server, your own roles are changed by another Administrator
+On a server, when you edit **your own** account under **Users**, the *Security domain* and *Roles* are greyed out:
+another Administrator has to change them. This keeps one person from giving themselves different rights without
+anyone else being involved. You can still change your own email address and display name, and you can change the
+roles of every other user, other Administrators included. Keep at least two Administrators on a server.
+On a Windows PC or a Mac (local install) nothing changes.
 
 ## 1.7.1: your name in the top bar
 The top bar now shows your **display name** — for example *Jordan Lee* — instead of your username, and no longer

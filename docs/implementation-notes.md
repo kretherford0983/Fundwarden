@@ -54,6 +54,14 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.2 Server Administrators cannot change their own roles (issue #55).** `services/users.update(..., mode=)`
+refuses (403 `OWN_ROLES_LOCKED`) when, in server mode, the caller's own security domain or role set would change; the
+router passes `settings.mode`. A request that sends the same domain and roles (the edit form always sends them) is
+not a change and passes, so the own email address and display name stay editable. Checked before anything is
+written, so nothing is audited for a refused attempt. Local mode is unrestricted (#54 relies on that). UI: the
+Users page reads `mode` from `/api/system/status` and disables both fieldsets for the signed-in Administrator's own
+account, with a hint. Tests: `tests/test_v172_own_roles.py`.
+
 **1.7.1 Bank account order set by Budget Managers (issue #74, option 2).** Migration `0018` adds
 `bank_account.sort_order` (integer, default 0) and numbers each group of each workspace 1..n — Primary first, then
 by name, then id — with the group rule written out in the migration. `services/bank_accounts.listing_order()`

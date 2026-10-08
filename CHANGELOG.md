@@ -2,7 +2,17 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.7.1 — 2026-10-07
+## 1.7.2 — unreleased
+No database migration.
+- **Administrators cannot change their own roles on a server (#55).** In server mode, the *Security domain* and
+  *Roles* of your own account are greyed out on the Users page, with the note "You cannot change your own security
+  domain or roles. Another Administrator can change them for you."; a direct request is refused as well
+  (`OWN_ROLES_LOCKED`). Your email address and display name can still be changed, and any Administrator can still
+  change the roles of *other* users, other Administrators included. A local install (Windows, Mac, single user) is
+  not restricted. Keep a second Administrator on a server so roles can always be changed.
+- **CHANGELOG:** 1.7.1 is dated 2026-10-08, the day it was released (it said 2026-10-07).
+
+## 1.7.1 — 2026-10-08
 Database migrations `0017` (no column added or removed; fills in missing display names and adds the rule to the
 database) and `0018` (adds the bank account order). Rolling back to 1.7.0 needs the data snapshot the installer
 takes before the upgrade (docs/upgrade.md).
