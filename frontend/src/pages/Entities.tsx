@@ -109,9 +109,10 @@ export function EntityForm({ entity, onClose, onSaved, forceFi }: { entity: any;
             <input maxLength={60} value={f.position || ""} placeholder="e.g. Treasurer" onChange={set("position")} />
           </Field>
         ) : null}
-        <div className="row">
+        {/* 1.7.1 (#51): aligned at the top - the hint under Phone no longer pushes Email down; shorter hint */}
+        <div className="row top">
           <Field label="Email"><input type="email" value={f.email || ""} onChange={set("email")} /></Field>
-          <Field label="Phone" hint="Type it any way — 5551234567, 555-123-4567, 555.123.4567. It is shown as (555) 123-4567.">
+          <Field label="Phone" hint="Any format, e.g. 555-123-4567. Shown as (555) 123-4567.">
             <input type="tel" maxLength={40} value={f.phone || ""} onChange={set("phone")} onBlur={() => setF((p: any) => ({ ...p, phone: formatPhone(p.phone || "") }))} />
           </Field>
         </div>

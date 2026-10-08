@@ -302,6 +302,37 @@ test("AC-FY-004 / AC-REG-015: UI confirmation flows (gap warning, void)", async 
   await expect(row).toContainText("$5,000.00");
 });
 
+test("1.7.1: what is typed in the bank account form survives while a new institution is still being loaded", async ({ page }) => {
+  // After "+ New institution" the form reloads the institution list and then selects the new one. That step used to
+  // put back the form as it was when the institution was saved, wiping anything typed in the meantime.
+  await login(page, "bm1");
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  await page.getByRole("button", { name: "New bank account" }).click();
+  const a = page.getByRole("dialog", { name: "New bank account" });
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ })).toContainText("First National");
+  let hold = false;
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  await page.route("**/api/entities?financial_institution=true", async (route) => {
+    if (hold) await held;
+    await route.continue();
+  });
+  await a.getByRole("button", { name: "+ New institution" }).click();
+  const fi = page.getByRole("dialog", { name: "New entity" });
+  await fi.getByLabel(/Organization Name/).fill("Second Savings");
+  hold = true;                                   // the list reload that follows the save is kept waiting
+  await fi.getByRole("button", { name: "Save" }).click();
+  await expect(fi).toHaveCount(0);
+  await a.getByLabel("Account name").fill("Typed meanwhile");
+  await a.getByLabel("Full account number").fill("555000111222");
+  release();
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ })).toContainText("Second Savings");
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ }).locator("option:checked")).toContainText("Second Savings");
+  await expect(a.getByLabel("Account name")).toHaveValue("Typed meanwhile");
+  await expect(a.getByLabel("Full account number")).toHaveValue("555000111222");
+  await a.getByRole("button", { name: "Cancel" }).click();
+});
+
 test("AC-UI-THEME-003: core screens render in light and dark (screenshots)", async ({ page }) => {
   await login(page, "bm1");
   for (const theme of ["dark", "light"]) {
@@ -695,6 +726,15 @@ test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nn
   let dlg = page.getByRole("dialog", { name: "New entity" });
   await dlg.getByLabel(/Organization Name/).fill("Phone Format Co");
   const phone = dlg.getByLabel("Phone");
+  // 1.7.1 (#51): Email and Phone are on one line - labels level, boxes level, the hint below the Phone box
+  const email = dlg.getByLabel("Email");
+  const [eb, pb] = [(await email.boundingBox())!, (await phone.boundingBox())!];
+  expect(Math.abs(eb.y - pb.y)).toBeLessThan(1);
+  expect(Math.abs(eb.height - pb.height)).toBeLessThan(1);
+  const labelY = async (text: string) => (await dlg.locator(".field-label", { hasText: new RegExp(`^${text}$`) }).boundingBox())!.y;
+  expect(Math.abs((await labelY("Email")) - (await labelY("Phone")))).toBeLessThan(1);
+  const hint = dlg.getByText("Any format, e.g. 555-123-4567.");
+  expect((await hint.boundingBox())!.y).toBeGreaterThanOrEqual(pb.y + pb.height);
   await phone.fill("555.123.4567");
   await phone.blur();
   await expect(phone).toHaveValue("(555) 123-4567"); // tidied as soon as the field is left

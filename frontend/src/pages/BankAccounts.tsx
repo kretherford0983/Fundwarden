@@ -148,7 +148,7 @@ function AccountForm({ account, onClose, onSaved }: any) {
         <Field label="Notes"><textarea value={f.notes} onChange={set("notes")} /></Field>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
       </GuardedForm>
-      {newFi ? <EntityForm entity={{ entity_type: "ORGANIZATION" }} forceFi onClose={() => setNewFi(false)} onSaved={(e) => { setNewFi(false); loadFis().then(() => setF({ ...f, financial_institution_entity_id: e.id })); }} /> : null}
+      {newFi ? <EntityForm entity={{ entity_type: "ORGANIZATION" }} forceFi onClose={() => setNewFi(false)} onSaved={(e) => { setNewFi(false); loadFis().then(() => setF((p: any) => ({ ...p, financial_institution_entity_id: e.id }))); /* 1.7.1: the form as it is NOW - not as it was when the institution was saved */ }} /> : null}
     </Modal>
   );
 }

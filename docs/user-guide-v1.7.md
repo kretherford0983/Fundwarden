@@ -1,6 +1,7 @@
 # What's new in 1.7 — quick guide
 
-*1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user.*
+*1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
+start and end pages for the fundraisers in the Audit and Close reports.*
 
 ## 1.7.1: your name in the top bar
 The top bar now shows your **display name** — for example *Jordan Lee* — instead of your username, and no longer
@@ -14,6 +15,18 @@ lists your roles next to it. Your username, email address and roles are on **My 
   looks different for them until you enter their real name under **Users → Edit**. The Users list has a
   *Display name* column so you can see who still shows a username.
 - The first Administrator created by the Initialization Wizard also starts with the username as display name.
+
+## 1.7.1: fundraisers in the Audit and Close reports
+When an Audit or Fiscal Year Close report includes fundraisers, they now begin with a **Start of fundraisers** page
+and finish with an **End of fundraisers** page. Both state which pages the fundraisers take up — for example
+"pages 36 to 42 of 42" — and every page in between is marked "Fundraisers - section page 3 of 7" at the bottom
+right. A reviewer holding the printed report can see where the fundraisers begin and end and that no page is
+missing, the same way as for each bank account's transactions.
+
+## 1.7.1: smaller changes
+- **Entities:** on the Entity form the Email and Phone boxes are level, with a shorter hint under Phone.
+- **Bank Accounts:** creating an institution from the New bank account form no longer clears what you typed
+  while it was being added.
 
 ## 1.7.0: a new name — PennyWarden
 The application is now called **PennyWarden**. Another product in the financial field already uses the name it had

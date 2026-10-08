@@ -47,6 +47,7 @@ textarea { min-height: 60px; width: 100%; }
 .ok-text { color: var(--green-fg); }
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .row > .field { flex: 1; }
+.row.top { align-items: flex-start; }  /* fields with a hint under only one of them: labels and inputs line up */
 .check { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
 fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; padding: 8px 12px; }
 .center { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 16px; }

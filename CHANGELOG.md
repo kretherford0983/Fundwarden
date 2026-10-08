@@ -17,6 +17,18 @@ database). Rolling back to 1.7.0 needs the data snapshot the installer takes bef
   **username** as display name during the upgrade; all others are unchanged. The first Administrator created by
   the Initialization Wizard starts with the username too. The database enforces the rule as well. The Users list
   has a *Display name* column.
+- **Audit and Fiscal Year Close reports — start and end pages for the fundraisers (#59).** When a report includes
+  fundraisers, they now sit between a **"Start of fundraisers"** page and an **"End of fundraisers"** page, like
+  each bank account's transactions since 1.6.7. Both pages name the Fiscal Year, the number of fundraisers, the
+  first and the last one, and state the page range ("pages 36 to 42 of 42 (7 pages…)"), each pointing at the other;
+  the start page lists the fundraisers in order. Every page in between shows **"Fundraisers - section page k of
+  n"** at the bottom right. One fundraiser gets the two pages as well; a report without fundraisers is unchanged.
+  The page range is recorded with the report in the audit log.
+- **Entity form — Email and Phone line up (#51).** The two labels and the two boxes are level; the hint stays under
+  the Phone box and is shorter ("Any format, e.g. 555-123-4567. Shown as (555) 123-4567.").
+- **Fixed: new bank account form lost what was typed after "+ New institution".** After a new institution was saved
+  the form selected it a moment later — and put the other fields back to what they were when it was saved, so an
+  account name typed in between disappeared. Found by an E2E run that failed once at this point.
 - **Dependabot no longer proposes major versions (#80).** When 1.6.8 switched Dependabot on, it opened a pull
   request for every major upgrade it could find (React 19, TypeScript 7, Vite 8, …) and one for `pydantic_core`
   alone; none of them could pass the tests. Major upgrades are now left to be planned as issues, and
