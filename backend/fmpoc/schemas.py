@@ -94,7 +94,8 @@ class PreferencesIn(In):
 
 
 Domain = Literal["ADMINISTRATOR", "FINANCIAL", "AUDITOR"]
-RoleCode = Literal["ADMINISTRATOR", "BUDGET_MANAGER", "BUDGET_USER", "REGISTER_USER", "AUDITOR"]
+RoleCode = Literal["ADMINISTRATOR", "BUDGET_MANAGER", "BUDGET_USER", "REGISTER_USER", "AUDITOR",
+                   "BUDGET_ADMIN", "REGISTER_ADMIN"]  # 1.7.3 (#52, #53)
 
 
 class UserCreateIn(In):

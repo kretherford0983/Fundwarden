@@ -33,7 +33,7 @@ def snapshot(t: RegisterTransaction) -> dict:
     return {"id": t.id, "bank_account_id": t.bank_account_id, "transaction_type": t.transaction_type,
             "transaction_date": t.transaction_date, "entry_timestamp": t.entry_timestamp, "clear_date": t.clear_date,
             "parent_entity_id": t.parent_entity_id, "check_number": t.check_number, "status": t.status,
-            "notes": t.notes, "void_reason": t.void_reason, "total": fmt(t.total_cents),
+            "notes": t.notes, "void_reason": t.void_reason, "delete_reason": t.delete_reason, "total": fmt(t.total_cents),
             "transfer_group": t.transfer_group, "no_attachment": bool(t.no_attachment),
             "no_attachment_reason": t.no_attachment_reason,
             "allocations": [alloc_snapshot(a) for a in t.live_allocations]}
@@ -76,6 +76,7 @@ def out(db: Session, t: RegisterTransaction, running_balance: int | None = None)
         "transaction_date": t.transaction_date.isoformat(), "entry_timestamp": t.entry_timestamp.isoformat() + "Z",
         "clear_date": t.clear_date.isoformat() if t.clear_date else None,
         "voided_at": t.voided_at.isoformat() + "Z" if t.voided_at else None,
+        "deleted_at": t.deleted_at.isoformat() + "Z" if t.deleted_at else None,
         "bank_account": {"id": acct.id, "label": f"{acct.account_name} - {bank.masked(acct)}"},
         "entity": entity_brief(t.parent_entity), "allocations": allocs, "is_split": len(allocs) > 1,
         "deposit": fmt(total) if t.transaction_type == "DEPOSIT" else None,
@@ -432,6 +433,7 @@ def _create_zero_void(db: Session, ctx, t: RegisterTransaction, data) -> Registe
 
 # ------------------------------------------------------------------ update
 def update(db: Session, ctx, t: RegisterTransaction, data) -> RegisterTransaction:
+    _not_deleted(t)
     if t.status == "VOID":
         raise conflict("TRANSACTION_VOID", "VOID transactions cannot be edited. Notes and attachments may be added.")
     if is_closed_protected(db, t):
@@ -553,6 +555,7 @@ def void(db: Session, ctx, t: RegisterTransaction, reason: str, confirm: bool) -
     from .transfers import legs as transfer_legs
     group = transfer_legs(db, t)
     for leg in group:
+        _not_deleted(leg)
         if leg.status == "VOID":
             raise conflict("TRANSACTION_VOID", "The transaction is already VOID; voiding is irreversible.")
         if is_closed_protected(db, leg):
@@ -574,6 +577,43 @@ def void(db: Session, ctx, t: RegisterTransaction, reason: str, confirm: bool) -
         db.flush()
         audit.record(db, ctx, "TRANSACTION_VOIDED", "register_transaction", leg.id, before,
                      {**snapshot(leg), "voided_with_transfer_leg": [x.id for x in group if x.id != leg.id] or None})
+    return t
+
+
+def _not_deleted(t: RegisterTransaction) -> None:
+    if t.status == "DELETED":
+        raise conflict("TRANSACTION_DELETED", "The transaction has been deleted.")
+
+
+def delete(db: Session, ctx, t: RegisterTransaction, reason: str) -> RegisterTransaction:
+    """1.7.3 (#53): a Register Admin marks an ACTIVE, uncleared transaction Deleted instead of voiding it (BR-001: it
+    stays in the database for Auditors and the audit trail). A Clear/Post Date means it has posted at the bank and is
+    final - remove the clear date first if it was put on the wrong line. Deleting a transfer leg deletes both legs."""
+    from .transfers import legs as transfer_legs
+    if not (reason or "").strip():
+        raise validation("A reason for deleting the transaction is required.", "reason")
+    group = transfer_legs(db, t)
+    for leg in group:
+        _not_deleted(leg)
+        if leg.status != "ACTIVE":
+            raise conflict("TRANSACTION_VOID", "VOID records cannot be deleted.")
+        if leg.clear_date is not None:
+            raise conflict("TRANSACTION_CLEARED", "A cleared transaction has posted at the bank and cannot be deleted. "
+                                                  "If the clear date is on the wrong transaction, remove it first.")
+        if is_closed_protected(db, leg):
+            raise conflict("FISCAL_YEAR_CLOSED", "A transaction affecting a Closed Fiscal Year cannot be deleted.")
+        if db.get(BankAccount, leg.bank_account_id).status != "ACTIVE":
+            raise conflict("ACCOUNT_CLOSED", "The Bank Account is closed.")
+    for leg in group:
+        before = snapshot(leg)
+        leg.status = "DELETED"
+        leg.delete_reason = reason.strip()
+        leg.deleted_at = utcnow()
+        leg.deleted_by_user_id = ctx.user.id
+        leg.updated_by_user_id = ctx.user.id
+        db.flush()
+        audit.record(db, ctx, "TRANSACTION_DELETED", "register_transaction", leg.id, before,
+                     {**snapshot(leg), "deleted_with_transfer_leg": [x.id for x in group if x.id != leg.id] or None})
     return t
 
 
@@ -687,7 +727,8 @@ SORT_FIELDS = {"transaction_date", "entry_timestamp", "amount", "check_number", 
 
 def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYear | None, txn_type: str | None,
                   status: str | None, date_from: dt.date | None, date_to: dt.date | None, search: str | None,
-                  sort: str, direction: str, attachments: str | None = None, budget: Budget | None = None) -> dict:
+                  sort: str, direction: str, attachments: str | None = None, budget: Budget | None = None,
+                  include_deleted: bool = False) -> dict:
     """attachments (1.6.7): "yes" / "no" keeps the transactions with / without an attachment - counted exactly like
     the paperclip in the register row (the transaction's own attachments plus those of its allocations)."""
     txns = list(db.scalars(select(RegisterTransaction).where(RegisterTransaction.bank_account_id == acct.id)
@@ -713,6 +754,11 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
     bids = bsvc.with_sub_budgets(db, budget) if budget is not None else None
     share: dict[int, int] = {}
     for t in txns:
+        # 1.7.3 (#53): deleted transactions are only listed for Auditors, with the "Deleted" status filter
+        if t.status == "DELETED" and not (include_deleted and status == "deleted"):
+            continue
+        if status == "deleted" and t.status != "DELETED":
+            continue
         if lo and t.transaction_date < lo or hi and t.transaction_date > hi:
             continue
         if txn_type and t.transaction_type != txn_type:
@@ -789,6 +835,8 @@ def reconciliation(db: Session, acct: BankAccount, as_of: dt.date) -> dict:
 
 def get(db: Session, ctx, txn_id: int) -> RegisterTransaction:
     t = get_scoped(db, RegisterTransaction, txn_id, ctx, "Transaction")
+    if t.status == "DELETED" and "AUDITOR" not in ctx.roles:  # 1.7.3 (#53): only Auditors see deleted transactions
+        raise not_found("Transaction")
     return t
 
 

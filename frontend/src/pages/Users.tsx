@@ -5,7 +5,9 @@ import { useMe } from "../App";
 
 const ROLES: Record<string, [string, string][]> = {
   ADMINISTRATOR: [["ADMINISTRATOR", "Administrator"]],
-  FINANCIAL: [["BUDGET_MANAGER", "Budget Manager"], ["BUDGET_USER", "Budget User"], ["REGISTER_USER", "Register User"]],
+  FINANCIAL: [["BUDGET_MANAGER", "Budget Manager"], ["BUDGET_USER", "Budget User"], ["REGISTER_USER", "Register User"],
+              ["BUDGET_ADMIN", "Budget Admin (with Budget Manager: may delete budgets of a Fiscal Year that is not approved)"],
+              ["REGISTER_ADMIN", "Register Admin (with Register User: may delete uncleared transactions)"]],
   AUDITOR: [["AUDITOR", "Auditor"]],
 };
 

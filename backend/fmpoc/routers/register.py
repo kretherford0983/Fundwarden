@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..deps import Ctx, get_db, require
 from ..errors import AppError
 from ..models import BankAccount, Budget, FiscalYear, FiscalYearReview, RegisterTransaction, TransactionAllocation
-from ..schemas import (CheckAckIn, NoteIn, ReviewResolveIn, TransactionCreateIn, TransactionUpdateIn, TransferIn,
+from ..schemas import (CheckAckIn, NoteIn, ReasonIn, ReviewResolveIn, TransactionCreateIn, TransactionUpdateIn, TransferIn,
                        VoidCheckNumberIn, VoidDateIn, VoidIn)
 from ..services import bank_accounts as bank_svc
 from ..services import idempotency
@@ -25,7 +25,7 @@ def register_view(
     bank_account_id: int | None = None,
     fiscal_year_id: int | None = None,
     transaction_type: Literal["DEPOSIT", "WITHDRAWAL"] | None = None,
-    status: Literal["cleared", "uncleared", "void", "active"] | None = None,
+    status: Literal["cleared", "uncleared", "void", "active", "deleted"] | None = None,  # deleted: Auditors (1.7.3)
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
     search: str | None = Query(None, max_length=200),
@@ -35,6 +35,9 @@ def register_view(
     direction: Literal["asc", "desc"] = "asc",
     db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view")),
 ):
+    if status == "deleted" and "AUDITOR" not in ctx.roles:  # 1.7.3 (#53): only Auditors list deleted transactions
+        raise AppError(422, "VALIDATION_ERROR", "The request is invalid.",
+                       errors=[{"field": "status", "message": "Unknown status filter."}])
     if bank_account_id is None:  # default: Primary register-enabled account
         acct = db.scalar(select(BankAccount).where(BankAccount.workspace_id == ctx.workspace_id,
                                                    BankAccount.is_primary.is_(True)))
@@ -52,7 +55,7 @@ def register_view(
     budget = get_scoped(db, Budget, budget_id, ctx, "Budget") if budget_id else None
     return svc.register_view(db, ctx, acct, fiscal_year=fy, txn_type=transaction_type, status=status,
                              date_from=date_from, date_to=date_to, search=search, sort=sort, direction=direction,
-                             attachments=attachments, budget=budget)
+                             attachments=attachments, budget=budget, include_deleted="AUDITOR" in ctx.roles)
 
 
 @router.get("/transactions/{txn_id}")
@@ -96,6 +99,15 @@ def void_txn(txn_id: int, body: VoidIn, db: Session = Depends(get_db), ctx: Ctx 
     t = svc.void(db, ctx, svc.get(db, ctx, txn_id), body.reason, body.confirm_irreversible)
     db.commit()
     return svc.out(db, t)
+
+
+@router.post("/transactions/{txn_id}/delete")
+def delete_txn(txn_id: int, body: ReasonIn, db: Session = Depends(get_db),
+               ctx: Ctx = Depends(require("transaction.delete"))):
+    """1.7.3 (#53): Register Admin - an uncleared transaction (both legs of a transfer) gets the status Deleted."""
+    t = svc.delete(db, ctx, svc.get(db, ctx, txn_id), body.reason)
+    db.commit()
+    return {"id": t.id, "status": t.status}
 
 
 @router.post("/transactions/{txn_id}/void-date")

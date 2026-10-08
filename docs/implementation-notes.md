@@ -54,6 +54,23 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.3 Budget Admin / Register Admin and the Deleted status (issues #52, #53; decided 2026-10-08).** BR-001 holds:
+"delete" sets status `DELETED` (budgets: reason in `status_reason`; transactions: `deleted_at`, `deleted_by_user_id`,
+`delete_reason`, migration `0019`, which also inserts the two roles for existing installations; `seed_roles` covers
+new ones). Roles `BUDGET_ADMIN` / `REGISTER_ADMIN` are Financial; `validate_role_set` refuses them without
+`BUDGET_MANAGER` / `REGISTER_USER` (`permissions.REQUIRES`). Permissions `budget.delete`, `transaction.delete`.
+Budgets (`POST /api/budgets/{id}/delete`): Draft Fiscal Year only; refused for system budgets, with sub-budgets that
+are not deleted, with live allocations of non-deleted transactions, or when a fundraiser uses it; a parent takes its
+Other along; a deleted child gives its amount back to the parent's Other. Excluded everywhere budgets are listed or
+copied (`children_of`, `tree` unless `include_deleted` for Auditors, selectable, filter options, copy, approval,
+charts, fundraiser budget choices); the code is free again. Transactions (`POST /api/transactions/{id}/delete`):
+ACTIVE and uncleared only, not in a Closed Fiscal Year, both transfer legs. Every balance and total already counted
+ACTIVE only; listings were checked: the Register hides them except for Auditors with `status=deleted`;
+`GET /api/transactions/{id}` is 404 for non-Auditors; the audit/close report selects ACTIVE (+VOID); Fiscal Year
+allocation checks skip them; check numbers keep counting them (still used, no missing-check gap). Tests:
+`tests/test_v173_admin_delete.py`, E2E "#52 / #53". Spec items changed: BR-001's list of states (+ deleted),
+BR-065 (an uncleared transaction may be marked Deleted by a Register Admin), 04 permission matrix (two roles).
+
 **1.7.3 Register Budget filter and Budgets links (issues #104, #105).** `GET /api/register?budget_id=` keeps the
 transactions with a live allocation to the budget or its sub-budgets (`budgets.with_sub_budgets`) and adds
 `budget_share` to each row (the sum of those allocations) and `budget` to the payload; running balances and

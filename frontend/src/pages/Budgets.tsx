@@ -63,7 +63,7 @@ export default function Budgets() {
         </>
       ) : fyId ? <Loading /> : null}
       {modal?.kind === "create" ? <BudgetForm fys={fys} fyId={fyId!} parent={modal.parent} onClose={() => setModal(null)} onSaved={done} /> : null}
-      {modal?.kind === "edit" ? <BudgetEdit row={modal.row} onClose={() => setModal(null)} onSaved={done} /> : null}
+      {modal?.kind === "edit" ? <BudgetEdit row={modal.row} canDelete={can("budget.delete") && fy?.status === "DRAFT"} onDelete={() => setModal({ kind: "reason", row: modal.row, action: "delete", title: `Delete ${modal.row.label}` })} onClose={() => setModal(null)} onSaved={done} /> : null}
       {modal?.kind === "reason" ? <ReasonForm {...modal} onClose={() => setModal(null)} onSaved={done} /> : null}
     </div>
   );
@@ -106,7 +106,7 @@ function BudgetForm({ fys, fyId, parent, onClose, onSaved }: any) {
   );
 }
 
-function BudgetEdit({ row, onClose, onSaved }: any) {
+function BudgetEdit({ row, onClose, onSaved, canDelete, onDelete }: any) {
   const [f, setF] = useState({ name: row.name, amount: row.amount, notes: row.notes || "" });
   const [err, setErr] = useState<unknown>(null);
   const submit = async (e: FormEvent) => {
@@ -123,7 +123,11 @@ function BudgetEdit({ row, onClose, onSaved }: any) {
         <Field label="Name"><input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Amount" hint="Other is recalculated automatically; sub-budgets may not exceed the parent."><input required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
         <Field label="Notes"><textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
+        <div className="actions">
+          {/* 1.7.3 (#52): Budget Admins - red, set apart from Save / Cancel */}
+          {canDelete && !row.system_managed ? <button type="button" className="danger delete-apart" onClick={onDelete}>Delete budget…</button> : null}
+          <button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button>
+        </div>
       </GuardedForm>
     </Modal>
   );
@@ -145,8 +149,15 @@ function ReasonForm({ row, action, title, onClose, onSaved }: any) {
         <ErrorBox error={err} />
         {action === "reject" ? <p>A rejected budget's allowed amount becomes 0. Existing allocations are preserved.</p> : null}
         {action === "unlock" ? <p>Unlocking permits an authorized amendment and is audited.</p> : null}
+        {action === "delete" ? (
+          <div className="alert warn" role="alert">
+            <b>The budget will be deleted.</b> It disappears from the Budgets page, the budget lists and the totals, and
+            it will not be copied into a new Fiscal Year. Auditors can still see it, with your reason. This cannot be
+            undone. A budget with Register allocations or sub-budgets cannot be deleted.
+          </div>
+        ) : null}
         <Field label="Reason (required)"><textarea required value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit" disabled={!reason.trim()}>Confirm</button></div>
+        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className={`primary${action === "delete" ? " danger" : ""}`} type="submit" disabled={!reason.trim()}>{action === "delete" ? "Delete budget" : "Confirm"}</button></div>
       </GuardedForm>
     </Modal>
   );

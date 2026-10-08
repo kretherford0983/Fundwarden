@@ -152,7 +152,7 @@ class Budget(Base):
     budget_type: Mapped[str] = mapped_column(String(10))  # INCOME | EXPENSE
     amount_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     requested_amount_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    status: Mapped[str] = mapped_column(String(10), default="DRAFT")  # DRAFT|APPROVED|REJECTED|INACTIVE
+    status: Mapped[str] = mapped_column(String(10), default="DRAFT")  # DRAFT|APPROVED|REJECTED|INACTIVE|DELETED (1.7.3)
     locked: Mapped[bool] = mapped_column(Boolean, default=False)
     system_managed: Mapped[bool] = mapped_column(Boolean, default=False)
     is_other: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -254,7 +254,7 @@ class RegisterTransaction(Base):
     clear_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True, index=True)
     parent_entity_id: Mapped[int | None] = mapped_column(ForeignKey("entity.id"), nullable=True)
     check_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    status: Mapped[str] = mapped_column(String(10), default="ACTIVE", index=True)  # ACTIVE | VOID
+    status: Mapped[str] = mapped_column(String(10), default="ACTIVE", index=True)  # ACTIVE | VOID | DELETED (1.7.3)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     void_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
@@ -270,6 +270,10 @@ class RegisterTransaction(Base):
     no_attachment_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     no_attachment_set_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     no_attachment_set_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 1.7.3 (#53): marked Deleted by a Register Admin (uncleared only); kept for Auditors and the audit trail
+    deleted_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    deleted_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delete_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     allocations: Mapped[list["TransactionAllocation"]] = relationship(
         back_populates="transaction", lazy="selectin", order_by="TransactionAllocation.id"
