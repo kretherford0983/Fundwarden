@@ -62,6 +62,7 @@ def initialize(db: Session, settings, ctx, *, workspace_name: str, username: str
         username=username,
         username_normalized=username.lower(),
         email=email,
+        display_name=username,   # 1.7.1 (#47): required; the Administrator changes it under Users
         password_hash=hash_password(password),
         active=True,
         security_domain="ADMINISTRATOR",
