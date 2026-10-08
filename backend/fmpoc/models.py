@@ -242,6 +242,24 @@ class BankAccount(Base):
     )
 
 
+class BankAccountBalance(Base):
+    """1.7.3 (#88): dated balance history of a non-register account. Append-only: an entry is never edited or
+    deleted; a correction is a new entry (for the same "as of" date the one entered last counts). The account's
+    current balance (manual_current_balance_cents) is the entry with the latest "as of" date."""
+    __tablename__ = "bank_account_balance"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    bank_account_id: Mapped[int] = mapped_column(ForeignKey("bank_account.id"), index=True)
+    as_of_date: Mapped[dt.date] = mapped_column(Date)
+    balance_cents: Mapped[int] = mapped_column(BigInteger)
+    reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    source: Mapped[str] = mapped_column(String(12), default="UPDATE")  # OPENING | UPDATE | UPGRADE
+    entered_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    entered_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (Index("ix_bank_account_balance_account_date", "bank_account_id", "as_of_date"),)
+
+
 # ---------------------------------------------------------------- register
 class RegisterTransaction(Base):
     __tablename__ = "register_transaction"

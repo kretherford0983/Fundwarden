@@ -1253,6 +1253,35 @@ test("#52 / #53: a Budget Admin deletes a draft budget and a Register Admin dele
   expect((await page.request.get(`/api/transactions/${t.id}`)).status()).toBe(404);   // hidden from Financial users
 });
 
+// ---------------------------------------------------------------- 1.7.3 #88: balance history
+test("#88: updating a non-register balance keeps a dated history", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const fi = await (await post("/api/entities", { entity_type: "ORGANIZATION", organization_name: "History Brokerage",
+    is_financial_institution: true, confirmations: ["DUPLICATE_ENTITY"] })).json();
+  const r = await post("/api/bank-accounts", { account_name: "Index Fund", financial_institution_entity_id: fi.id, account_type: "INVESTMENT",
+    account_number: "880000000088", register_enabled: false, current_balance: "5000.00" });
+  expect(r.status(), await r.text()).toBe(201);
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  const table = page.getByTestId("accounts-INVESTMENTS_OTHER");
+  const row = table.getByRole("row", { name: /Index Fund/ });
+  await row.getByRole("button", { name: "Update balance" }).click();
+  const dlg = page.getByRole("dialog", { name: "Update balance: Index Fund" });
+  await dlg.getByLabel("Balance", { exact: true }).fill("5150.25");
+  const d = new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10);
+  await dlg.getByLabel("As of").fill(d);
+  await dlg.getByLabel("Reason").fill("September statement");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg).toHaveCount(0);
+  await expect(row).toContainText("$5,000.00");                        // a back-dated entry does not replace today's
+  await row.getByRole("button", { name: "Balance history of Index Fund" }).click();
+  const hist = page.getByTestId("balance-history");
+  await expect(hist.locator("tbody tr")).toHaveCount(2);
+  await expect(hist).toContainText("September statement");
+  await expect(hist).toContainText(d);
+  await page.screenshot({ path: "e2e-screenshots/light-balance-history.png" });
+});
+
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
 test("CR-031: dashboard sections can be hidden, reordered and reset; saved per user", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");

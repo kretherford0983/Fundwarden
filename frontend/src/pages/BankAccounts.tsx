@@ -60,7 +60,10 @@ export default function BankAccounts() {
               <td><code>{revealed[a.id] || a.account_number_masked}</code>{can("bank_account.reveal") ? <button className="small" onClick={() => reveal(a)}>{revealed[a.id] ? "Hide" : "Reveal"}</button> : null}</td>
               <td>{a.financial_institution?.display_name}</td><td>{a.account_type}{a.account_subtype ? ` / ${a.account_subtype}` : ""}</td>
               <td>{a.register_enabled ? "Yes" : "No"}</td><td>{a.is_primary ? "Primary" : ""}</td>
-              <td className="num">{money(a.current_balance)}</td><td>{a.status === "ACTIVE" ? "Active" : `Closed ${a.closed_date || ""}`}</td>
+              <td className="num">{money(a.current_balance)}{!a.register_enabled ? (
+                <div><button type="button" className="link small-link" onClick={() => setModal({ kind: "history", account: a })}
+                  aria-label={`Balance history of ${a.account_name}`}>History</button></div>
+              ) : null}</td><td>{a.status === "ACTIVE" ? "Active" : `Closed ${a.closed_date || ""}`}</td>
               {manage ? (
                 <td className="actions-cell">
                   {a.status === "ACTIVE" ? (
@@ -107,6 +110,7 @@ export default function BankAccounts() {
         );
       })}
       {modal?.kind === "edit" ? <AccountForm account={modal.account} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
+      {modal?.kind === "history" ? <HistoryDialog account={modal.account} onClose={() => setModal(null)} /> : null}
       {modal?.kind === "balance" ? <BalanceForm account={modal.account} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
       {modal?.kind === "close" ? <CloseForm account={modal.account} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
     </div>
@@ -186,19 +190,21 @@ function AccountForm({ account, onClose, onSaved }: any) {
 
 function BalanceForm({ account, onClose, onSaved }: any) {
   const [v, setV] = useState(account.current_balance);
+  const [asOf, setAsOf] = useState(todayIso()); // 1.7.3 (#88): e.g. a month-end statement date
   const [reason, setReason] = useState("");
   const [err, setErr] = useState<unknown>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    try { await api.post(`/api/bank-accounts/${account.id}/balance`, { current_balance: v, reason: reason || null }); onSaved(); } catch (x) { setErr(x); }
+    try { await api.post(`/api/bank-accounts/${account.id}/balance`, { current_balance: v, reason: reason || null, as_of_date: asOf }); onSaved(); } catch (x) { setErr(x); }
   };
   return (
     <Modal title={`Update balance: ${account.account_name}`} onClose={onClose}>
       <GuardedForm onSubmit={submit}>
         <ErrorBox error={err} />
-        <Field label="Current balance"><input required value={v} onChange={(e) => setV(e.target.value)} /></Field>
+        <Field label="Balance"><input required value={v} onChange={(e) => setV(e.target.value)} /></Field>
+        <Field label="As of" hint="The date of this balance, e.g. the statement date. Today or earlier."><input required type="date" max={todayIso()} value={asOf} onChange={(e) => setAsOf(e.target.value)} /></Field>
         <Field label="Reason"><input value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-        <p className="hint">Manual balance updates are audited.</p>
+        <p className="hint">Each update is kept in the balance history and audited. To correct a wrong entry, enter the right balance for the same date.</p>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
       </GuardedForm>
     </Modal>
@@ -221,6 +227,35 @@ function CloseForm({ account, onClose, onSaved }: any) {
         <Field label="Reason (required)"><input required value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary danger" type="submit">Close account</button></div>
       </GuardedForm>
+    </Modal>
+  );
+}
+
+
+// 1.7.3 (#88): dated balance history of a non-register account (newest first)
+function HistoryDialog({ account, onClose }: { account: any; onClose: () => void }) {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  useEffect(() => { api.get(`/api/bank-accounts/${account.id}/balance-history`).then(setRows, setErr); }, [account.id]);
+  return (
+    <Modal title={`Balance history: ${account.account_name}`} onClose={onClose} wide>
+      <ErrorBox error={err} />
+      {!rows ? <Loading /> : (
+        <table className="table" data-testid="balance-history">
+          <thead><tr><th>As of</th><th className="num">Balance</th><th className="num">Change</th><th>Entered by</th><th>Entered on</th><th>Reason</th></tr></thead>
+          <tbody>
+            {rows.length === 0 ? <tr><td colSpan={6} className="muted">No balance entries.</td></tr> : null}
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{r.as_of_date}</td><td className="num">{money(r.balance)}</td>
+                <td className={`num ${r.change && Number(r.change) < 0 ? "neg" : ""}`}>{r.change === null ? "" : `${Number(r.change) > 0 ? "+" : ""}${money(r.change)}`}</td>
+                <td>{r.entered_by || (r.source === "UPGRADE" ? "(upgrade)" : "")}</td><td>{r.entered_at.slice(0, 10)}</td><td>{r.reason || ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <div className="actions"><button type="button" onClick={onClose}>Close</button></div>
     </Modal>
   );
 }
