@@ -2,7 +2,47 @@
 
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
 bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.
-1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.*
+1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.
+1.7.3: the Register filtered by budget, links from the Budgets page, and deleting a mistaken budget or
+transaction.*
+
+## 1.7.3: balance history for investment and other accounts
+Accounts without a register (investments, CDs, cash, …) now keep every balance you enter:
+- **Update balance** asks for the balance and its **As of** date — today, or an earlier date such as a statement
+  date. Each update is a new entry; nothing is overwritten.
+- The account shows the balance with the **latest** date. Entered a wrong figure? Enter the right one for the same
+  date — the one entered last counts — and both stay in the history.
+- **History** (under the balance on the Bank Accounts page) lists every entry: date, balance, change from the one
+  before, who entered it, when, and the reason.
+- The Dashboard's **Bank balances** chart now shows these accounts too.
+- Your existing accounts already have a history: PennyWarden rebuilt it from the audit log when it was upgraded.
+
+## 1.7.3: deleting a mistake
+Two new roles an Administrator can give under **Users**, each only together with its usual role:
+
+| Role | Needs | Can delete |
+|---|---|---|
+| **Budget Admin** | Budget Manager | a budget of a Fiscal Year that is **not approved yet** — e.g. one copied into the new year by mistake |
+| **Register Admin** | Register User | a transaction that has **not cleared** — e.g. one entered twice |
+
+- The red **Delete…** button is in the budget's or the transaction's **Edit** dialog, away from Save. You must give
+  a reason.
+- Deleted means gone for everyone except **Auditors**: they still see the budget or transaction, marked *Deleted*,
+  with your reason (in the Register: Status → *Deleted*). Nothing is erased, and the audit log records who deleted
+  what and why.
+- A **cleared** transaction has posted at the bank and cannot be deleted. If you put the clear date on the wrong
+  line, remove it first, then delete. VOID records stay as they are.
+- A budget that has transactions allocated to it, or sub-budgets, cannot be deleted until they are moved or deleted.
+- Deleting one side of a transfer deletes both sides. A deleted check's number stays used.
+
+## 1.7.3: see a budget's transactions
+- **Register → Budget:** choose a budget to see only its transactions. A parent budget shows its sub-budgets'
+  transactions too. A transaction split across several budgets shows this budget's part, e.g. *$40.00 of $100.00*.
+  The list of budgets follows the Fiscal Year filter; with *All dates* every year's budgets are listed, each with its
+  year. The filter stays when you switch bank accounts; **Clear** removes it.
+- **Budgets page:** click a budget's code or name to open the Register with that budget already chosen, on your
+  default account and in that budget's Fiscal Year (also when you are looking at a previous year).
+
 
 ## 1.7.2: Current and Available balances
 PennyWarden now keeps two balances for every register account, the way your bank thinks about them:

@@ -44,7 +44,7 @@ def assert_unused(db: Session, ws_id: int, account_id: int, number: str | None, 
     used = holders(db, ws_id, account_id, number, exclude_id)
     if used:
         t = used[0]
-        state = {"VOID": "a VOID record"}.get(t.status, "transaction")
+        state = {"VOID": "a VOID record", "DELETED": "a deleted transaction"}.get(t.status, "transaction")
         raise conflict("DUPLICATE_CHECK_NUMBER",
                        f"Check number {number} is already used in this account by {state} #{t.id} "
                        f"({t.transaction_date}). If that record has the wrong number, correct it first.",

@@ -378,8 +378,7 @@ def audit_transactions(db: Session, ws_id: int, fy: FiscalYear, account_id: int 
             RegisterTransaction.id.in_(alloc_ids)))
     if account_id:
         q = q.where(RegisterTransaction.bank_account_id == account_id)
-    if not include_void:
-        q = q.where(RegisterTransaction.status == "ACTIVE")
+    q = q.where(RegisterTransaction.status.in_(("ACTIVE",) if not include_void else ("ACTIVE", "VOID")))
     txns = list(db.scalars(q))
     accts = {a.id: a for a in db.scalars(select(BankAccount).where(BankAccount.workspace_id == ws_id))}
     txns.sort(key=lambda t: (accts[t.bank_account_id].account_name.lower(), t.bank_account_id, t.transaction_date,

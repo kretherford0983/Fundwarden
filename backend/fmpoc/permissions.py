@@ -6,16 +6,22 @@ BUDGET_MANAGER = "BUDGET_MANAGER"
 BUDGET_USER = "BUDGET_USER"
 REGISTER_USER = "REGISTER_USER"
 AUDITOR = "AUDITOR"
+# 1.7.3 (#52, #53): optional extra Financial roles, each only together with its base role
+BUDGET_ADMIN = "BUDGET_ADMIN"
+REGISTER_ADMIN = "REGISTER_ADMIN"
+REQUIRES = {BUDGET_ADMIN: BUDGET_MANAGER, REGISTER_ADMIN: REGISTER_USER}
 
 ROLE_DEFS = [
     (ADMINISTRATOR, "Administrator", "ADMINISTRATOR"),
     (BUDGET_MANAGER, "Budget Manager", "FINANCIAL"),
     (BUDGET_USER, "Budget User", "FINANCIAL"),
     (REGISTER_USER, "Register User", "FINANCIAL"),
+    (BUDGET_ADMIN, "Budget Admin", "FINANCIAL"),
+    (REGISTER_ADMIN, "Register Admin", "FINANCIAL"),
     (AUDITOR, "Auditor", "AUDITOR"),
 ]
 ROLE_DOMAIN = {code: domain for code, _n, domain in ROLE_DEFS}
-FINANCIAL_ROLES = {BUDGET_MANAGER, BUDGET_USER, REGISTER_USER}
+FINANCIAL_ROLES = {BUDGET_MANAGER, BUDGET_USER, REGISTER_USER, BUDGET_ADMIN, REGISTER_ADMIN}
 
 PERMISSIONS: dict[str, set[str]] = {
     "users.view": {ADMINISTRATOR, AUDITOR},
@@ -44,6 +50,10 @@ PERMISSIONS: dict[str, set[str]] = {
     "reminder.personal": {BUDGET_MANAGER, REGISTER_USER},
     "reminder.org_manage": {BUDGET_MANAGER},
     "reminder.org_resolve": {BUDGET_MANAGER, REGISTER_USER},
+    # 1.7.3 (#52): delete (status Deleted) a budget of a Fiscal Year that is not approved
+    "budget.delete": {BUDGET_ADMIN},
+    # 1.7.3 (#53): delete (status Deleted) an uncleared transaction instead of voiding it
+    "transaction.delete": {REGISTER_ADMIN},
 }
 
 
@@ -63,4 +73,8 @@ def validate_role_set(domain: str, role_codes: set[str]) -> str | None:
         return "Roles from different security domains (Administrator, Financial, Auditor) cannot be combined."
     if domains != {domain}:
         return "Roles do not match the user's security domain."
+    for extra, base in REQUIRES.items():
+        if extra in role_codes and base not in role_codes:
+            names = {c: n for c, n, _d in ROLE_DEFS}
+            return f"{names[extra]} can only be given together with {names[base]}."
     return None

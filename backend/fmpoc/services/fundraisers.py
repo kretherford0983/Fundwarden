@@ -158,7 +158,7 @@ def budget_options(db: Session, ctx, start: dt.date, end: dt.date) -> list[dict]
         return []
     out = []
     for fy in eligible_fiscal_years(db, ctx.workspace_id, start, end):
-        budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id)
+        budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id, Budget.status != "DELETED")
                                   .order_by(Budget.parent_code, Budget.child_code)))
         opts: dict[str, list] = {"INCOME": [], "EXPENSE": []}
         for p in (b for b in budgets if b.parent_budget_id is None and not b.is_budget_zero):

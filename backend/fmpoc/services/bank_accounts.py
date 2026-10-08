@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .. import audit
 from ..errors import AppError, conflict, validation
-from ..models import BankAccount, Entity, RegisterTransaction, TransactionAllocation
+from ..models import BankAccount, BankAccountBalance, Entity, RegisterTransaction, TransactionAllocation, utcnow
 from ..money import fmt, parse_amount
 from ..security import crypto
 from .common import entity_brief, get_scoped
@@ -42,13 +42,28 @@ def _register_sum(db: Session, a: BankAccount, *conds) -> int:
     return (a.opening_balance_cents or 0) + int(db.scalar(q) or 0)
 
 
+def manual_as_of(db: Session, a: BankAccount, as_of: dt.date) -> int | None:
+    """1.7.3 (#88): a non-register account's balance on a date - the latest history entry on or before it (for the
+    same date, the one entered last); None before the first entry. The balance carries forward between entries."""
+    e = db.scalar(select(BankAccountBalance).where(BankAccountBalance.bank_account_id == a.id,
+                                                   BankAccountBalance.as_of_date <= as_of)
+                  .order_by(BankAccountBalance.as_of_date.desc(), BankAccountBalance.id.desc()).limit(1))
+    return e.balance_cents if e is not None else None
+
+
+def _manual(db: Session, a: BankAccount, as_of: dt.date | None) -> int:
+    if as_of is None:
+        return a.manual_current_balance_cents or 0
+    return manual_as_of(db, a, as_of) or 0
+
+
 def available_cents(db: Session, a: BankAccount, as_of: dt.date | None = None) -> int:
     """1.7.2 (#56) Available Balance - everything written or deposited: opening balance + ACTIVE deposits - ACTIVE
     withdrawals with a Transaction Date on or before as_of, cleared or not (parent totals only, BR-047). Shown in the
     Register only; it is also the basis of the Register's running balance and of the Fiscal Year starting balance
     (BR-043). Non-register accounts have no clearing: the manually maintained balance."""
     if not a.register_enabled:
-        return a.manual_current_balance_cents or 0
+        return _manual(db, a, as_of)
     return _register_sum(db, a, *([RegisterTransaction.transaction_date <= as_of] if as_of is not None else []))
 
 
@@ -57,7 +72,7 @@ def current_cents(db: Session, a: BankAccount, as_of: dt.date | None = None) -> 
     i.e. with a Clear/Post Date (on or before as_of when given). Shown everywhere outside the Register.
     Non-register accounts: the manually maintained balance."""
     if not a.register_enabled:
-        return a.manual_current_balance_cents or 0
+        return _manual(db, a, as_of)
     cond = [RegisterTransaction.clear_date.is_not(None)]
     if as_of is not None:
         cond.append(RegisterTransaction.clear_date <= as_of)
@@ -227,8 +242,39 @@ def create(db: Session, ctx, km, data) -> BankAccount:
         a.is_primary = True
     db.add(a)
     db.flush()
+    if not reg:  # 1.7.3 (#88): the balance entered at creation is the first history entry
+        _add_entry(db, ctx, a, dt.date.today(), a.manual_current_balance_cents or 0, None, "OPENING")
     audit.record(db, ctx, "BANK_ACCOUNT_CREATED", "bank_account", a.id, None, snapshot(a))
     return a
+
+
+def _add_entry(db: Session, ctx, a: BankAccount, as_of: dt.date, cents: int, reason: str | None,
+               source: str = "UPDATE") -> BankAccountBalance:
+    e = BankAccountBalance(workspace_id=a.workspace_id, bank_account_id=a.id, as_of_date=as_of, balance_cents=cents,
+                           reason=reason, source=source, entered_at=utcnow(), entered_by_user_id=ctx.user.id)
+    db.add(e)
+    db.flush()
+    latest = db.scalar(select(BankAccountBalance).where(BankAccountBalance.bank_account_id == a.id)
+                       .order_by(BankAccountBalance.as_of_date.desc(), BankAccountBalance.id.desc()).limit(1))
+    a.manual_current_balance_cents = latest.balance_cents  # current balance = the entry with the latest date
+    return e
+
+
+def balance_history(db: Session, a: BankAccount) -> list[dict]:
+    """1.7.3 (#88): newest first, each with the change from the entry before it (by date, then entry order)."""
+    from ..models import User
+    rows = list(db.scalars(select(BankAccountBalance).where(BankAccountBalance.bank_account_id == a.id)
+                           .order_by(BankAccountBalance.as_of_date, BankAccountBalance.id)))
+    users = {u.id: u for u in db.scalars(select(User).where(User.id.in_({r.entered_by_user_id for r in rows} - {None})))}
+    out, prev = [], None
+    for r in rows:
+        u = users.get(r.entered_by_user_id)
+        out.append({"id": r.id, "as_of_date": r.as_of_date.isoformat(), "balance": fmt(r.balance_cents),
+                    "change": fmt(r.balance_cents - prev) if prev is not None else None, "reason": r.reason,
+                    "source": r.source, "entered_at": r.entered_at.isoformat() + "Z",
+                    "entered_by": (u.display_name or u.username) if u else None})
+        prev = r.balance_cents
+    return list(reversed(out))
 
 
 def _require_active(a: BankAccount) -> None:
@@ -267,6 +313,8 @@ def update(db: Session, ctx, km, a: BankAccount, data) -> BankAccount:
         else:
             a.manual_current_balance_cents = a.opening_balance_cents or 0
             a.is_primary = False
+            a.register_enabled = False
+            _add_entry(db, ctx, a, dt.date.today(), a.manual_current_balance_cents, "No longer register-enabled")
         a.register_enabled = data.register_enabled
     if ("opening_balance" in f and data.opening_balance is not None) or ("opening_balance_date" in f and data.opening_balance_date):
         if txns:
@@ -300,19 +348,34 @@ def set_primary(db: Session, ctx, a: BankAccount) -> BankAccount:
     return a
 
 
-def update_manual_balance(db: Session, ctx, a: BankAccount, value: str, reason: str | None) -> BankAccount:
+def update_manual_balance(db: Session, ctx, a: BankAccount, value: str, reason: str | None,
+                          as_of: dt.date | None = None) -> BankAccount:
+    """1.7.3 (#88): every update adds a dated history entry (append-only); as_of defaults to today, may be earlier
+    (e.g. a month-end statement), never in the future, and never inside a Closed Fiscal Year."""
     _require_active(a)
     if a.register_enabled:
         raise conflict("REGISTER_BALANCE_DERIVED",
                        "Register-enabled balances are derived from Register activity and cannot be set manually.")
+    as_of = as_of or dt.date.today()
+    if as_of > dt.date.today():
+        raise validation("The balance date cannot be in the future.", "as_of_date")
+    if a.opening_balance_date and as_of < a.opening_balance_date:
+        raise validation("The balance date cannot be before the account's opening balance date.", "as_of_date")
+    from .common import covering_fiscal_years
+    closed = [f for f in covering_fiscal_years(db, a.workspace_id, as_of) if f.status == "CLOSED"]
+    if closed:
+        raise conflict("FISCAL_YEAR_CLOSED", f"{closed[0].display_name} is closed; its balances cannot change.")
     before = snapshot(a)
     try:
-        a.manual_current_balance_cents = parse_amount(value, allow_negative=True)
+        cents = parse_amount(value, allow_negative=True)
     except ValueError as e:
         raise validation(str(e), "current_balance") from None
+    entry = _add_entry(db, ctx, a, as_of, cents, reason)
     a.updated_by_user_id = ctx.user.id
     db.flush()
-    audit.record(db, ctx, "BANK_ACCOUNT_BALANCE_UPDATED", "bank_account", a.id, before, {**snapshot(a), "reason": reason})
+    audit.record(db, ctx, "BANK_ACCOUNT_BALANCE_UPDATED", "bank_account", a.id, before,
+                 {**snapshot(a), "reason": reason, "as_of_date": as_of.isoformat(), "entry_balance": fmt(cents),
+                  "balance_entry_id": entry.id})
     return a
 
 
