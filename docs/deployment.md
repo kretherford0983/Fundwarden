@@ -19,7 +19,7 @@ Native packages need no separately installed Python, Node.js, SQLite, Docker or 
   not notarized — so **the first start needs one confirmation**: macOS says *"PennyWarden" Not Opened — Apple could
   not verify…*; click **Done**, open **System Settings → Privacy & Security**, scroll to *Security* and click
   **Open Anyway** next to the PennyWarden line, then confirm. (macOS 14 and earlier: right-click the app →
-  **Open** also works.) To check the download first: `shasum -a 256 PennyWarden-<version>-macos-arm64.dmg` against
+  **Open** also works.) Step by step with pictures: [install-macos.md](install-macos.md). To check the download first: `shasum -a 256 PennyWarden-<version>-macos-arm64.dmg` against
   `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/PennyWarden`, never inside
   the app, so replacing the app with a newer one keeps it. To upgrade: quit PennyWarden, drag the new app onto
   Applications and choose *Replace*. Server mode from Terminal:
@@ -45,8 +45,9 @@ curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/downlo
 `install.sh` finds the release, downloads the Linux package, `install-server.sh` and `SHA256SUMS.txt` from it,
 verifies the checksums and runs that release's `install-server.sh` (systemd service `pennywarden`, `/opt/pennywarden`,
 data in `/var/lib/pennywarden`, a data snapshot before every upgrade, health check). The same command installs and
-upgrades; `config.toml`, the key, the database and attachments are never replaced. An installation from before
-1.6.6 (service `fmpoc`) is migrated to the new names by the same command — see [upgrade.md](upgrade.md).
+upgrades; `config.toml`, the key, the database and attachments are never replaced. An installation under an
+earlier name (service `fundwarden`, 1.6.6 to 1.6.8; service `fmpoc`, before 1.6.6) is migrated to the new names by
+the same command — see [upgrade.md](upgrade.md).
 
 - **Which release:** by default the newest production release (1.6.6 was the first). `--channel test` installs the
   newest **test** pre-release instead (for a test server only); `--version <tag>` installs exactly that release:

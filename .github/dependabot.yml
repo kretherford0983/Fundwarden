@@ -1,10 +1,16 @@
-# 1.6.8 (#65): Dependabot proposes dependency updates as pull requests into develop, once a week.
-# - Routine minor/patch updates arrive as ONE pull request per ecosystem (groups below); a major version arrives as
-#   its own pull request, so a risky upgrade is never hidden inside a batch.
-# - Security updates (Settings -> Advanced Security -> "Dependabot security updates") are separate pull requests,
-#   opened as soon as an advisory is published, and also target develop.
+# Dependabot proposes dependency updates as pull requests into develop, once a week (1.6.8, #65; 1.7.1, #80).
+# - Routine minor/patch updates arrive as ONE pull request per ecosystem (groups below).
+# - MAJOR versions are not proposed (1.7.1): React 19, TypeScript 7 and the like need planning and testing, so each
+#   is done deliberately as its own issue. The first run in 1.6.8 opened one failing pull request per major upgrade.
+# - pydantic_core is never proposed on its own (1.7.1): pydantic requires one exact pydantic_core version, so it
+#   only ever changes together with pydantic - on a feature branch.
+# - Security updates (Settings -> Advanced Security -> "Dependabot security updates") are NOT held back by the
+#   rules above: every `ignore` entry below names `update-types`, and those filter version updates only. (An entry
+#   that names just a dependency would also block its security fixes - do not add one.) They are separate pull
+#   requests, opened as soon as an advisory is published, also into develop, also when the fix is a major version.
 # - At most 5 open pull requests per ecosystem.
 # Branches are named dependabot/...; scripts/check_promotion.sh lets them into develop only. See docs/branching.md.
+# Dependabot reads this file from the default branch (main): a change takes effect when it is released.
 version: 2
 updates:
   - package-ecosystem: pip
@@ -13,6 +19,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic_core"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: "pydantic-core"       # the same package under its normalized name
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     groups:
       python:
         applies-to: version-updates
@@ -25,6 +38,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       javascript:
         applies-to: version-updates
@@ -37,6 +53,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions:
         applies-to: version-updates

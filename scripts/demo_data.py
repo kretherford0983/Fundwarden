@@ -80,11 +80,11 @@ def main(base: str) -> None:
                                           "admin_email": "admin@example.org", "password": PASSWORD,
                                           "password_confirmation": PASSWORD})
     admin.csrf = admin.get("/api/auth/me")["csrf_token"]
-    for name, domain, roles in (("treasurer", "FINANCIAL", ["BUDGET_MANAGER", "REGISTER_USER"]),
-                                ("bookkeeper", "FINANCIAL", ["REGISTER_USER"]),
-                                ("auditor", "AUDITOR", ["AUDITOR"])):
+    for name, shown, domain, roles in (("treasurer", "Jordan Lee", "FINANCIAL", ["BUDGET_MANAGER", "REGISTER_USER"]),
+                                       ("bookkeeper", "Sam Carter", "FINANCIAL", ["REGISTER_USER"]),
+                                       ("auditor", "Morgan Diaz", "AUDITOR", ["AUDITOR"])):
         admin.post("/api/users", {"username": name, "email": f"{name}@example.org", "password": PASSWORD,
-                                  "security_domain": domain, "roles": roles})
+                                  "display_name": shown, "security_domain": domain, "roles": roles})
     admin.put("/api/system/modules", {"fundraisers": True})
     bm = Api(base).login("treasurer")
 

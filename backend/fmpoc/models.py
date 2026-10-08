@@ -219,6 +219,9 @@ class BankAccount(Base):
     account_number_visible_suffix: Mapped[str] = mapped_column(String(4))
     register_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 1.7.1 (#74): order set by Budget Managers; only the order within a group (Checking & Savings / Investments and
+    # Other) matters. New accounts go to the end of their group.
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     interest_rate: Mapped[str | None] = mapped_column(String(12), nullable=True)  # decimal percent string
     opening_balance_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     opening_balance_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)

@@ -85,9 +85,11 @@ def test_ac_sec_002_domain_separation(env):
            ("FINANCIAL", ["ADMINISTRATOR"]), ("AUDITOR", ["BUDGET_USER"])]
     for i, (dom, roles) in enumerate(bad):
         r = env.admin.post("/api/users", {"username": f"bad{i}", "email": f"b{i}@x.org", "password": PASSWORD,
+                                          "display_name": f"Bad Roles {i}",
                                           "security_domain": dom, "roles": roles})
-        assert r.status_code == 422, (dom, roles)
+        assert r.status_code == 422 and r.json()["error"]["errors"][0]["field"] == "roles", (dom, roles, r.text)
     r = env.admin.post("/api/users", {"username": "multi", "email": "m@x.org", "password": PASSWORD,
+                                      "display_name": "Multi Role",
                                       "security_domain": "FINANCIAL",
                                       "roles": ["BUDGET_MANAGER", "BUDGET_USER", "REGISTER_USER"]})
     assert r.status_code == 201

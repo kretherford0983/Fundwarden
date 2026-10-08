@@ -30,11 +30,11 @@ export default function Users() {
       </div>
       <ErrorBox error={err} />
       <table className="table">
-        <thead><tr><th>Username</th><th>Email</th><th>Security domain</th><th>Roles</th><th>Status</th><th>Two-step</th>{manage ? <th /> : null}</tr></thead>
+        <thead><tr><th>Username</th><th>Display name</th><th>Email</th><th>Security domain</th><th>Roles</th><th>Status</th><th>Two-step</th>{manage ? <th /> : null}</tr></thead>
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td>{u.username}</td><td>{u.email}</td><td>{u.security_domain}</td><td>{u.roles.join(", ")}</td>
+              <td>{u.username}</td><td>{u.display_name}</td><td>{u.email}</td><td>{u.security_domain}</td><td>{u.roles.join(", ")}</td>
               <td>{u.active ? "Active" : "Disabled"}</td>
               <td>{u.mfa_enabled ? <span className="badge green">On</span> : <span className="badge grey">Not set up</span>}</td>
               {manage ? (
@@ -69,10 +69,10 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
     setErr(null);
     try {
       if (isNew) {
-        await api.post("/api/users", { username: f.username, email: f.email, display_name: f.display_name || null, password: f.password,
+        await api.post("/api/users", { username: f.username, email: f.email, display_name: f.display_name, password: f.password,
           security_domain: f.security_domain, roles: f.roles });
       } else {
-        await api.patch(`/api/users/${user.id}`, { email: f.email, display_name: f.display_name || null,
+        await api.patch(`/api/users/${user.id}`, { email: f.email, display_name: f.display_name,
           security_domain: f.security_domain, roles: f.roles, active: f.active });
       }
       onSaved();
@@ -86,7 +86,7 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
         <ErrorBox error={err} />
         {isNew ? <Field label="Username"><input required value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></Field> : null}
         <Field label="Email"><input required type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-        <Field label="Display name"><input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
+        <Field label="Display name" hint="The name shown in the top bar for this user. At least 3 characters."><input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
         {isNew ? <Field label="Initial password" hint="At least 12 characters including a letter and a digit."><input required type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field> : null}
         <fieldset>
           <legend>Security domain (exactly one)</legend>

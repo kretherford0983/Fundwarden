@@ -267,12 +267,16 @@ def _stamp_and_write(reader_bytes: bytes, doc: _AuditDoc, path: str, title: str)
         for pg in range(first, last + 1):
             in_section[pg] = f"{sec['label']} - section page {pg - first + 1} of {n}"
         span = f"pages {first} to {last} of {total} ({n} pages, counting this start page and the end page)"
+        # 1.7.1 (#59): the fundraisers have a section of their own, worded for what it holds
+        fr = sec.get("kind") == "fundraisers"
+        what = "The fundraisers section" if fr else "This account's section"
+        thing, whose = ("fundraisers", "") if fr else ("transactions", " for this account")
         notes.setdefault(first, []).append((sec["start"][1], sec["start"][2], [
-            f"This account's section: {span}.",
-            f"Its last page is page {last}, headed \"End of transactions\" for this account."]))
+            f"{what}: {span}.",
+            f"Its last page is page {last}, headed \"End of {thing}\"{whose}."]))
         notes.setdefault(last, []).append((sec["end"][1], sec["end"][2], [
-            f"This account's section: pages {first} to {last} of {total} ({n} pages, counting the start page and this end page).",
-            f"Its first page is page {first}, headed \"Start of transactions\" for this account."]))
+            f"{what}: pages {first} to {last} of {total} ({n} pages, counting the start page and this end page).",
+            f"Its first page is page {first}, headed \"Start of {thing}\"{whose}."]))
     for i, page in enumerate(writer.pages):
         w, h = float(page.mediabox.width), float(page.mediabox.height)
         buf = io.BytesIO()
@@ -542,6 +546,7 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
         row = per_acct[t.bank_account_id]
         row[0] += 1
         row[1 if t.transaction_type == "DEPOSIT" else 2] += t.total_cents
+    frs = fsvc.for_fiscal_year_report(db, ctx.workspace_id, fy) if fundraisers else []
     f += [_Mark(doc, "Fiscal Year Review"), PM("Fiscal Year Review", "h1"),
           P(f"This report documents Fiscal Year {fy.display_name} ({fy.start_date} to {fy.end_date}) for {ws.name}. "
             "It is organised as follows: this review summary; "
@@ -551,7 +556,9 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
               "supporting attachment reproduced beneath them."
             + (" The transactions are grouped by bank account: each account begins with a \"Start of transactions\" "
                "page and finishes with an \"End of transactions\" page, both stating the account's page range."
-               if len({t.bank_account_id for t in txns}) > 1 else ""), "body"),
+               if len({t.bank_account_id for t in txns}) > 1 else "")
+            + (" The fundraisers follow the transactions, between a \"Start of fundraisers\" page and an \"End of "
+               "fundraisers\" page that state their page range." if frs else ""), "body"),
           Spacer(1, 8), PM("Activity summary", "h2"),
           _kv([("Transactions", f"{len(txns)} in this report — {len(active)} active, {len(txns) - len(active)} VOID"),
                ("Deposits (active)", money(dep)), ("Withdrawals (active)", money(wd)), ("Net", money(dep - wd)),
@@ -720,12 +727,46 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
         if sectioned and (i_t + 1 == len(txns) or txns[i_t + 1].bank_account_id != t.bank_account_id):
             f += section_page(section, "end")
 
-    frs = fsvc.for_fiscal_year_report(db, ctx.workspace_id, fy) if fundraisers else []
+    # 1.7.1 (#59): like each account's transactions (1.6.7), the fundraisers sit between a start page and an end page
+    # that state their page range, so a reviewer can tell where they begin and end and that no page is missing.
+    fr_section = {"kind": "fundraisers", "label": "Fundraisers"} if frs else None
+
+    def fundraisers_page(kind: str) -> list:
+        start = kind == "start"
+        cancelled = sum(1 for x in frs if x.cancelled_at is not None)
+        when = lambda x: (f"{x.start_date}" if x.start_date == x.end_date else f"{x.start_date} to {x.end_date}")  # noqa: E731
+        rows = [("Fiscal Year", f"{fy.display_name} ({fy.start_date} to {fy.end_date})"),
+                ("Fundraisers", f"{len(frs)}" + (f" — {cancelled} cancelled" if cancelled else "")),
+                ("First fundraiser", f"{frs[0].name} — {when(frs[0])}"),
+                ("Last fundraiser", f"{frs[-1].name} — {when(frs[-1])}")]
+        head = "Start of fundraisers" if start else "End of fundraisers"
+        out = [_Mark(doc, head), Spacer(1, 1.2 * inch), PM(head, "cover_sub"), Spacer(1, 6),
+               PM(escape(f"Fundraisers — {fy.display_name}"), "cover_title"), Spacer(1, 0.5 * inch),
+               _kv(rows, w1=1.8 * inch), Spacer(1, 14), _SectionNote(doc, fr_section, kind), Spacer(1, 8)]
+        if start:
+            out += [P("In this section, in order of event date:", "small")]
+            out += [P(f"{i}. {x.name} — {when(x)}" + (" — cancelled" if x.cancelled_at is not None else ""), "small")
+                    for i, x in enumerate(frs, start=1)]
+            out += [Spacer(1, 8),
+                    P("Every page between this start page and the end page shows \"Fundraisers - section page k of n\" "
+                      "at the bottom right. The pages belong to the fundraisers only, and none is missing when the "
+                      "section page numbers run from 1 to n without a gap.", "small")]
+        else:
+            out += [P("No fundraiser follows this page.", "small")]
+        return out + [PageBreak()]
+
+    if frs:
+        if f and not isinstance(f[-1], PageBreak):
+            f.append(PageBreak())
+        doc.sections.append(fr_section)
+        f += fundraisers_page("start")
     for fr in frs:  # v1.6.2 CR-035
         if f and not isinstance(f[-1], PageBreak):
             f.append(PageBreak())
         f += _fundraiser_section(db, ctx, settings, doc, fr, users, this_fy=fy)
         f.append(PageBreak())
+    if frs:
+        f += fundraisers_page("end")
 
     if signature is not None:
         if f and not isinstance(f[-1], PageBreak):
@@ -743,9 +784,12 @@ def build_audit_report(db: Session, ctx, settings, fy: FiscalYear, account_id: i
         raise
     fname = f"{fy.display_name}-{'fiscal-year-close' if close_layout else 'end-of-year-audit'}-report.pdf"
     summary = {"transactions": len(txns), "pages": pages, **({"fundraisers": len(frs)} if fundraisers else {})}
-    if doc.sections:
+    acct_sections = [x for x in doc.sections if "account_id" in x]
+    if acct_sections:
         summary["account_sections"] = [{"bank_account_id": x["account_id"], "first_page": x["start"][0],
-                                        "last_page": x["end"][0]} for x in doc.sections]
+                                        "last_page": x["end"][0]} for x in acct_sections]
+    if fr_section is not None:  # 1.7.1 (#59)
+        summary["fundraiser_section"] = {"first_page": fr_section["start"][0], "last_page": fr_section["end"][0]}
     return path, fname, summary
 
 

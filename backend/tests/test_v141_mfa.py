@@ -139,6 +139,7 @@ def test_admin_reset_and_user_enrollment(server_app):
     admin = _init(server_app)
     atotp, _ = _enroll(admin)
     r = admin.post("/api/users", {"username": "clerk", "email": "c@example.com", "password": PASSWORD,
+                                  "display_name": "Clerk Person",
                                   "security_domain": "FINANCIAL", "roles": ["REGISTER_USER"]})
     assert r.status_code == 201
     uid = r.json()["id"]

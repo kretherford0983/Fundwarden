@@ -44,6 +44,45 @@ could not otherwise be corrected. Scope and safeguards:
 - Audited as `TRANSACTION_VOID_DATE_CORRECTED` with before/after snapshots and the reason.
 - Tests: `backend/tests/test_cr001_void_date.py` (5 tests) and E2E "CR-001".
 
+**1.7.1 Display name required and shown in the top bar (issues #47, #46, #50).** `services/users.clean_display_name`
+(trimmed, at least 3 characters, messages as agreed in #47) on create and on every update that sends the field;
+`bootstrap` gives the first Administrator the username. Migration `0017` copies the username where the name is
+missing or too short and adds two triggers on `app_user`. Triggers, not `NOT NULL` + `CHECK`: SQLite can add those
+only by rebuilding the table, and `app_user` is referenced by almost every other table — a later migration that
+rebuilds it must recreate the triggers (`tests/test_v171_display_name.py` checks they exist at head). The model
+column therefore stays nullable in the schema. Top bar: `me.display_name` without roles; My account lists username,
+email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
+Administrator can see which users still show a username).
+
+**1.7.1 Bank account order set by Budget Managers (issue #74, option 2).** Migration `0018` adds
+`bank_account.sort_order` (integer, default 0) and numbers each group of each workspace 1..n — Primary first, then
+by name, then id — with the group rule written out in the migration. `services/bank_accounts.listing_order()`
+(group: Checking & Savings first, then `sort_order`, then `id`) is used by `GET /api/bank-accounts` (Bank Accounts
+page, Register selector), the Dashboard, the balances chart and the Register's fallback when no account is Primary.
+`POST /api/bank-accounts/{id}/move` `{"direction": "up"|"down"}` (`bank_account.manage`, i.e. Budget Managers)
+swaps the account with its neighbour in the group — closed accounts included, since the page lists them — and
+renumbers the group 1..n; past either end it is refused (409 `CANNOT_MOVE`). Audited as
+`BANK_ACCOUNT_ORDER_CHANGED` with group, position and the group's id order before and after. Create and a type
+change into the other group put the account at the end of its group. Reports (and the missing-check review) keep
+their own order, as #74 leaves them out of scope. UI: ▲ ▼ buttons with `aria-label="Move <name> up/down"`, disabled
+at the ends; after a move the focus returns to the moved account's button (the other one when it has become
+disabled) and a polite live region announces the position. Tests: `tests/test_v171_bank_account_order.py`, E2E "#74".
+
+**1.7.0 Rename to PennyWarden (product owner, 2026-10-07; issue #70).** Full record: `CHANGELOG.md` 1.7.0 and
+`docs/upgrade.md` ("1.7.0: the rename to PennyWarden").
+
+| Topic | Decision / implementation |
+|---|---|
+| Why | Another product in the financial field uses the name Fundwarden and has a website under it. |
+| Name | **PennyWarden** (one word, capital P and W) wherever it is displayed; `pennywarden` for the command, service, system user, folders, packages and Docker image — the full name, not `penny` (a common first name for a system account, and an existing package and command name). The gold coin with a keyhole stays. |
+| Release | 1.7.0 contains the rename and nothing else; other work starts with 1.7.1. |
+| What was renamed | The same things as in 1.6.6 (below), plus the Mac app, its bundle identifier and data folder. Internal names stay: package `fmpoc`, `fmpoc.sqlite3`, `FM_*`, `.fmbak`. |
+| Earlier names | `PREVIOUS_APP_NAMES` in `config.py` and `PREVIOUS` in `install-server.sh` list them newest first (Fundwarden, then the name before 1.6.6). Local default data folder: the newest earlier name that has a folder is renamed in place. Server: the installation in service is migrated, else the newest name with data; the 1.6.6 copy / compare / switch / automatic switch-back is unchanged. |
+| Backups | File name and manifest take the name from `config.APP_NAME`; the name is not checked on restore, so Fundwarden backups restore. |
+| Documentation | Current documents use the new name. The changelog entries of earlier versions, the migration instructions and this table keep the names that were true at the time. |
+| Tests | `backend/tests/test_v170_rename.py`, including a check that no user-facing file still carries the old name; upgrade simulation with the real 1.6.8 and 1.7.0 packages (recorded in `docs/upgrade.md`). |
+| Repository | Renamed to `kretherford0983/PennyWarden` on 2026-10-07; domain `pennywarden.org` registered the same day (product page: issue #83). |
+
 **1.6.6 Rename to Fundwarden, first production release (product owner, 2026-10-02).** Plan: project doc
 `claude/freedger-plan-1.6.6.md`.
 

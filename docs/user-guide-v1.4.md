@@ -42,7 +42,7 @@ your account (new users see the first three). Hover a chart for exact amounts, o
 VOID transactions and transfers between accounts are not included.
 
 ## Two-step verification (1.4.1)
-After your password, Fundwarden asks for a **6-digit code** from an authenticator app on your phone (Microsoft
+After your password, PennyWarden asks for a **6-digit code** from an authenticator app on your phone (Microsoft
 Authenticator, Google Authenticator, 1Password, Authy, …).
 - **Setting it up:** on a server install you are asked the first time you sign in after the upgrade; on a desktop
   install use **My account → Two-step verification → Set up**. Scan the QR code (or type the key shown under it),
