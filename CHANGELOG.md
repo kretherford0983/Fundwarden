@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.7.2 — unreleased
+## 1.7.2 — 2026-10-08
 No database migration.
 - **Administrators cannot change their own roles on a server (#55).** In server mode, the *Security domain* and
   *Roles* of your own account are greyed out on the Users page, with the note "You cannot change your own security
