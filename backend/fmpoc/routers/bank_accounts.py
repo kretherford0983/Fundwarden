@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..deps import Ctx, get_db, require
 from ..errors import AppError
 from ..models import BankAccount
-from ..schemas import BankAccountCreateIn, BankAccountUpdateIn, CloseAccountIn, ManualBalanceIn
+from ..schemas import BankAccountCreateIn, BankAccountUpdateIn, CloseAccountIn, ManualBalanceIn, MoveAccountIn
 from ..services import bank_accounts as svc
 
 router = APIRouter(prefix="/api/bank-accounts", tags=["bank-accounts"])
@@ -25,7 +25,7 @@ def list_accounts(include_closed: bool = True, db: Session = Depends(get_db), ct
     q = select(BankAccount).where(BankAccount.workspace_id == ctx.workspace_id)
     if not include_closed:
         q = q.where(BankAccount.status == "ACTIVE")
-    return [svc.out(db, a) for a in db.scalars(q.order_by(BankAccount.is_primary.desc(), BankAccount.account_name))]
+    return [svc.out(db, a) for a in db.scalars(q.order_by(*svc.listing_order()))]
 
 
 @router.get("/{account_id}")
@@ -54,6 +54,15 @@ def set_primary(account_id: int, db: Session = Depends(get_db), ctx: Ctx = Depen
     a = svc.set_primary(db, ctx, svc.get(db, ctx, account_id))
     db.commit()
     return svc.out(db, a)
+
+
+@router.post("/{account_id}/move")
+def move(account_id: int, body: MoveAccountIn, db: Session = Depends(get_db),
+         ctx: Ctx = Depends(require("bank_account.manage"))):
+    """1.7.1 (#74): Budget Managers set the order of the accounts within each group."""
+    r = svc.move(db, ctx, svc.get(db, ctx, account_id), body.direction)
+    db.commit()
+    return r
 
 
 @router.post("/{account_id}/balance")

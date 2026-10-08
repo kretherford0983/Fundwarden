@@ -41,7 +41,7 @@ def financial(db: Session, ctx) -> dict:
         t = bsvc.tree(db, fy)
         summary = {"income": t["income_summary"], "expense": t["expense_summary"]}
     accounts = [bank.out(db, a) for a in db.scalars(select(BankAccount).where(
-        BankAccount.workspace_id == ws, BankAccount.status == "ACTIVE").order_by(BankAccount.account_name))]
+        BankAccount.workspace_id == ws, BankAccount.status == "ACTIVE").order_by(*bank.listing_order()))]
     uncleared = db.scalar(select(func.count(RegisterTransaction.id)).where(
         RegisterTransaction.workspace_id == ws, RegisterTransaction.status == "ACTIVE",
         RegisterTransaction.clear_date.is_(None))) or 0

@@ -68,13 +68,58 @@ def group_of(account_type: str) -> str:
     return "CHECKING_SAVINGS" if account_type in CHECKING_SAVINGS_TYPES else "INVESTMENTS_OTHER"
 
 
+GROUP_LABELS = dict(GROUPS)
+
+
+def listing_order() -> tuple:
+    """1.7.1 (#74): the order Budget Managers set - group by group (Checking & Savings first), then the stored
+    position within the group. Used by the Bank Accounts page, the Dashboard and the Register account selector."""
+    return (case((BankAccount.account_type.in_(sorted(CHECKING_SAVINGS_TYPES)), 0), else_=1),
+            BankAccount.sort_order, BankAccount.id)
+
+
+def _group_members(db: Session, ws_id: int, group: str) -> list[BankAccount]:
+    types = BankAccount.account_type.in_(sorted(CHECKING_SAVINGS_TYPES))
+    return list(db.scalars(select(BankAccount).where(BankAccount.workspace_id == ws_id,
+                                                     types if group == "CHECKING_SAVINGS" else ~types)
+                           .order_by(BankAccount.sort_order, BankAccount.id)))
+
+
+def _end_of_group(db: Session, ws_id: int, account_type: str, exclude_id: int | None = None) -> int:
+    """A new account (or one whose type moves it to the other group) goes to the end of its group."""
+    return max((m.sort_order for m in _group_members(db, ws_id, group_of(account_type)) if m.id != exclude_id),
+               default=0) + 1
+
+
+def move(db: Session, ctx, a: BankAccount, direction: str) -> dict:
+    """1.7.1 (#74): move an account one place up or down within its group. Positions in the group are renumbered
+    1..n so they stay tidy. The Primary account is not pinned; it moves like any other account."""
+    group = group_of(a.account_type)
+    members = _group_members(db, ctx.workspace_id, group)
+    i = next(n for n, m in enumerate(members) if m.id == a.id)
+    j = i - 1 if direction == "up" else i + 1
+    if j < 0 or j >= len(members):
+        raise conflict("CANNOT_MOVE", f"The account is already {'first' if direction == 'up' else 'last'} in "
+                                      f"{GROUP_LABELS[group]}.")
+    before = [m.id for m in members]
+    members[i], members[j] = members[j], members[i]
+    for pos, m in enumerate(members, start=1):
+        m.sort_order = pos
+    db.flush()
+    audit.record(db, ctx, "BANK_ACCOUNT_ORDER_CHANGED", "bank_account", a.id,
+                 {"group": group, "position": i + 1, "order": before},
+                 {"group": group, "position": j + 1, "order": [m.id for m in members]})
+    return {"account": out(db, a), "group": group, "position": j + 1, "group_size": len(members)}
+
+
 def out(db: Session, a: BankAccount) -> dict:
     bal = balance_cents(db, a)
     return {**snapshot(a), "opening_balance_date": a.opening_balance_date.isoformat() if a.opening_balance_date else None,
             "closed_date": a.closed_date.isoformat() if a.closed_date else None,
             "financial_institution": entity_brief(a.institution), "current_balance": fmt(bal),
             "label": f"{a.account_name} - {masked(a)}", "uncleared_count": uncleared_count(db, a),
-            "has_transactions": has_transactions(db, a), "group": group_of(a.account_type)}
+            "has_transactions": has_transactions(db, a), "group": group_of(a.account_type),
+            "sort_order": a.sort_order}
 
 
 def _institution(db: Session, ctx, entity_id: int, current_id: int | None = None) -> Entity:
@@ -130,7 +175,8 @@ def create(db: Session, ctx, km, data) -> BankAccount:
     a = BankAccount(workspace_id=ctx.workspace_id, financial_institution_entity_id=data.financial_institution_entity_id,
                     account_name=data.account_name, account_type=data.account_type, account_subtype=data.account_subtype,
                     register_enabled=reg, interest_rate=_rate(data.interest_rate), notes=data.notes, status="ACTIVE",
-                    created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id)
+                    created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id,
+                    sort_order=_end_of_group(db, ctx.workspace_id, data.account_type))
     _set_number(db, a, km, data.account_number, None)
     try:
         if reg:
@@ -173,6 +219,8 @@ def update(db: Session, ctx, km, a: BankAccount, data) -> BankAccount:
         _institution(db, ctx, data.financial_institution_entity_id, a.financial_institution_entity_id)
         a.financial_institution_entity_id = data.financial_institution_entity_id
     if "account_type" in f and data.account_type:
+        if group_of(data.account_type) != group_of(a.account_type):  # 1.7.1 (#74): end of the new group
+            a.sort_order = _end_of_group(db, ctx.workspace_id, data.account_type, a.id)
         a.account_type = data.account_type
     if "account_subtype" in f:
         a.account_subtype = data.account_subtype

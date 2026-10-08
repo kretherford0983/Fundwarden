@@ -1,7 +1,7 @@
 # What's new in 1.7 — quick guide
 
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
-start and end pages for the fundraisers in the Audit and Close reports.*
+bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.*
 
 ## 1.7.1: your name in the top bar
 The top bar now shows your **display name** — for example *Jordan Lee* — instead of your username, and no longer
@@ -15,6 +15,20 @@ lists your roles next to it. Your username, email address and roles are on **My 
   looks different for them until you enter their real name under **Users → Edit**. The Users list has a
   *Display name* column so you can see who still shows a username.
 - The first Administrator created by the Initialization Wizard also starts with the username as display name.
+
+## 1.7.1: bank accounts in the order you choose
+**Budget Managers** decide the order in which bank accounts are listed. On **Bank Accounts**, each account has
+**▲** (move up) and **▼** (move down) buttons in the *Order* column. Each group — *Checking & Savings* and
+*Investments and Other* — has its own order; moving an account never changes the other group.
+- The same order is used on the **Dashboard** and in the **Register**'s bank account list.
+- The **Primary** account is not kept at the top: put it wherever you like. The Register still opens on the
+  Primary account, wherever it is in the list.
+- After the upgrade nothing looks different: each group lists the Primary account first and the others by name.
+  A new account is added at the end of its group.
+- **Keyboard:** Tab to a button and press Enter or Space. The focus stays on the account you moved, so you can
+  keep pressing to move it further; a screen reader announces the new position ("Savings moved to position 1 of
+  3 in Checking & Savings.").
+- Other users see the order but cannot change it. Every change is in the audit log.
 
 ## 1.7.1: fundraisers in the Audit and Close reports
 When an Audit or Fiscal Year Close report includes fundraisers, they now begin with a **Start of fundraisers** page

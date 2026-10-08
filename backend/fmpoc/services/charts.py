@@ -106,7 +106,7 @@ def data(db: Session, ctx, fy: FiscalYear) -> dict:
     accounts = list(db.scalars(select(BankAccount).where(BankAccount.workspace_id == ctx.workspace_id,
                                                          BankAccount.status == "ACTIVE",
                                                          BankAccount.register_enabled.is_(True))
-                               .order_by(BankAccount.is_primary.desc(), BankAccount.account_name)))
+                               .order_by(*bank.listing_order())))
     series, cents_by_acct = [], []
     for a in accounts:
         vals = [bank.balance_cents(db, a, as_of=e) if s <= today else None for s, e in months]

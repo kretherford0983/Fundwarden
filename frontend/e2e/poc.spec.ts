@@ -1039,6 +1039,68 @@ test("CR-028 / CR-030 / CR-029 / CR-032: account groups, chart columns, signatur
   expect(Math.abs(a!.height - b!.height)).toBeLessThan(2);
 });
 
+// ---------------------------------------------------------------- 1.7.1 #74: bank account order
+test("#74: a Budget Manager sets the bank account order with the keyboard; Dashboard and Register follow it", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const fi = await (await post("/api/entities", { entity_type: "ORGANIZATION", organization_name: "Order Test Bank",
+    is_financial_institution: true, confirmations: ["DUPLICATE_ENTITY"] })).json();
+  for (const [name, num] of [["Order A", "741000000001"], ["Order B", "741000000002"]]) {
+    const r = await post("/api/bank-accounts", { account_name: name, financial_institution_entity_id: fi.id, account_type: "CHECKING",
+      account_number: num, opening_balance: "0.00", opening_balance_date: "2026-01-01" });
+    expect(r.status()).toBe(201);
+  }
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  const table = page.getByTestId("accounts-CHECKING_SAVINGS");
+  const names = async () => (await table.locator("tbody tr td:nth-child(2)").allInnerTexts()).map((t) => t.trim());
+  await expect(table).toContainText("Order B");
+  let order = await names();
+  const n = order.length;
+  expect(order.slice(-2)).toEqual(["Order A", "Order B"]);                 // new accounts go to the end of their group
+  await expect(page.getByRole("button", { name: "Move Order B down" })).toBeDisabled();
+  // keyboard only: focus the button, press Enter; focus stays on it and the new position is announced
+  const up = page.getByRole("button", { name: "Move Order B up" });
+  await up.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("order-status")).toHaveText(`Order B moved to position ${n - 1} of ${n} in Checking & Savings.`);
+  await expect(page.getByRole("button", { name: "Move Order B up" })).toBeFocused();
+  order = await names();
+  expect(order.slice(-2)).toEqual(["Order B", "Order A"]);
+  await page.keyboard.press("Space");
+  await expect(page.getByTestId("order-status")).toHaveText(`Order B moved to position ${n - 2} of ${n} in Checking & Savings.`);
+  order = await names();
+  expect(order.indexOf("Order B")).toBe(n - 3);
+  await page.reload();                                                       // saved
+  await expect(table).toContainText("Order B");
+  expect(await names()).toEqual(order);
+  // the Dashboard lists the group in the same order
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  const dash = page.getByTestId("bank-group-CHECKING_SAVINGS");
+  await expect(dash).toContainText("Order B");
+  const dashText = await dash.innerText();
+  expect(dashText.indexOf("Order B")).toBeLessThan(dashText.indexOf("Order A"));
+  // the Register lists the accounts in that order and still opens on the Primary account
+  const accounts = await (await page.request.get("/api/bank-accounts")).json();
+  const primary = accounts.find((a: any) => a.is_primary);
+  await page.getByRole("link", { name: "Register" }).click();
+  const sel = page.getByLabel("Register bank account");
+  if (primary) await expect(sel).toHaveValue(String(primary.id));
+  const opts = await sel.locator("option").allInnerTexts();
+  const want = accounts.filter((a: any) => a.register_enabled).map((a: any) => a.label + (a.status === "CLOSED" ? " (closed)" : ""));
+  expect(opts.map((o) => o.trim())).toEqual(want);
+  expect(opts.findIndex((o) => o.startsWith("Order B"))).toBeLessThan(opts.findIndex((o) => o.startsWith("Order A")));
+  await logout(page);
+  // other roles see the order but cannot change it
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  await expect(page.getByTestId("accounts-CHECKING_SAVINGS")).toContainText("Order B");
+  await expect(page.getByRole("button", { name: /^Move / })).toHaveCount(0);
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const r = await page.request.post(`/api/bank-accounts/${accounts.find((a: any) => a.account_name === "Order A").id}/move`,
+    { headers: { "X-CSRF-Token": me.csrf_token }, data: { direction: "up" } });
+  expect(r.status()).toBe(403);
+});
+
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
 test("CR-031: dashboard sections can be hidden, reordered and reset; saved per user", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");
