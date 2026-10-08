@@ -103,13 +103,16 @@ def data(db: Session, ctx, fy: FiscalYear) -> dict:
         running += m["income"] - m["expense"]
         cum.append(None if future[i] and not (m["income"] or m["expense"]) else fmt(running))
 
+    # 1.7.3 (#88): non-register accounts too, from their balance history (no value before their first entry)
     accounts = list(db.scalars(select(BankAccount).where(BankAccount.workspace_id == ctx.workspace_id,
-                                                         BankAccount.status == "ACTIVE",
-                                                         BankAccount.register_enabled.is_(True))
+                                                         BankAccount.status == "ACTIVE")
                                .order_by(*bank.listing_order())))
     series, cents_by_acct = [], []
     for a in accounts:
-        vals = [bank.current_cents(db, a, as_of=e) if s <= today else None for s, e in months]
+        if a.register_enabled:
+            vals = [bank.current_cents(db, a, as_of=e) if s <= today else None for s, e in months]
+        else:
+            vals = [bank.manual_as_of(db, a, min(e, today)) if s <= today else None for s, e in months]
         cents_by_acct.append(vals)
         series.append({"id": a.id, "label": f"{a.account_name} - {bank.masked(a)}",
                        "values": [None if v is None else fmt(v) for v in vals]})

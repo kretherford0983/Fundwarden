@@ -54,6 +54,21 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.3 Balance history for non-register accounts (issue #88; open questions answered with recommendations on
+2026-10-08 while the product owner was away, recorded in the issue for review).** Table `bank_account_balance`
+(migration `0020`): account, `as_of_date`, `balance_cents`, reason, `source` (OPENING / UPDATE / UPGRADE), entered
+at / by. Append-only; `manual_current_balance_cents` stays as the cached current balance = the entry with the latest
+date (ties: the later entry). `update_manual_balance(..., as_of)`: today or earlier, not before the opening balance
+date, not inside a Closed Fiscal Year. Creation of a non-register account and a switch from register to
+non-register add an entry. `bank_accounts.manual_as_of(date)` (None before the first entry) feeds `current_cents` /
+`available_cents` with a date, so "as of" balances (Financial Flow Report #106, charts) carry forward. The balances
+chart now includes non-register accounts. `GET /api/bank-accounts/{id}/balance-history` (financial.view; 422 for
+register accounts). Back-fill in the migration: `BANK_ACCOUNT_CREATED` (non-register), every
+`BANK_ACCOUNT_BALANCE_UPDATED`, and `BANK_ACCOUNT_UPDATED` events that changed the manual balance or switched to
+non-register, dated by the event; then an `UPGRADE` entry when the last one differs from the current balance (dated
+the account's creation day when there was no history, otherwise the upgrade day). Tests:
+`tests/test_v173_balance_history.py`, E2E "#88".
+
 **1.7.3 Budget Admin / Register Admin and the Deleted status (issues #52, #53; decided 2026-10-08).** BR-001 holds:
 "delete" sets status `DELETED` (budgets: reason in `status_reason`; transactions: `deleted_at`, `deleted_by_user_id`,
 `delete_reason`, migration `0019`, which also inserts the two roles for existing installations; `seed_roles` covers

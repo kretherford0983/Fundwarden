@@ -3,8 +3,9 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.7.3 — unreleased
-Database migration `0019` (two roles and three columns added; nothing existing changes). Rolling back to 1.7.2 needs
-the data snapshot the installer takes before the upgrade (docs/upgrade.md).
+Database migrations `0019` (two roles and three columns added) and `0020` (balance history, rebuilt from the audit
+log); no existing balance changes. Rolling back to 1.7.2 needs the data snapshot the installer takes before the
+upgrade (docs/upgrade.md).
 - **Register: filter by budget (#104).** A new **Budget** filter in the Register shows only the transactions with
   an allocation to that budget; a parent budget includes its sub-budgets. A split transaction is shown with the
   budget's share, e.g. "$40.00 of $100.00", so the amounts listed add up to the budget's activity. The choices follow
@@ -28,6 +29,14 @@ the data snapshot the installer takes before the upgrade (docs/upgrade.md).
   *Deleted*: it disappears from the Register, every balance, budget, chart and report. Its check number stays used.
   Auditors still see it (Register → Status → *Deleted*), with the reason and its attachments; the audit log records
   it.
+- **Balance history for accounts without a register (#88).** Every **Update balance** on an investment, CD or other
+  non-register account is now kept as a dated entry; nothing is overwritten. The dialog has an **As of** date (today
+  or earlier — e.g. a statement date; not in a Closed Fiscal Year). The account's current balance is the entry with
+  the latest date; for the same date, the one entered last counts — a mistake is corrected by entering the right
+  balance again. **History** under the balance on the Bank Accounts page lists the entries with their change, who
+  entered them and why. The **Bank balances** chart now includes these accounts (the balance carries forward between
+  entries). On upgrade, each account's history is rebuilt from the audit log: its balance when it was created and
+  every update since.
 - **Fixed: a link from a fundraiser line to the Register** (1.6.0) opened the Primary account and the current Fiscal
   Year instead of the line's account with all dates; it now opens the right account again.
 

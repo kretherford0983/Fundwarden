@@ -68,9 +68,19 @@ def move(account_id: int, body: MoveAccountIn, db: Session = Depends(get_db),
 @router.post("/{account_id}/balance")
 def manual_balance(account_id: int, body: ManualBalanceIn, db: Session = Depends(get_db),
                    ctx: Ctx = Depends(require("bank_account.manage"))):
-    a = svc.update_manual_balance(db, ctx, svc.get(db, ctx, account_id), body.current_balance, body.reason)
+    a = svc.update_manual_balance(db, ctx, svc.get(db, ctx, account_id), body.current_balance, body.reason,
+                                  body.as_of_date)
     db.commit()
     return svc.out(db, a)
+
+
+@router.get("/{account_id}/balance-history")
+def balance_history(account_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
+    """1.7.3 (#88): dated balance entries of a non-register account, newest first."""
+    a = svc.get(db, ctx, account_id)
+    if a.register_enabled:
+        raise AppError(422, "REGISTER_ENABLED", "A register-enabled account's balance comes from its Register.")
+    return svc.balance_history(db, a)
 
 
 @router.post("/{account_id}/close")

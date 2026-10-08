@@ -6,6 +6,17 @@ bank accounts in the order you choose, start and end pages for the fundraisers i
 1.7.3: the Register filtered by budget, links from the Budgets page, and deleting a mistaken budget or
 transaction.*
 
+## 1.7.3: balance history for investment and other accounts
+Accounts without a register (investments, CDs, cash, …) now keep every balance you enter:
+- **Update balance** asks for the balance and its **As of** date — today, or an earlier date such as a statement
+  date. Each update is a new entry; nothing is overwritten.
+- The account shows the balance with the **latest** date. Entered a wrong figure? Enter the right one for the same
+  date — the one entered last counts — and both stay in the history.
+- **History** (under the balance on the Bank Accounts page) lists every entry: date, balance, change from the one
+  before, who entered it, when, and the reason.
+- The Dashboard's **Bank balances** chart now shows these accounts too.
+- Your existing accounts already have a history: PennyWarden rebuilt it from the audit log when it was upgraded.
+
 ## 1.7.3: deleting a mistake
 Two new roles an Administrator can give under **Users**, each only together with its usual role:
 

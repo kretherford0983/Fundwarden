@@ -264,6 +264,7 @@ class BankAccountUpdateIn(In):
 class ManualBalanceIn(In):
     current_balance: Amount
     reason: OptStr(500) = None
+    as_of_date: OptDate = None  # 1.7.3 (#88): defaults to today
 
 
 class MoveAccountIn(In):
