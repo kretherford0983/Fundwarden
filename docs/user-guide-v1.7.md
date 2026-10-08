@@ -2,7 +2,17 @@
 
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
 bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.
-1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.*
+1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.
+1.7.3: the Register filtered by budget, and links from the Budgets page.*
+
+## 1.7.3: see a budget's transactions
+- **Register → Budget:** choose a budget to see only its transactions. A parent budget shows its sub-budgets'
+  transactions too. A transaction split across several budgets shows this budget's part, e.g. *$40.00 of $100.00*.
+  The list of budgets follows the Fiscal Year filter; with *All dates* every year's budgets are listed, each with its
+  year. The filter stays when you switch bank accounts; **Clear** removes it.
+- **Budgets page:** click a budget's code or name to open the Register with that budget already chosen, on your
+  default account and in that budget's Fiscal Year (also when you are looking at a previous year).
+
 
 ## 1.7.2: Current and Available balances
 PennyWarden now keeps two balances for every register account, the way your bank thinks about them:
