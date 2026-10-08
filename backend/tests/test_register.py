@@ -156,7 +156,9 @@ def test_ac_reg_009_010_011_derived_total_and_single_count(env, base):
     assert r.status_code == 200 and r.json()["total"] == "1100.00"
     # a client-supplied parent amount is not accepted
     assert env.ru.patch(f"/api/transactions/{t['id']}", {"total": "5.00"}).status_code == 422
-    # AC-REG-010: bank decreases by exactly 1100
+    # AC-REG-010: the balance decreases by exactly 1100 (Available until it clears; 1.7.2, #56)
+    assert env.bu.get(f"/api/register?bank_account_id={base['acct']['id']}").json()["available_balance"] == "-100.00"
+    env.ru.patch(f"/api/transactions/{t['id']}", {"clear_date": "2026-08-02"})
     assert env.bu.get(f"/api/bank-accounts/{base['acct']['id']}").json()["current_balance"] == "-100.00"
     # AC-REG-011: each allocation affects only its own budget; parent roll-up derives from children
     tree = env.bu.get(f"/api/budgets?fiscal_year_id={fy}").json()["expense"]
@@ -204,7 +206,7 @@ def test_ac_reg_013_type_change_protected(env, base):
     assert r.status_code == 409 and r.json()["error"]["warnings"][0]["code"] == "TYPE_CHANGE"
     r = env.ru.patch(f"/api/transactions/{t['id']}", {**body, "confirmations": ["TYPE_CHANGE"]})
     assert r.status_code == 200 and r.json()["transaction_type"] == "DEPOSIT"
-    assert env.bu.get(f"/api/bank-accounts/{base['acct']['id']}").json()["current_balance"] == "1010.00"
+    assert env.bu.get(f"/api/register?bank_account_id={base['acct']['id']}").json()["available_balance"] == "1010.00"
 
 
 def test_ac_reg_014_no_hard_delete(env, base):

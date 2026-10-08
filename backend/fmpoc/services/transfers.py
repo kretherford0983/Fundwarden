@@ -22,7 +22,7 @@ from ..models import RegisterTransaction, TransactionAllocation, Workspace, utcn
 from ..money import parse_amount
 from . import bank_accounts as bank
 from . import budgets as bsvc
-from .register import _account_for_register, _entity, budget_zero_fiscal_year, snapshot
+from .register import _account_for_register, _entity, budget_zero_fiscal_year, check_clear_date, snapshot
 
 TRANSFER_NO_ATTACHMENT_REASON = "Internal transfer between accounts"
 
@@ -41,6 +41,7 @@ def create(db: Session, ctx, data) -> list[RegisterTransaction]:
     except ValueError as e:
         raise validation(str(e), "amount") from None
     when = data.transaction_date or dt.date.today()
+    check_clear_date(when, data.clear_date)
     fy = budget_zero_fiscal_year(db, ctx, when, data.fiscal_year_id)
     b0 = bsvc.budget_zero_for(db, fy)
     entity = _entity(db, ctx, data.entity_id, set())

@@ -1,7 +1,44 @@
 # What's new in 1.7 — quick guide
 
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
-bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.*
+bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.
+1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.*
+
+## 1.7.2: Current and Available balances
+PennyWarden now keeps two balances for every register account, the way your bank thinks about them:
+
+| | What it counts | Where you see it |
+|---|---|---|
+| **Current balance** | Only what has **cleared** — the bank's own balance | Everywhere: Bank Accounts, Dashboard, charts, Register |
+| **Available balance** | Everything you have written or deposited, cleared or not | The Register |
+
+Example: the bank shows $10,000.00. You wrote check #101 for $500.00 that has not been cashed, and made a $200.00
+deposit the bank has not posted yet. Current balance: **$10,000.00** (what the bank has). Available balance:
+**$9,700.00** (what you really have once everything clears).
+
+**After the upgrade** the Dashboard and the Bank Accounts page show the Current balance. If some transactions are not
+marked cleared yet, those numbers are lower or higher than before — mark them cleared as the bank posts them (Clear/
+Post Date) and the two balances meet.
+
+**In the Register** you see:
+- **Opening balance** — for a Fiscal Year: what you had at the end of the day before the year started, counting
+  everything written or deposited by then. Under it, **Bank $…** shows what the bank had that day and the
+  outstanding items (written or deposited, not cleared by then) that make up the difference — a bank reconciliation.
+  Clearing those items in the new year does not change last year's numbers.
+- **Current** and **Available** balance — for an open Fiscal Year.
+- **Ending balance** with its reconciliation — for a **Closed** Fiscal Year (instead of Current and Available), or
+  when you choose a *To* date.
+- The **Balance** column on each line works as before (everything written or deposited).
+
+**New check:** the Clear/Post Date cannot be before the transaction date — the bank cannot cash a check before you
+write it. If an older transaction breaks this rule, PennyWarden asks you to correct it the next time you edit it.
+
+## 1.7.2: on a server, your own roles are changed by another Administrator
+On a server, when you edit **your own** account under **Users**, the *Security domain* and *Roles* are greyed out:
+another Administrator has to change them. This keeps one person from giving themselves different rights without
+anyone else being involved. You can still change your own email address and display name, and you can change the
+roles of every other user, other Administrators included. Keep at least two Administrators on a server.
+On a Windows PC or a Mac (local install) nothing changes.
 
 ## 1.7.1: your name in the top bar
 The top bar now shows your **display name** — for example *Jordan Lee* — instead of your username, and no longer

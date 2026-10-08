@@ -54,6 +54,34 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.2 Current and Available balances (issues #56, #57; product owner decisions 2026-10-08, recorded in the
+issues).** `services/bank_accounts.current_cents(as_of)` = opening balance + ACTIVE allocations of transactions with a
+Clear/Post Date (on or before `as_of`); `available_cents(as_of)` = the former `balance_cents` (Transaction Date on or
+before `as_of`, cleared or not); `outstanding(as_of)` = ACTIVE transactions dated on or before `as_of` with no clear
+date or a later one. Non-register accounts: both are the manual balance. `out()` (Bank Accounts page, Dashboard and
+its totals) and the balance chart use Current; account closure uses Current (equal to Available once nothing is
+uncleared). Register view: `starting_balance`/`ending_balance` and the running balance stay on the Available basis
+(BR-043: the Fiscal Year starting balance is the Available balance at the end of the previous day - derived, not
+stored, and fixed by the previous year's Closed status, BR-012); new `current_balance` (cleared), `available_balance`
+and `opening_reconciliation` / `ending_reconciliation` (`bank_balance` + `outstanding` = `balance`). The page shows
+Opening + Current + Available for an open year or no year, Opening + Ending for a Closed year, Ending also for an
+explicit *To* date. `register.check_clear_date`: Clear/Post Date >= Transaction Date on create, edit (any edit of a
+record, as decided in #56), VOID date correction and transfers; existing data is not migrated. "Today's" Current
+balance counts every cleared transaction (a future clear date is a data-entry error, not filtered). Spec items changed
+(the spec in `spec/` is kept as delivered; these notes and the issues are the record): AC-BANK-006, BR-043 (made
+precise + reconciliation), BR-053 (date rule), 07-database-design §11, 05-ui (Register header), CR-021 and CR-020
+(Current). Updated tests that asserted the old meaning of `current_balance`: test_entities_bank (AC-BANK-006),
+test_register (AC-REG-010/013), test_smoke, test_v13_duplicates, test_v141_charts. New: `tests/test_v172_balances.py`,
+E2E "#56 / #57".
+
+**1.7.2 Server Administrators cannot change their own roles (issue #55).** `services/users.update(..., mode=)`
+refuses (403 `OWN_ROLES_LOCKED`) when, in server mode, the caller's own security domain or role set would change; the
+router passes `settings.mode`. A request that sends the same domain and roles (the edit form always sends them) is
+not a change and passes, so the own email address and display name stay editable. Checked before anything is
+written, so nothing is audited for a refused attempt. Local mode is unrestricted (#54 relies on that). UI: the
+Users page reads `mode` from `/api/system/status` and disables both fieldsets for the signed-in Administrator's own
+account, with a hint. Tests: `tests/test_v172_own_roles.py`.
+
 **1.7.1 Bank account order set by Budget Managers (issue #74, option 2).** Migration `0018` adds
 `bank_account.sort_order` (integer, default 0) and numbers each group of each workspace 1..n — Primary first, then
 by name, then id — with the group rule written out in the migration. `services/bank_accounts.listing_order()`

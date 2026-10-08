@@ -31,21 +31,49 @@ def snapshot(a: BankAccount) -> dict:
             "closed_date": a.closed_date, "close_reason": a.close_reason, "notes": a.notes}
 
 
-def balance_cents(db: Session, a: BankAccount, as_of: dt.date | None = None) -> int:
-    """Register-enabled: opening balance + ACTIVE deposits - ACTIVE withdrawals (parent totals only, BR-047).
-    Non-register: manually maintained balance."""
-    if not a.register_enabled:
-        return a.manual_current_balance_cents or 0
+def _register_sum(db: Session, a: BankAccount, *conds) -> int:
     signed = case((RegisterTransaction.transaction_type == "DEPOSIT", TransactionAllocation.amount_cents),
                   else_=-TransactionAllocation.amount_cents)
     q = (select(func.coalesce(func.sum(signed), 0))
          .select_from(RegisterTransaction)
          .join(TransactionAllocation, TransactionAllocation.transaction_id == RegisterTransaction.id)
          .where(RegisterTransaction.bank_account_id == a.id, RegisterTransaction.status == "ACTIVE",
-                TransactionAllocation.removed_at.is_(None)))
-    if as_of is not None:
-        q = q.where(RegisterTransaction.transaction_date <= as_of)
+                TransactionAllocation.removed_at.is_(None), *conds))
     return (a.opening_balance_cents or 0) + int(db.scalar(q) or 0)
+
+
+def available_cents(db: Session, a: BankAccount, as_of: dt.date | None = None) -> int:
+    """1.7.2 (#56) Available Balance - everything written or deposited: opening balance + ACTIVE deposits - ACTIVE
+    withdrawals with a Transaction Date on or before as_of, cleared or not (parent totals only, BR-047). Shown in the
+    Register only; it is also the basis of the Register's running balance and of the Fiscal Year starting balance
+    (BR-043). Non-register accounts have no clearing: the manually maintained balance."""
+    if not a.register_enabled:
+        return a.manual_current_balance_cents or 0
+    return _register_sum(db, a, *([RegisterTransaction.transaction_date <= as_of] if as_of is not None else []))
+
+
+def current_cents(db: Session, a: BankAccount, as_of: dt.date | None = None) -> int:
+    """1.7.2 (#56) Current Balance - the real bank balance: opening balance + ACTIVE transactions the bank has posted,
+    i.e. with a Clear/Post Date (on or before as_of when given). Shown everywhere outside the Register.
+    Non-register accounts: the manually maintained balance."""
+    if not a.register_enabled:
+        return a.manual_current_balance_cents or 0
+    cond = [RegisterTransaction.clear_date.is_not(None)]
+    if as_of is not None:
+        cond.append(RegisterTransaction.clear_date <= as_of)
+    return _register_sum(db, a, *cond)
+
+
+def outstanding(db: Session, a: BankAccount, as_of: dt.date) -> list[RegisterTransaction]:
+    """1.7.2 (#56): the items that make up the difference between the bank (Current) and the Available balance on a
+    date - ACTIVE transactions dated on or before it that had not cleared by then."""
+    if not a.register_enabled:
+        return []
+    return list(db.scalars(select(RegisterTransaction).where(
+        RegisterTransaction.bank_account_id == a.id, RegisterTransaction.status == "ACTIVE",
+        RegisterTransaction.transaction_date <= as_of,
+        (RegisterTransaction.clear_date.is_(None)) | (RegisterTransaction.clear_date > as_of))
+        .order_by(RegisterTransaction.transaction_date, RegisterTransaction.id)))
 
 
 def uncleared_count(db: Session, a: BankAccount) -> int:
@@ -113,7 +141,7 @@ def move(db: Session, ctx, a: BankAccount, direction: str) -> dict:
 
 
 def out(db: Session, a: BankAccount) -> dict:
-    bal = balance_cents(db, a)
+    bal = current_cents(db, a)  # 1.7.2 (#56): the bank balance (cleared only) everywhere outside the Register
     return {**snapshot(a), "opening_balance_date": a.opening_balance_date.isoformat() if a.opening_balance_date else None,
             "closed_date": a.closed_date.isoformat() if a.closed_date else None,
             "financial_institution": entity_brief(a.institution), "current_balance": fmt(bal),
@@ -295,7 +323,7 @@ def close(db: Session, ctx, a: BankAccount, reason: str, closed_date: dt.date | 
     n = uncleared_count(db, a)
     if n:
         blockers.append({"code": "UNCLEARED_TRANSACTIONS", "message": f"{n} uncleared transaction(s) remain."})
-    bal = balance_cents(db, a)
+    bal = current_cents(db, a)  # with no uncleared transactions Current and Available are the same
     if bal != 0:
         blockers.append({"code": "NON_ZERO_BALANCE", "message": f"Current balance is {fmt(bal)}; it must be exactly 0.00."})
     if blockers:

@@ -2,7 +2,43 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.7.1 — 2026-10-07
+## 1.7.2 — 2026-10-08
+No database migration.
+- **Administrators cannot change their own roles on a server (#55).** In server mode, the *Security domain* and
+  *Roles* of your own account are greyed out on the Users page, with the note "You cannot change your own security
+  domain or roles. Another Administrator can change them for you."; a direct request is refused as well
+  (`OWN_ROLES_LOCKED`). Your email address and display name can still be changed, and any Administrator can still
+  change the roles of *other* users, other Administrators included. A local install (Windows, Mac, single user) is
+  not restricted. Keep a second Administrator on a server so roles can always be changed.
+- **Current and Available balances (#56, #57).** Two balances, defined the way the bank does:
+  - **Current balance** is the real bank balance: only transactions that have cleared (have a Clear/Post Date).
+    For a past date it counts what had cleared by that date. It is now the balance shown everywhere outside the
+    Register: the Bank Accounts page and its totals, the Dashboard and its totals, the account dialogs and the *Bank
+    balances* chart. **Numbers on these pages change after the upgrade when transactions are not cleared yet** —
+    until now they included uncleared transactions.
+  - **Available balance** includes everything written or deposited, cleared or not — what is truly available once
+    everything has cleared. It is shown in the Register only, next to the Current balance. The running balance on
+    each Register line is unchanged (Available basis).
+  - **Opening balance of a Fiscal Year** (Register, Fiscal Year selected): the Available balance at the end of the
+    day before the year starts, as before, so opening + the year's deposits − its withdrawals = the year's ending
+    balance. Under it, **Bank $…** opens a bank reconciliation: the bank balance on that date, the outstanding items
+    (written or deposited by then, not cleared by then) and the opening balance they add up to. Clearing last year's
+    items later does not change it; it is fixed once last year is Closed.
+  - The Register shows **Opening, Current and Available** for an open Fiscal Year (or no Fiscal Year), and
+    **Opening and Ending**, each with its reconciliation, for a **Closed** one. A *To* date adds the Ending balance.
+  - **New rule:** a Clear/Post Date cannot be earlier than the Transaction Date ("The Clear/Post Date cannot be
+    earlier than the Transaction Date."), on new and edited transactions and transfers. Existing records are not
+    changed; a record that breaks the rule has to be corrected the next time it is edited.
+  - Account closure is unchanged (no uncleared transactions and a 0.00 balance — then both balances are equal).
+    Accounts without a register keep their one manually maintained balance.
+- **Dependency updates (Dependabot #94, #95).** TypeScript 5.6.3 → 5.9.3 (build only). FastAPI 0.141.1 → 0.142.2,
+  SQLAlchemy 2.1.1 → 2.1.3, cryptography 50.0.1 → 50.0.2, charset-normalizer 3.5.1 → 3.5.2, MarkupSafe 3.0.3 →
+  3.0.4. FastAPI 0.142 brings one new package, **opentelemetry-api 1.45.1** (Apache-2.0), now pinned and listed in
+  THIRD-PARTY-NOTICES.txt. Dependabot's own pull request for the Python updates could not pass, because it cannot
+  regenerate the notices file; it was replaced by a branch that does.
+- **CHANGELOG:** 1.7.1 is dated 2026-10-08, the day it was released (it said 2026-10-07).
+
+## 1.7.1 — 2026-10-08
 Database migrations `0017` (no column added or removed; fills in missing display names and adds the rule to the
 database) and `0018` (adds the bank account order). Rolling back to 1.7.0 needs the data snapshot the installer
 takes before the upgrade (docs/upgrade.md).

@@ -101,11 +101,7 @@ export default function Register() {
                 title="Reset the filters to how the register opens (the bank account stays)">Clear</button>
       </div>
       {data && acct ? (
-        <div className="tiles">
-          <div className="tile"><div className="tile-label">Starting balance{data.date_from ? ` (as of ${data.date_from})` : " (opening)"}</div><div className="tile-value">{money(data.starting_balance)}</div></div>
-          <div className="tile"><div className="tile-label">Ending balance{data.date_to ? ` (${data.date_to})` : ""}</div><div className="tile-value">{money(data.ending_balance)}</div></div>
-          <div className="tile"><div className="tile-label">Current balance</div><div className="tile-value">{money(data.current_balance)}</div></div>
-        </div>
+        <BalanceTiles data={data} explicitEnd={!!f.date_to} onRecon={(title: string, r: any, label: string) => setModal({ kind: "recon", title, recon: r, label })} />
       ) : null}
       </div>
       <ErrorBox error={err} />
@@ -152,6 +148,7 @@ export default function Register() {
       {modal?.kind === "legedit" ? <TransferLegForm txn={modal.txn} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
       {modal?.kind === "voiddate" ? <VoidDateForm txn={modal.txn} fys={fys} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
       {modal?.kind === "voidcheck" ? <VoidCheckForm txn={modal.txn} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
+      {modal?.kind === "recon" ? <ReconModal title={modal.title} recon={modal.recon} label={modal.label} onClose={() => setModal(null)} /> : null}
       {modal?.kind === "zero" ? <ZeroVoidForm account={acct} initial={modal.initial} fys={fys} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
     </div>
   );
@@ -779,6 +776,76 @@ function AckChecks({ account, item, onClose, onDone }: any) {
         <Field label="Note (required)"><input required maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. New checkbook started at 5001" /></Field>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Confirm not missing</button></div>
       </GuardedForm>
+    </Modal>
+  );
+}
+
+
+// 1.7.2 (#56/#57): Current = the bank balance (cleared only); Available = everything written or deposited (Register
+// only). An open Fiscal Year (or no Fiscal Year) shows Opening, Current and Available; a Closed one Opening and Ending.
+// Opening and Ending show the bank balance on that date and the outstanding items that make up the difference.
+function BalanceTiles({ data, explicitEnd, onRecon }: { data: any; explicitEnd: boolean; onRecon: (title: string, r: any, label: string) => void }) {
+  const closed = data.fiscal_year?.status === "CLOSED";
+  const reconLink = (r: any, title: string, label: string) => r ? (
+    <button type="button" className="link small-link recon-link" onClick={() => onRecon(title, r, label)}
+            aria-label={`${title}: bank balance ${money(r.bank_balance)}, ${r.outstanding.length} outstanding item${r.outstanding.length === 1 ? "" : "s"}. Show details`}>
+      Bank {money(r.bank_balance)}{r.outstanding.length ? ` · ${r.outstanding.length} outstanding` : ""}
+    </button>
+  ) : null;
+  const op = data.opening_reconciliation;
+  const end = data.ending_reconciliation;
+  return (
+    <div className="tiles" data-testid="register-balances">
+      <div className="tile" data-testid="tile-opening">
+        <div className="tile-label">Opening balance{op ? ` (end of ${op.as_of})` : " (account opening)"}</div>
+        <div className="tile-value">{money(data.starting_balance)}</div>
+        {reconLink(op, "Opening balance", "Opening balance")}
+      </div>
+      {closed || explicitEnd ? (
+        <div className="tile" data-testid="tile-ending">
+          <div className="tile-label">Ending balance{data.date_to ? ` (${data.date_to})` : ""}</div>
+          <div className="tile-value">{money(data.ending_balance)}</div>
+          {reconLink(end, "Ending balance", "Ending balance")}
+        </div>
+      ) : null}
+      {!closed ? (
+        <>
+          <div className="tile" data-testid="tile-current" title="What the bank has: cleared transactions only">
+            <div className="tile-label">Current balance <span className="tile-note">(bank, cleared only)</span></div>
+            <div className="tile-value">{money(data.current_balance)}</div>
+          </div>
+          <div className="tile" data-testid="tile-available" title="Everything entered, including transactions the bank has not posted yet">
+            <div className="tile-label">Available balance <span className="tile-note">(incl. uncleared)</span></div>
+            <div className="tile-value">{money(data.available_balance)}</div>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ReconModal({ title, recon, label, onClose }: { title: string; recon: any; label: string; onClose: () => void }) {
+  return (
+    <Modal title={`${title} — bank reconciliation`} onClose={onClose}>
+      <p className="hint">The bank balance counts what the bank had posted by the end of {recon.as_of}. Outstanding items were
+        entered with a date on or before then but had not cleared by then.</p>
+      <table className="table" data-testid="recon-table">
+        <tbody>
+          <tr><th scope="row" colSpan={4}>Bank balance at the end of {recon.as_of}</th><td className="num">{money(recon.bank_balance)}</td></tr>
+          {recon.outstanding.length === 0 ? <tr><td colSpan={5} className="muted">No outstanding items.</td></tr> : null}
+          {recon.outstanding.map((o: any) => (
+            <tr key={o.id}>
+              <td>{o.transaction_date}</td>
+              <td>{o.transaction_type === "DEPOSIT" ? "Outstanding deposit" : `Outstanding ${o.check_number ? `check #${o.check_number}` : "withdrawal"}`}</td>
+              <td>{o.entity || ""}</td>
+              <td className="muted">{o.clear_date ? `cleared ${o.clear_date}` : "not cleared yet"}</td>
+              <td className={`num ${Number(o.amount) < 0 ? "neg" : ""}`}>{money(o.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot><tr className="total-row"><th scope="row" colSpan={4}>{label}</th><th className="num">{money(recon.balance)}</th></tr></tfoot>
+      </table>
+      <div className="actions"><button type="button" onClick={onClose}>Close</button></div>
     </Modal>
   );
 }

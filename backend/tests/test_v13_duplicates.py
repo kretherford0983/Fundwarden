@@ -68,7 +68,7 @@ def test_cr011_transfer_request_key(env, base):
     r1, r2 = env.ru.post("/api/transfers", b), env.ru.post("/api/transfers", b)
     assert r1.status_code == r2.status_code == 201
     assert r1.json()["withdrawal"]["id"] == r2.json()["withdrawal"]["id"]
-    assert env.bu.get(f"/api/bank-accounts/{dst['id']}").json()["current_balance"] == "10.00"
+    assert env.bu.get(f"/api/register?bank_account_id={dst['id']}").json()["available_balance"] == "10.00"  # once
 
 
 def test_cr011_possible_duplicate_warning(env, base):

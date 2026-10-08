@@ -40,9 +40,9 @@ def test_chart_data(env, base):
                                        "over_budget": False}]
     bal = d["balances"]
     assert [x["label"].split(" - ")[0] for x in bal["accounts"]][0] == base["acct"]["account_name"]  # primary first
-    # opening 1000 + 1000 income - 250 - 100 transfer out = 1650 at the end of August; the other account holds 100
-    assert bal["accounts"][0]["values"][1] == "1650.00" and bal["accounts"][1]["values"][1] == "100.00"
-    assert bal["total"][1] == "1750.00"
+    # 1.7.2 (#56): the chart shows the bank (Current) balance - nothing has cleared yet, so the opening balances
+    assert bal["accounts"][0]["values"][1] == "1000.00" and bal["accounts"][1]["values"][1] == "0.00"
+    assert bal["total"][1] == "1000.00"
     assert inc2 and small
 
 
