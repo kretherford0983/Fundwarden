@@ -31,6 +31,11 @@ No database migration.
     changed; a record that breaks the rule has to be corrected the next time it is edited.
   - Account closure is unchanged (no uncleared transactions and a 0.00 balance — then both balances are equal).
     Accounts without a register keep their one manually maintained balance.
+- **Dependency updates (Dependabot #94, #95).** TypeScript 5.6.3 → 5.9.3 (build only). FastAPI 0.141.1 → 0.142.2,
+  SQLAlchemy 2.1.1 → 2.1.3, cryptography 50.0.1 → 50.0.2, charset-normalizer 3.5.1 → 3.5.2, MarkupSafe 3.0.3 →
+  3.0.4. FastAPI 0.142 brings one new package, **opentelemetry-api 1.45.1** (Apache-2.0), now pinned and listed in
+  THIRD-PARTY-NOTICES.txt. Dependabot's own pull request for the Python updates could not pass, because it cannot
+  regenerate the notices file; it was replaced by a branch that does.
 - **CHANGELOG:** 1.7.1 is dated 2026-10-08, the day it was released (it said 2026-10-07).
 
 ## 1.7.1 — 2026-10-08
