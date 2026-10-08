@@ -1101,6 +1101,20 @@ test("#74: a Budget Manager sets the bank account order with the keyboard; Dashb
   expect(r.status()).toBe(403);
 });
 
+// ---------------------------------------------------------------- 1.7.2 #55 follow-up
+test("1.7.2: an Administrator cannot disable their own account", async ({ page }) => {
+  await login(page, "admin");
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("row", { name: /^admin\b/ }).getByRole("button", { name: "Edit" }).click();
+  const dlg = page.getByRole("dialog", { name: "Edit admin" });
+  await expect(dlg.getByLabel("Active")).toBeDisabled();
+  await expect(dlg).toContainText("You cannot disable your own account.");
+  await dlg.getByRole("button", { name: "Cancel" }).click();
+  // another user's Active box stays available
+  await page.getByRole("row", { name: /^bm1\b/ }).getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByRole("dialog", { name: "Edit bm1" }).getByLabel("Active")).toBeEnabled();
+});
+
 // ---------------------------------------------------------------- 1.7.2 #56/#57: Current and Available balances
 test("#56 / #57: the Register shows Opening, Current (bank) and Available; the bank reconciliation opens", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");

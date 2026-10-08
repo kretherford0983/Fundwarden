@@ -83,3 +83,27 @@ def test_local_mode_admin_may_change_own_roles(env):
     assert r.status_code == 201
     r = env.admin.patch(f"/api/users/{me}", {"security_domain": "AUDITOR", "roles": ["AUDITOR"]})
     assert r.status_code == 200, r.text
+
+
+def test_server_admin_cannot_disable_own_account_but_can_disable_another(server):
+    """#55 follow-up: disabling yourself signs you out at once and, by mistake, can remove the Administrator who
+    meant to disable someone else."""
+    a, b, me_a, admin2 = server
+    r = a.patch(f"/api/users/{me_a}", {"active": False})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "OWN_ACCOUNT_DISABLE", r.text
+    assert a.get("/api/auth/me").status_code == 200                       # still signed in, still active
+    # the edit form sends active=true back unchanged: allowed
+    assert a.patch(f"/api/users/{me_a}", {"email": "me@example.com", "active": True}).status_code == 200
+    # another Administrator can be disabled (and enabled again)
+    assert a.patch(f"/api/users/{admin2}", {"active": False}).status_code == 200
+    assert a.patch(f"/api/users/{admin2}", {"active": True}).status_code == 200
+
+
+def test_local_admin_cannot_disable_own_account_either(env):
+    me = env.admin.get("/api/auth/me").json()["id"]
+    env.admin.post("/api/users", {"username": "admin2", "email": "a2@example.com", "display_name": "Second Admin",
+                                  "password": PASSWORD, "security_domain": "ADMINISTRATOR", "roles": ["ADMINISTRATOR"]})
+    r = env.admin.patch(f"/api/users/{me}", {"active": False})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "OWN_ACCOUNT_DISABLE"
+    ev = env.auditor.get("/api/audit-events?action=USER_DISABLED").json()["total"]
+    assert ev == 0

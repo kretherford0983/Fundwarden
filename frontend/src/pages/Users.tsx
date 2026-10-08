@@ -50,14 +50,14 @@ export default function Users() {
           ))}
         </tbody>
       </table>
-      {edit ? <UserForm user={edit} ownRolesLocked={mode === "server" && edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
+      {edit ? <UserForm user={edit} ownRolesLocked={mode === "server" && edit.id === me.id} isSelf={edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
       {reset ? <ResetForm user={reset} onClose={() => setReset(null)} /> : null}
       {mfaReset ? <MfaResetForm user={mfaReset} onClose={() => { setMfaReset(null); load(); }} /> : null}
     </div>
   );
 }
 
-function UserForm({ user, ownRolesLocked = false, onClose, onSaved }: { user: any; ownRolesLocked?: boolean; onClose: () => void; onSaved: () => void }) {
+function UserForm({ user, ownRolesLocked = false, isSelf = false, onClose, onSaved }: { user: any; ownRolesLocked?: boolean; isSelf?: boolean; onClose: () => void; onSaved: () => void }) {
   const isNew = !user.id;
   const [f, setF] = useState({
     username: user.username || "", email: user.email || "", display_name: user.display_name || "", password: "",
@@ -106,7 +106,14 @@ function UserForm({ user, ownRolesLocked = false, onClose, onSaved }: { user: an
             ))}
           </fieldset>
         ) : null}
-        {!isNew ? <label className="check"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active</label> : null}
+        {!isNew ? (
+          <>
+            {/* 1.7.2 (#55 follow-up): your own account cannot be disabled by you (also refused by the server) */}
+            <label className="check"><input type="checkbox" checked={f.active} disabled={isSelf} aria-describedby={isSelf ? "own-active-hint" : undefined}
+              onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active</label>
+            {isSelf ? <p className="hint" id="own-active-hint">You cannot disable your own account.</p> : null}
+          </>
+        ) : null}
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
       </GuardedForm>
     </Modal>
