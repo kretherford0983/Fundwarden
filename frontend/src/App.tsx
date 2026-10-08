@@ -24,6 +24,7 @@ import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
 export const ROLE_NAMES: Record<string, string> = {
   ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
   REGISTER_USER: "Register User", AUDITOR: "Auditor",
+  BUDGET_ADMIN: "Budget Admin", REGISTER_ADMIN: "Register Admin", // 1.7.3 (#52, #53)
 };
 
 export interface Me {

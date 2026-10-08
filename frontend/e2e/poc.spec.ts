@@ -35,7 +35,7 @@ async function createUser(page: Page, username: string, roleLabel: string) {
   await dlg.getByLabel("Display name").fill(SHOWN[username] || `${username} person`);
   await dlg.getByLabel("Initial password").fill(PW);
   await dlg.getByLabel("FINANCIAL").check();
-  await dlg.getByLabel(roleLabel).check();
+  await dlg.getByLabel(roleLabel, { exact: true }).check();
   await dlg.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("cell", { name: username, exact: true })).toBeVisible();
 }
@@ -1162,6 +1162,124 @@ test("#56 / #57: the Register shows Opening, Current (bank) and Available; the b
     allocations: [{ budget_id: opts[0].id, amount: "1.00" }] } });
   expect(bad.status()).toBe(422);
   await page.screenshot({ path: "e2e-screenshots/light-register-balances.png" });
+});
+
+// ---------------------------------------------------------------- 1.7.3 #104/#105: Budget filter and Budgets links
+test("#104 / #105: a budget on the Budgets page opens the Register filtered to it; the filter survives an account change", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Budgets", exact: true }).click();
+  const link = page.getByRole("link", { name: /^1000 .*: show its transactions in the Register$/ }).first();
+  await expect(link).toBeVisible();
+  const fySel = await page.locator("select").first().inputValue().catch(() => "");
+  await link.click();
+  await expect(page).toHaveURL(/\/register\?budget=\d+&fiscal_year=\d+/);
+  const budgetSel = page.getByLabel("Register Budget filter");
+  await expect(budgetSel).not.toHaveValue("");
+  await expect(budgetSel.locator("option:checked")).toHaveText(/ - 1000 - /);
+  const fyFilter = page.getByLabel("Register Fiscal Year filter");
+  if (fySel) await expect(fyFilter).toHaveValue(fySel);
+  // every listed transaction has the budget (the API agrees with the page)
+  const bid = await budgetSel.inputValue();
+  const acct = await page.getByLabel("Register bank account").inputValue();
+  const reg = await (await page.request.get(`/api/register?bank_account_id=${acct}&budget_id=${bid}&fiscal_year_id=${await fyFilter.inputValue()}`)).json();
+  await expect(page.locator("table.register tbody tr[id^='txn-']")).toHaveCount(reg.transactions.length);
+  // changing the account keeps the Budget filter
+  const accts = page.getByLabel("Register bank account").locator("option");
+  if (await accts.count() > 1) {
+    const other = await accts.nth(1).getAttribute("value");
+    await page.getByLabel("Register bank account").selectOption(other!);
+    await expect(budgetSel).toHaveValue(bid);
+  }
+  await page.screenshot({ path: "e2e-screenshots/light-register-budget-filter.png" });
+  // Clear removes it
+  await page.getByRole("button", { name: "Clear" }).click();
+  await expect(budgetSel).toHaveValue("");
+});
+
+// ---------------------------------------------------------------- 1.7.3 #52/#53: Budget Admin and Register Admin
+test("#52 / #53: a Budget Admin deletes a draft budget and a Register Admin deletes an uncleared transaction", async ({ page }) => {
+  await login(page, "admin");
+  const adm = await apiAs(page);
+  for (const [u, roles] of [["ba1", ["BUDGET_MANAGER", "BUDGET_ADMIN"]], ["ra1", ["REGISTER_USER", "REGISTER_ADMIN"]]] as const) {
+    const r = await adm("/api/users", { username: u, email: `${u}@example.org`, display_name: `${u} person`, password: PW,
+      security_domain: "FINANCIAL", roles });
+    expect(r.status(), await r.text()).toBe(201);
+  }
+  // the extra role needs its base role
+  const bad = await adm("/api/users", { username: "ba2", email: "ba2@example.org", display_name: "ba2 person", password: PW,
+    security_domain: "FINANCIAL", roles: ["BUDGET_ADMIN"] });
+  expect(bad.status()).toBe(422);
+  await logout(page);
+
+  // Budget Admin: delete a budget of the draft Fiscal Year
+  await login(page, "ba1");
+  const post = await apiAs(page);
+  const fys = await (await page.request.get("/api/fiscal-years")).json();
+  const draft = fys.find((f: any) => f.status === "DRAFT");
+  const b = await (await post("/api/budgets", { fiscal_year_id: draft.id, code: "7700", name: "Copied by mistake", budget_type: "EXPENSE", amount: "10.00" })).json();
+  await page.goto(`/budgets?fiscal_year_id=${draft.id}`);
+  await page.getByRole("button", { name: "Edit 7700" }).click();
+  await page.getByRole("button", { name: "Delete budget…" }).click();
+  const dlg = page.getByRole("dialog", { name: "Delete 7700 Copied by mistake" });
+  await expect(dlg).toContainText("The budget will be deleted.");
+  await expect(dlg.getByRole("button", { name: "Delete budget" })).toBeDisabled();
+  await dlg.getByLabel("Reason (required)").fill("Copied by mistake");
+  await dlg.getByRole("button", { name: "Delete budget" }).click();
+  await expect(page.getByRole("button", { name: "Edit 7700" })).toHaveCount(0);
+  expect((await page.request.get(`/api/budgets/${b.id}`)).status()).toBe(200);   // still in the database
+  await logout(page);
+
+  // Register Admin: delete an uncleared transaction from its edit dialog
+  await login(page, "ra1");
+  const rpost = await apiAs(page);
+  const accts = (await (await page.request.get("/api/bank-accounts")).json()).filter((a: any) => a.register_enabled && a.status === "ACTIVE");
+  const nat = await (await page.request.get(`/api/fiscal-years/natural?date=${new Date().toISOString().slice(0, 10)}`)).json();
+  const opts = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${nat.default_fiscal_year_id}&transaction_type=WITHDRAWAL`)).json();
+  const body: any = { bank_account_id: accts[0].id, transaction_type: "WITHDRAWAL", no_attachment: true, no_attachment_reason: "e2e",
+    notes: "entered twice", allocations: [{ budget_id: opts[0].id, amount: "3.21", description: "Duplicate entry" }] };
+  let r = await rpost("/api/transactions", body);
+  if (r.status() === 409) { body.confirmations = ((await r.json()).error.warnings || []).map((w: any) => w.code); r = await rpost("/api/transactions", body); }
+  expect(r.status(), await r.text()).toBe(201);
+  const t = await r.json();
+  await page.goto(`/register?account=${accts[0].id}&txn=${t.id}`);
+  const row = page.locator(`#txn-${t.id}`);
+  await expect(row).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Delete transaction…" }).click();
+  const del = page.getByRole("dialog", { name: `Delete transaction #${t.id}` });
+  await del.getByLabel("Reason (required)").fill("Entered twice");
+  await del.getByRole("button", { name: "Delete transaction" }).click();
+  await expect(page.locator(`#txn-${t.id}`)).toHaveCount(0);
+  expect((await page.request.get(`/api/transactions/${t.id}`)).status()).toBe(404);   // hidden from Financial users
+});
+
+// ---------------------------------------------------------------- 1.7.3 #88: balance history
+test("#88: updating a non-register balance keeps a dated history", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const fi = await (await post("/api/entities", { entity_type: "ORGANIZATION", organization_name: "History Brokerage",
+    is_financial_institution: true, confirmations: ["DUPLICATE_ENTITY"] })).json();
+  const r = await post("/api/bank-accounts", { account_name: "Index Fund", financial_institution_entity_id: fi.id, account_type: "INVESTMENT",
+    account_number: "880000000088", register_enabled: false, current_balance: "5000.00" });
+  expect(r.status(), await r.text()).toBe(201);
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  const table = page.getByTestId("accounts-INVESTMENTS_OTHER");
+  const row = table.getByRole("row", { name: /Index Fund/ });
+  await row.getByRole("button", { name: "Update balance" }).click();
+  const dlg = page.getByRole("dialog", { name: "Update balance: Index Fund" });
+  await dlg.getByLabel("Balance", { exact: true }).fill("5150.25");
+  const d = new Date(Date.now() - 20 * 86400000).toISOString().slice(0, 10);
+  await dlg.getByLabel("As of").fill(d);
+  await dlg.getByLabel("Reason").fill("September statement");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg).toHaveCount(0);
+  await expect(row).toContainText("$5,000.00");                        // a back-dated entry does not replace today's
+  await row.getByRole("button", { name: "Balance history of Index Fund" }).click();
+  const hist = page.getByTestId("balance-history");
+  await expect(hist.locator("tbody tr")).toHaveCount(2);
+  await expect(hist).toContainText("September statement");
+  await expect(hist).toContainText(d);
+  await page.screenshot({ path: "e2e-screenshots/light-balance-history.png" });
 });
 
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout

@@ -54,6 +54,50 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.7.3 Balance history for non-register accounts (issue #88; open questions answered with recommendations on
+2026-10-08 while the product owner was away, recorded in the issue for review).** Table `bank_account_balance`
+(migration `0020`): account, `as_of_date`, `balance_cents`, reason, `source` (OPENING / UPDATE / UPGRADE), entered
+at / by. Append-only; `manual_current_balance_cents` stays as the cached current balance = the entry with the latest
+date (ties: the later entry). `update_manual_balance(..., as_of)`: today or earlier, not before the opening balance
+date, not inside a Closed Fiscal Year. Creation of a non-register account and a switch from register to
+non-register add an entry. `bank_accounts.manual_as_of(date)` (None before the first entry) feeds `current_cents` /
+`available_cents` with a date, so "as of" balances (Financial Flow Report #106, charts) carry forward. The balances
+chart now includes non-register accounts. `GET /api/bank-accounts/{id}/balance-history` (financial.view; 422 for
+register accounts). Back-fill in the migration: `BANK_ACCOUNT_CREATED` (non-register), every
+`BANK_ACCOUNT_BALANCE_UPDATED`, and `BANK_ACCOUNT_UPDATED` events that changed the manual balance or switched to
+non-register, dated by the event; then an `UPGRADE` entry when the last one differs from the current balance (dated
+the account's creation day when there was no history, otherwise the upgrade day). Tests:
+`tests/test_v173_balance_history.py`, E2E "#88".
+
+**1.7.3 Budget Admin / Register Admin and the Deleted status (issues #52, #53; decided 2026-10-08).** BR-001 holds:
+"delete" sets status `DELETED` (budgets: reason in `status_reason`; transactions: `deleted_at`, `deleted_by_user_id`,
+`delete_reason`, migration `0019`, which also inserts the two roles for existing installations; `seed_roles` covers
+new ones). Roles `BUDGET_ADMIN` / `REGISTER_ADMIN` are Financial; `validate_role_set` refuses them without
+`BUDGET_MANAGER` / `REGISTER_USER` (`permissions.REQUIRES`). Permissions `budget.delete`, `transaction.delete`.
+Budgets (`POST /api/budgets/{id}/delete`): Draft Fiscal Year only; refused for system budgets, with sub-budgets that
+are not deleted, with live allocations of non-deleted transactions, or when a fundraiser uses it; a parent takes its
+Other along; a deleted child gives its amount back to the parent's Other. Excluded everywhere budgets are listed or
+copied (`children_of`, `tree` unless `include_deleted` for Auditors, selectable, filter options, copy, approval,
+charts, fundraiser budget choices); the code is free again. Transactions (`POST /api/transactions/{id}/delete`):
+ACTIVE and uncleared only, not in a Closed Fiscal Year, both transfer legs. Every balance and total already counted
+ACTIVE only; listings were checked: the Register hides them except for Auditors with `status=deleted`;
+`GET /api/transactions/{id}` is 404 for non-Auditors; the audit/close report selects ACTIVE (+VOID); Fiscal Year
+allocation checks skip them; check numbers keep counting them (still used, no missing-check gap). Tests:
+`tests/test_v173_admin_delete.py`, E2E "#52 / #53". Spec items changed: BR-001's list of states (+ deleted),
+BR-065 (an uncleared transaction may be marked Deleted by a Register Admin), 04 permission matrix (two roles).
+
+**1.7.3 Register Budget filter and Budgets links (issues #104, #105).** `GET /api/register?budget_id=` keeps the
+transactions with a live allocation to the budget or its sub-budgets (`budgets.with_sub_budgets`) and adds
+`budget_share` to each row (the sum of those allocations) and `budget` to the payload; running balances and
+balance tiles are computed as before. `GET /api/budgets/filter-options[?fiscal_year_id=]` lists the choices: Fiscal
+Year newest first, Income before Expense, by code; label `<FY> - <display code> - <name>`; Budget 0 left out; a
+parent without explicit sub-budgets once (its hidden Other is covered); Other next to explicit sub-budgets only when
+the Budgets page shows it (amount > 0 or used, BR-019). Frontend: `budget_id` is one of the Register filters
+(kept on account change, reset by Clear); the chosen budget stays in the list when the Fiscal Year filter changes.
+Budgets page rows link to `/register?budget=<id>&fiscal_year=<id>`; Register opens on the default account. The
+initial-load code also fixes the fundraiser deep link (`?account=&search=`), which since 1.6.7 fell through to the
+default account. Tests: `tests/test_v173_budget_filter.py`, E2E "#104 / #105".
+
 **1.7.2 Current and Available balances (issues #56, #57; product owner decisions 2026-10-08, recorded in the
 issues).** `services/bank_accounts.current_cents(as_of)` = opening balance + ACTIVE allocations of transactions with a
 Clear/Post Date (on or before `as_of`); `available_cents(as_of)` = the former `balance_cents` (Transaction Date on or

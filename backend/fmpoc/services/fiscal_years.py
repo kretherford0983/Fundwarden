@@ -106,7 +106,8 @@ def copy_budgets(db: Session, ctx, source: FiscalYear, target: FiscalYear, paren
     wanted = set(parent_ids)
     parents = [b for b in db.scalars(select(Budget).where(Budget.fiscal_year_id == source.id,
                                                             Budget.parent_budget_id.is_(None),
-                                                            Budget.system_managed.is_(False)))]
+                                                            Budget.system_managed.is_(False),
+                                                            Budget.status != "DELETED"))]
     unknown = wanted - {p.id for p in parents}
     if unknown:
         raise validation("copy_budget_ids must reference parent budgets of the source Fiscal Year.", "copy_budget_ids")
@@ -201,7 +202,8 @@ def approve(db: Session, ctx, fy: FiscalYear, confirm: bool) -> FiscalYear:
                        warnings=warnings)
     before = snapshot(fy)
     locked_ids = []
-    for p in db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id, Budget.parent_budget_id.is_(None))):
+    for p in db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id, Budget.parent_budget_id.is_(None),
+                                             Budget.status != "DELETED")):
         if not p.is_budget_zero:
             bsvc.recalc_other(db, p)  # validates hierarchy (children <= parent)
         for b in bsvc.family(db, p):
@@ -222,7 +224,8 @@ def _fy_allocation_query(fy: FiscalYear):
     return (select(TransactionAllocation, RegisterTransaction)
             .join(RegisterTransaction, RegisterTransaction.id == TransactionAllocation.transaction_id)
             .join(Budget, Budget.id == TransactionAllocation.budget_id)
-            .where(Budget.fiscal_year_id == fy.id, TransactionAllocation.removed_at.is_(None)))
+            .where(Budget.fiscal_year_id == fy.id, TransactionAllocation.removed_at.is_(None),
+                   RegisterTransaction.status != "DELETED"))  # 1.7.3 (#53): deleted transactions are out
 
 
 def closure_check(db: Session, fy: FiscalYear) -> dict:

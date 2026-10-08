@@ -2,6 +2,44 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.7.3 — unreleased
+Database migrations `0019` (two roles and three columns added) and `0020` (balance history, rebuilt from the audit
+log); no existing balance changes. Rolling back to 1.7.2 needs the data snapshot the installer takes before the
+upgrade (docs/upgrade.md).
+- **Register: filter by budget (#104).** A new **Budget** filter in the Register shows only the transactions with
+  an allocation to that budget; a parent budget includes its sub-budgets. A split transaction is shown with the
+  budget's share, e.g. "$40.00 of $100.00", so the amounts listed add up to the budget's activity. The choices follow
+  the Fiscal Year filter (with "All dates": every year's budgets, labelled `FY2026 - 1000 - Operations`). Changing the
+  bank account keeps the filter; **Clear** removes it. The Balance column and the balance tiles are not affected.
+- **Budgets page: each budget opens its transactions (#105).** A budget's code and name are a link to the Register,
+  on the default account (Primary, or the first in the set order), with the Budget filter set to it and the Fiscal
+  Year filter set to the budget's year — also for a prior year chosen on the Budgets page. Budget 0 has no link.
+- **Budget Admin: delete a budget before the Fiscal Year is approved (#52).** A new Financial role, *Budget Admin*,
+  given only together with *Budget Manager*. In a Fiscal Year that is not approved yet, the budget's edit dialog has
+  a red **Delete budget…** button; a reason is required. The budget gets the status *Deleted*: it disappears from
+  the Budgets page, every budget list, the totals and the next year's copy, and its code can be used again. Nothing
+  is removed from the database — Auditors still see it, marked *Deleted* with the reason, and the audit log records
+  it. Not possible while Register transactions are allocated to it, while it has sub-budgets (delete those first),
+  for Budget 0 and the system Other budgets, or when a fundraiser uses it.
+- **Register Admin: delete an uncleared transaction (#53).** A new Financial role, *Register Admin*, given only
+  together with *Register User*. The transaction's edit dialog has a red **Delete transaction…** button; a reason is
+  required. Only an active, **uncleared** transaction can be deleted: one with a Clear/Post Date has posted at the
+  bank and is final (remove the clear date first if it was put on the wrong line). VOID records and transactions of a
+  Closed Fiscal Year cannot be deleted; a transfer is deleted with both legs. The transaction gets the status
+  *Deleted*: it disappears from the Register, every balance, budget, chart and report. Its check number stays used.
+  Auditors still see it (Register → Status → *Deleted*), with the reason and its attachments; the audit log records
+  it.
+- **Balance history for accounts without a register (#88).** Every **Update balance** on an investment, CD or other
+  non-register account is now kept as a dated entry; nothing is overwritten. The dialog has an **As of** date (today
+  or earlier — e.g. a statement date; not in a Closed Fiscal Year). The account's current balance is the entry with
+  the latest date; for the same date, the one entered last counts — a mistake is corrected by entering the right
+  balance again. **History** under the balance on the Bank Accounts page lists the entries with their change, who
+  entered them and why. The **Bank balances** chart now includes these accounts (the balance carries forward between
+  entries). On upgrade, each account's history is rebuilt from the audit log: its balance when it was created and
+  every update since.
+- **Fixed: a link from a fundraiser line to the Register** (1.6.0) opened the Primary account and the current Fiscal
+  Year instead of the line's account with all dates; it now opens the right account again.
+
 ## 1.7.2 — 2026-10-08
 No database migration.
 - **Administrators cannot change their own roles on a server (#55).** In server mode, the *Security domain* and
