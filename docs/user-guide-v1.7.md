@@ -38,6 +38,7 @@ On a server, when you edit **your own** account under **Users**, the *Security d
 another Administrator has to change them. This keeps one person from giving themselves different rights without
 anyone else being involved. You can still change your own email address and display name, and you can change the
 roles of every other user, other Administrators included. Keep at least two Administrators on a server.
+Also, on every install, the **Active** box of your own account is greyed out: you cannot disable yourself.
 On a Windows PC or a Mac (local install) nothing changes.
 
 ## 1.7.1: your name in the top bar

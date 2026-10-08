@@ -250,7 +250,10 @@ def test_disabled_user_loses_authorization(env):
 
 def test_last_administrator_cannot_be_disabled(env):
     uid = next(u["id"] for u in env.admin.get("/api/users").json() if u["username"] == "admin")
-    assert env.admin.patch(f"/api/users/{uid}", {"active": False}).status_code == 409
+    # 1.7.2: refused even earlier - nobody can disable their own account (the only way to disable the last one)
+    r = env.admin.patch(f"/api/users/{uid}", {"active": False})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "OWN_ACCOUNT_DISABLE"
+    assert env.admin.get("/api/auth/me").status_code == 200
 
 
 def test_admin_password_reset_audited(env):

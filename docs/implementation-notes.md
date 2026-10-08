@@ -80,7 +80,11 @@ router passes `settings.mode`. A request that sends the same domain and roles (t
 not a change and passes, so the own email address and display name stay editable. Checked before anything is
 written, so nothing is audited for a refused attempt. Local mode is unrestricted (#54 relies on that). UI: the
 Users page reads `mode` from `/api/system/status` and disables both fieldsets for the signed-in Administrator's own
-account, with a hint. Tests: `tests/test_v172_own_roles.py`.
+account, with a hint. Follow-up found in the 1.7.2 test build (product owner): `active: false` on the caller's own
+account is refused in every mode (403 `OWN_ACCOUNT_DISABLE`) and the Active box is disabled for one's own account;
+the existing last-Administrator rule (409) stays as a second guard (now reachable only through role changes).
+`test_init_auth.test_last_administrator_cannot_be_disabled` expects the earlier 403. Tests:
+`tests/test_v172_own_roles.py`.
 
 **1.7.1 Bank account order set by Budget Managers (issue #74, option 2).** Migration `0018` adds
 `bank_account.sort_order` (integer, default 0) and numbers each group of each workspace 1..n — Primary first, then

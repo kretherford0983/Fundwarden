@@ -106,6 +106,11 @@ def update(db: Session, ctx, u: User, data, mode: str = "local") -> User:
             u.security_domain = domain
             _set_roles(db, u, codes)
     if "active" in f and data.active is not None and data.active != u.active:
+        if not data.active and u.id == ctx.user.id:
+            # 1.7.2 (#55 follow-up): nobody disables their own account - it signs them out at once and, by mistake,
+            # can leave the installation without the Administrator who meant to disable someone else. Any mode.
+            raise AppError(403, "OWN_ACCOUNT_DISABLE", "You cannot disable your own account. Another Administrator "
+                                                        "can disable it for you.")
         u.active = data.active
         if not u.active:
             revoke_user_sessions(db, u.id)  # disabled users lose authorization immediately
