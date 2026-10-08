@@ -80,7 +80,9 @@ def create(db: Session, ctx, data) -> User:
     return u
 
 
-def update(db: Session, ctx, u: User, data) -> User:
+def update(db: Session, ctx, u: User, data, mode: str = "local") -> User:
+    """mode (1.7.2, #55): in server mode an Administrator cannot change their own roles or security domain; another
+    Administrator has to. A local install (one person, one computer) is not restricted."""
     before = snapshot(u)
     f = data.model_fields_set
     if "email" in f:
@@ -97,10 +99,18 @@ def update(db: Session, ctx, u: User, data) -> User:
         if err:
             raise validation(err, "roles")
         if codes != u.role_codes or domain != u.security_domain:
+            if mode == "server" and u.id == ctx.user.id:
+                raise AppError(403, "OWN_ROLES_LOCKED", "You cannot change your own roles. Another Administrator "
+                                                        "can change them for you.")
             roles_changed = True
             u.security_domain = domain
             _set_roles(db, u, codes)
     if "active" in f and data.active is not None and data.active != u.active:
+        if not data.active and u.id == ctx.user.id:
+            # 1.7.2 (#55 follow-up): nobody disables their own account - it signs them out at once and, by mistake,
+            # can leave the installation without the Administrator who meant to disable someone else. Any mode.
+            raise AppError(403, "OWN_ACCOUNT_DISABLE", "You cannot disable your own account. Another Administrator "
+                                                        "can disable it for you.")
         u.active = data.active
         if not u.active:
             revoke_user_sessions(db, u.id)  # disabled users lose authorization immediately

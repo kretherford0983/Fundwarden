@@ -1101,6 +1101,69 @@ test("#74: a Budget Manager sets the bank account order with the keyboard; Dashb
   expect(r.status()).toBe(403);
 });
 
+// ---------------------------------------------------------------- 1.7.2 #55 follow-up
+test("1.7.2: an Administrator cannot disable their own account", async ({ page }) => {
+  await login(page, "admin");
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("row", { name: /^admin\b/ }).getByRole("button", { name: "Edit" }).click();
+  const dlg = page.getByRole("dialog", { name: "Edit admin" });
+  await expect(dlg.getByLabel("Active")).toBeDisabled();
+  await expect(dlg).toContainText("You cannot disable your own account.");
+  await dlg.getByRole("button", { name: "Cancel" }).click();
+  // another user's Active box stays available
+  await page.getByRole("row", { name: /^bm1\b/ }).getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByRole("dialog", { name: "Edit bm1" }).getByLabel("Active")).toBeEnabled();
+});
+
+// ---------------------------------------------------------------- 1.7.2 #56/#57: Current and Available balances
+test("#56 / #57: the Register shows Opening, Current (bank) and Available; the bank reconciliation opens", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Register" }).click();
+  const tiles = page.getByTestId("register-balances");
+  await expect(tiles.getByTestId("tile-opening")).toContainText("Opening balance");
+  await expect(tiles.getByTestId("tile-current")).toContainText("Current balance");
+  await expect(tiles.getByTestId("tile-available")).toContainText("Available balance");
+  await expect(tiles.getByTestId("tile-ending")).toHaveCount(0);              // open Fiscal Year: no Ending tile
+  // the Register's Current balance is the one on the Bank Accounts page
+  const sel = page.getByLabel("Register bank account");
+  const id = await sel.inputValue();
+  const reg = await (await page.request.get(`/api/register?bank_account_id=${id}`)).json();
+  const acct = await (await page.request.get(`/api/bank-accounts/${id}`)).json();
+  expect(reg.current_balance).toBe(acct.current_balance);
+  // an uncleared transaction moves Available, not Current
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const fy = await (await page.request.get(`/api/fiscal-years/natural?date=${new Date().toISOString().slice(0, 10)}`)).json();
+  const opts = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${fy.default_fiscal_year_id}&transaction_type=DEPOSIT`)).json();
+  const body: any = { bank_account_id: Number(id), transaction_type: "DEPOSIT", no_attachment: true, no_attachment_reason: "e2e",
+    allocations: [{ budget_id: opts[0].id, amount: "12.34" }] };
+  let r = await page.request.post("/api/transactions", { headers: { "X-CSRF-Token": me.csrf_token }, data: body });
+  if (r.status() === 409) {   // confirm whatever the server asks to confirm (e.g. a possible duplicate)
+    body.confirmations = ((await r.json()).error.warnings || []).map((w: any) => w.code);
+    r = await page.request.post("/api/transactions", { headers: { "X-CSRF-Token": me.csrf_token }, data: body });
+  }
+  expect(r.status(), await r.text()).toBe(201);
+  await page.reload();
+  const after = await (await page.request.get(`/api/register?bank_account_id=${id}`)).json();
+  expect(after.current_balance).toBe(reg.current_balance);
+  expect(Math.round(Number(after.available_balance) * 100)).toBe(Math.round(Number(reg.available_balance) * 100) + 1234);
+  await expect(tiles.getByTestId("tile-available")).toContainText(after.available_balance.replace(/^-/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ","));
+  // Opening balance: bank balance and outstanding items in a dialog
+  const link = tiles.getByRole("button", { name: /Opening balance: bank balance/ });
+  if (await link.count()) {
+    await link.click();
+    const dlg = page.getByRole("dialog", { name: /Opening balance — bank reconciliation/ });
+    await expect(dlg.getByTestId("recon-table")).toContainText("Bank balance at the end of");
+    await page.screenshot({ path: "e2e-screenshots/light-register-reconciliation.png" });
+    await dlg.getByRole("button", { name: "Close" }).last().click();
+  }
+  // a clear date before the transaction date is refused
+  const bad = await page.request.post("/api/transactions", { headers: { "X-CSRF-Token": me.csrf_token }, data: {
+    bank_account_id: Number(id), transaction_type: "DEPOSIT", transaction_date: "2026-08-10", clear_date: "2026-08-09",
+    allocations: [{ budget_id: opts[0].id, amount: "1.00" }] } });
+  expect(bad.status()).toBe(422);
+  await page.screenshot({ path: "e2e-screenshots/light-register-balances.png" });
+});
+
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
 test("CR-031: dashboard sections can be hidden, reordered and reset; saved per user", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");

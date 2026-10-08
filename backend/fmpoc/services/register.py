@@ -309,10 +309,17 @@ def _apply_no_attachment(t, ctx, flag: bool | None, reason: str | None) -> None:
         t.no_attachment_set_at = t.no_attachment_set_by_user_id = None
 
 
+def check_clear_date(txn_date: dt.date, clear_date: dt.date | None) -> None:
+    """1.7.2 (#56, BR-053): the bank cannot post a transaction before it was written."""
+    if clear_date is not None and clear_date < txn_date:
+        raise validation("The Clear/Post Date cannot be earlier than the Transaction Date.", "clear_date")
+
+
 # ------------------------------------------------------------------ create
 def create(db: Session, ctx, data) -> RegisterTransaction:
     acct = _account_for_register(db, ctx, data.bank_account_id)
     txn_date = data.transaction_date or dt.date.today()  # BR-051 default
+    check_clear_date(txn_date, data.clear_date)
     if data.check_number and data.transaction_type != "WITHDRAWAL":
         raise validation("Check Number applies to Withdrawals only.", "check_number")
     checks.assert_unused(db, ctx.workspace_id, acct.id, data.check_number)  # v1.3 CR-011 hard block
@@ -445,6 +452,7 @@ def update(db: Session, ctx, t: RegisterTransaction, data) -> RegisterTransactio
         new_entity_id = None
     new_check = (data.check_number or None) if "check_number" in f else t.check_number
     new_clear = data.clear_date if "clear_date" in f else t.clear_date
+    check_clear_date(new_date, new_clear)
     type_changed = new_type != t.transaction_type
     date_changed = new_date != t.transaction_date
     if type_changed:
@@ -601,6 +609,7 @@ def correct_void_date(db: Session, ctx, t: RegisterTransaction, new_date: dt.dat
         raise validation("fiscal_year_id applies only to zero-dollar VOID records.", "fiscal_year_id")
     if new_date == t.transaction_date and moved_to is None:
         raise conflict("NO_CHANGE", "The Transaction Date is unchanged.")
+    check_clear_date(new_date, t.clear_date)
     t.transaction_date = new_date
     t.updated_by_user_id = ctx.user.id
     db.flush()
@@ -695,8 +704,8 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         lo = max(lo, fiscal_year.start_date) if lo else fiscal_year.start_date
         hi = min(hi, fiscal_year.end_date) if hi else fiscal_year.end_date
     starting = None
-    if lo is not None:  # BR-043: balance at end of the day before the period start
-        starting = bank.balance_cents(db, acct, lo - dt.timedelta(days=1))
+    if lo is not None:  # BR-043: Available Balance at the end of the day before the period start (1.7.2, #56)
+        starting = bank.available_cents(db, acct, lo - dt.timedelta(days=1))
     rows = []
     needle = (search or "").strip().lower()
     for t in txns:
@@ -736,10 +745,28 @@ def register_view(db: Session, ctx, acct: BankAccount, *, fiscal_year: FiscalYea
         "fiscal_year": fy_brief(fiscal_year),
         "date_from": lo.isoformat() if lo else None, "date_to": hi.isoformat() if hi else None,
         "starting_balance": fmt(starting) if starting is not None else fmt(acct.opening_balance_cents or 0),
-        "ending_balance": fmt(bank.balance_cents(db, acct, hi) if hi else bank.balance_cents(db, acct)),
-        "current_balance": fmt(bank.balance_cents(db, acct)),
+        "ending_balance": fmt(bank.available_cents(db, acct, hi) if hi else bank.available_cents(db, acct)),
+        # 1.7.2 (#56/#57): Current = the bank balance (cleared only); Available = everything written or deposited
+        "current_balance": fmt(bank.current_cents(db, acct)),
+        "available_balance": fmt(bank.available_cents(db, acct)),
+        # the bank balance and the outstanding items behind the starting and ending balances (a bank reconciliation)
+        "opening_reconciliation": reconciliation(db, acct, lo - dt.timedelta(days=1)) if lo is not None else None,
+        "ending_reconciliation": reconciliation(db, acct, hi) if hi is not None else None,
         "transactions": shown,
     }
+
+
+def reconciliation(db: Session, acct: BankAccount, as_of: dt.date) -> dict:
+    """1.7.2 (#56): bank balance on a date + outstanding items = Available Balance on that date."""
+    items = []
+    for t in bank.outstanding(db, acct, as_of):
+        cents = sum(a.amount_cents for a in t.live_allocations)
+        items.append({"id": t.id, "transaction_date": t.transaction_date.isoformat(), "transaction_type": t.transaction_type,
+                      "check_number": t.check_number, "entity": t.parent_entity.display_name if t.parent_entity else None,
+                      "clear_date": t.clear_date.isoformat() if t.clear_date else None,
+                      "amount": fmt(cents if t.transaction_type == "DEPOSIT" else -cents)})
+    return {"as_of": as_of.isoformat(), "bank_balance": fmt(bank.current_cents(db, acct, as_of)),
+            "outstanding": items, "balance": fmt(bank.available_cents(db, acct, as_of))}
 
 
 def get(db: Session, ctx, txn_id: int) -> RegisterTransaction:

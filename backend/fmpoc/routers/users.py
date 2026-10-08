@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -50,8 +50,9 @@ def create_user(body: UserCreateIn, db: Session = Depends(get_db), ctx: Ctx = De
 
 
 @router.patch("/{user_id}")
-def update_user(user_id: int, body: UserUpdateIn, db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
-    u = svc.update(db, ctx, svc.get(db, ctx, user_id), body)
+def update_user(user_id: int, body: UserUpdateIn, request: Request, db: Session = Depends(get_db),
+                ctx: Ctx = Depends(require("users.manage"))):
+    u = svc.update(db, ctx, svc.get(db, ctx, user_id), body, mode=request.app.state.settings.mode)
     db.commit()
     return svc.out(u)
 
