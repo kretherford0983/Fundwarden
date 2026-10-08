@@ -3,7 +3,26 @@
 *1.7.0: the application is renamed PennyWarden. 1.7.1: your name in the top bar, a display name for every user,
 bank accounts in the order you choose, start and end pages for the fundraisers in the Audit and Close reports.
 1.7.2: Current and Available balances; on a server, Administrators cannot change their own roles.
-1.7.3: the Register filtered by budget, and links from the Budgets page.*
+1.7.3: the Register filtered by budget, links from the Budgets page, and deleting a mistaken budget or
+transaction.*
+
+## 1.7.3: deleting a mistake
+Two new roles an Administrator can give under **Users**, each only together with its usual role:
+
+| Role | Needs | Can delete |
+|---|---|---|
+| **Budget Admin** | Budget Manager | a budget of a Fiscal Year that is **not approved yet** — e.g. one copied into the new year by mistake |
+| **Register Admin** | Register User | a transaction that has **not cleared** — e.g. one entered twice |
+
+- The red **Delete…** button is in the budget's or the transaction's **Edit** dialog, away from Save. You must give
+  a reason.
+- Deleted means gone for everyone except **Auditors**: they still see the budget or transaction, marked *Deleted*,
+  with your reason (in the Register: Status → *Deleted*). Nothing is erased, and the audit log records who deleted
+  what and why.
+- A **cleared** transaction has posted at the bank and cannot be deleted. If you put the clear date on the wrong
+  line, remove it first, then delete. VOID records stay as they are.
+- A budget that has transactions allocated to it, or sub-budgets, cannot be deleted until they are moved or deleted.
+- Deleting one side of a transfer deletes both sides. A deleted check's number stays used.
 
 ## 1.7.3: see a budget's transactions
 - **Register → Budget:** choose a budget to see only its transactions. A parent budget shows its sub-budgets'

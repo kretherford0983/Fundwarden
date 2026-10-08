@@ -255,8 +255,8 @@ def remove(db: Session, ctx, a: Attachment) -> Attachment:
     else:
         ctx.require("transaction.manage")
         t = db.get(RegisterTransaction, a.transaction_id) if a.transaction_id else db.get(TransactionAllocation, a.allocation_id).transaction
-        if t.status == "VOID":
-            raise conflict("TRANSACTION_VOID", "Existing attachments on a VOID transaction cannot be removed.")
+        if t.status in ("VOID", "DELETED"):
+            raise conflict("TRANSACTION_VOID", "Existing attachments on a VOID or deleted transaction cannot be removed.")
         if is_closed_protected(db, t):
             raise conflict("FISCAL_YEAR_CLOSED", "Attachments on Closed Fiscal Year transactions cannot be removed.")
     before = snapshot(a)

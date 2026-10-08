@@ -3,6 +3,8 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.7.3 — unreleased
+Database migration `0019` (two roles and three columns added; nothing existing changes). Rolling back to 1.7.2 needs
+the data snapshot the installer takes before the upgrade (docs/upgrade.md).
 - **Register: filter by budget (#104).** A new **Budget** filter in the Register shows only the transactions with
   an allocation to that budget; a parent budget includes its sub-budgets. A split transaction is shown with the
   budget's share, e.g. "$40.00 of $100.00", so the amounts listed add up to the budget's activity. The choices follow
@@ -11,6 +13,21 @@ Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 - **Budgets page: each budget opens its transactions (#105).** A budget's code and name are a link to the Register,
   on the default account (Primary, or the first in the set order), with the Budget filter set to it and the Fiscal
   Year filter set to the budget's year — also for a prior year chosen on the Budgets page. Budget 0 has no link.
+- **Budget Admin: delete a budget before the Fiscal Year is approved (#52).** A new Financial role, *Budget Admin*,
+  given only together with *Budget Manager*. In a Fiscal Year that is not approved yet, the budget's edit dialog has
+  a red **Delete budget…** button; a reason is required. The budget gets the status *Deleted*: it disappears from
+  the Budgets page, every budget list, the totals and the next year's copy, and its code can be used again. Nothing
+  is removed from the database — Auditors still see it, marked *Deleted* with the reason, and the audit log records
+  it. Not possible while Register transactions are allocated to it, while it has sub-budgets (delete those first),
+  for Budget 0 and the system Other budgets, or when a fundraiser uses it.
+- **Register Admin: delete an uncleared transaction (#53).** A new Financial role, *Register Admin*, given only
+  together with *Register User*. The transaction's edit dialog has a red **Delete transaction…** button; a reason is
+  required. Only an active, **uncleared** transaction can be deleted: one with a Clear/Post Date has posted at the
+  bank and is final (remove the clear date first if it was put on the wrong line). VOID records and transactions of a
+  Closed Fiscal Year cannot be deleted; a transfer is deleted with both legs. The transaction gets the status
+  *Deleted*: it disappears from the Register, every balance, budget, chart and report. Its check number stays used.
+  Auditors still see it (Register → Status → *Deleted*), with the reason and its attachments; the audit log records
+  it.
 - **Fixed: a link from a fundraiser line to the Register** (1.6.0) opened the Primary account and the current Fiscal
   Year instead of the line's account with all dates; it now opens the right account again.
 

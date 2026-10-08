@@ -349,3 +349,6 @@ td.ua { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space
 /* 1.7.3 (#104): Register Budget filter and the budget's share of a transaction */
 .budget-filter { max-width: 260px; }
 .budget-share .small { display: block; font-size: 11px; }
+/* 1.7.3 (#52, #53): the Delete button sits on the far left, away from Save / Cancel */
+.actions .delete-apart { margin-right: auto; }
+.register tr.deleted td { text-decoration: line-through; color: var(--muted); }

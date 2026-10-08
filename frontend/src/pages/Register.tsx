@@ -5,7 +5,8 @@ import { useMe } from "../App";
 import { EntityForm } from "./Entities";
 
 export default function Register() {
-  const { can } = useMe();
+  const { me, can } = useMe();
+  const isAuditor = me.roles.includes("AUDITOR"); // 1.7.3 (#53): only Auditors can list deleted transactions
   const [accounts, setAccounts] = useState<any[] | null>(null);
   const [fys, setFys] = useState<any[]>([]);
   const [f, setF] = useState({ bank_account_id: "", fiscal_year_id: "", transaction_type: "", status: "", date_from: "", date_to: "", search: "", attachments: "", budget_id: "" });
@@ -110,7 +111,7 @@ export default function Register() {
           </select>
         </Field>
         <Field label="Type"><select value={f.transaction_type} onChange={set("transaction_type")}><option value="">All</option><option value="DEPOSIT">Deposits</option><option value="WITHDRAWAL">Withdrawals</option></select></Field>
-        <Field label="Status"><select value={f.status} onChange={set("status")}><option value="">All</option><option value="cleared">Cleared</option><option value="uncleared">Uncleared</option><option value="void">Void</option></select></Field>
+        <Field label="Status"><select value={f.status} onChange={set("status")}><option value="">All</option><option value="cleared">Cleared</option><option value="uncleared">Uncleared</option><option value="void">Void</option>{isAuditor ? <option value="deleted">Deleted</option> : null}</select></Field>
         <Field label="Budget">
           <select aria-label="Register Budget filter" value={f.budget_id} onChange={set("budget_id")} className="budget-filter">
             <option value="">All</option>
@@ -146,7 +147,7 @@ export default function Register() {
                 {data.transactions.length === 0 ? <tr><td colSpan={12} className="muted">No transactions match.</td></tr> : null}
                 {data.transactions.map((t: any) => (
                   <Fragment key={t.id}>
-                    <tr id={`txn-${t.id}`} className={`${t.status === "VOID" ? "void" : ""} ${t.has_pending_review ? "review" : ""} ${focused === t.id ? "linked" : ""}`}>
+                    <tr id={`txn-${t.id}`} className={`${t.status === "VOID" ? "void" : ""}${t.status === "DELETED" ? " deleted" : ""} ${t.has_pending_review ? "review" : ""} ${focused === t.id ? "linked" : ""}`}>
                       <td><button className="small" aria-expanded={open === t.id} aria-label={`Details for transaction ${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>{open === t.id ? "▾" : "▸"}</button></td>
                       <td>{t.transaction_date}</td><td>{t.clear_date || ""}</td><td>{t.entity?.display_name || ""}</td><td>{t.check_number || ""}</td>
                       <td>{t.invoice_numbers.join(", ")}</td>
@@ -155,7 +156,7 @@ export default function Register() {
                       <td className="num">{t.deposit ? (byBudget ? <Share part={t.budget_share} total={t.deposit} /> : money(t.deposit)) : ""}</td>
                       <td className="num">{t.withdrawal ? (byBudget ? <Share part={t.budget_share} total={t.withdrawal} /> : money(t.withdrawal)) : ""}</td>
                       <td className="num">{money(t.running_balance)}</td>
-                      <td>{t.status === "VOID" ? <span className="badge red">VOID</span> : t.cleared ? "Cleared" : "Uncleared"}{t.has_pending_review ? <span className="badge yellow">Review</span> : null}{t.transfer ? <span className="badge blue">Transfer</span> : null}{t.no_attachment ? <span className="badge grey" title={t.no_attachment_reason || ""}>No attachment</span> : null}</td>
+                      <td>{t.status === "DELETED" ? <span className="badge grey">Deleted</span> : t.status === "VOID" ? <span className="badge red">VOID</span> : t.cleared ? "Cleared" : "Uncleared"}{t.has_pending_review ? <span className="badge yellow">Review</span> : null}{t.transfer ? <span className="badge blue">Transfer</span> : null}{t.no_attachment ? <span className="badge grey" title={t.no_attachment_reason || ""}>No attachment</span> : null}</td>
                       <td>{t.attachment_count ? <span aria-label={`${t.attachment_count} attachments`}>📎{t.attachment_count}</span> : ""}</td>
                     </tr>
                     {open === t.id ? (
@@ -198,6 +199,7 @@ function TxnDetail({ t, manage, onEdit, onVoid, onVoidDate, onVoidCheck, onChang
         <dt>Clear/Post date</dt><dd>{t.clear_date || "Uncleared"}</dd>
         <dt>Total (derived)</dt><dd>{money(t.total)}</dd>
         {t.status === "VOID" ? <><dt>Void reason</dt><dd>{t.void_reason}</dd></> : null}
+        {t.status === "DELETED" ? <><dt>Deleted</dt><dd>{t.deleted_at ? `${t.deleted_at.slice(0, 10)}: ` : ""}{t.delete_reason}</dd></> : null}
         {t.notes ? <><dt>Notes</dt><dd className="pre">{t.notes}</dd></> : null}
         {t.transfer ? <><dt>Transfer</dt><dd>{t.transfer.direction === "OUT" ? "To" : "From"} {t.transfer.counterpart_account?.label} (transaction #{t.transfer.counterpart_transaction_id}). Voiding either side voids both.</dd></> : null}
         {t.no_attachment ? <><dt>Documentation</dt><dd>No attachment will be provided{t.no_attachment_reason ? `: ${t.no_attachment_reason}` : ""}</dd></> : null}
@@ -452,7 +454,7 @@ function TxnForm({ account, txn, initial, fys, onClose, onSaved }: { account: an
         {h.no_attachment ? (
           <Field label="Reason no attachment is available (optional)" hint="Without a reason, this item stays in the Fiscal Year documentation review."><input maxLength={500} value={h.no_attachment_reason} onChange={(e) => setH({ ...h, no_attachment_reason: e.target.value })} placeholder="e.g. Bank interest - direct deposit" /></Field>
         ) : null}
-        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
+        <div className="actions">{!isNew ? <DeleteTxnButton txn={txn} onDeleted={onSaved} /> : null}<button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
       </GuardedForm>
       {dialog}
       {noAttDlg !== null ? (
@@ -587,7 +589,7 @@ function TransferLegForm({ txn, onClose, onSaved }: any) {
         <p className="muted">Only the clear date and notes of a transfer can be edited. To change the amount, date or accounts, void the transfer and record it again.</p>
         <Field label="Clear/Post date (blank = uncleared)"><input type="date" value={clear} onChange={(e) => setClear(e.target.value)} /></Field>
         <Field label="Notes"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
+        <div className="actions"><DeleteTxnButton txn={txn} onDeleted={onSaved} /><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
       </GuardedForm>
       {dialog}
     </Modal>
@@ -880,5 +882,44 @@ function ReconModal({ title, recon, label, onClose }: { title: string; recon: an
 function Share({ part, total }: { part: string; total: string }) {
   return Number(part) === Number(total) ? <>{money(total)}</> : (
     <span className="budget-share">{money(part)}<span className="muted small"> of {money(total)}</span></span>
+  );
+}
+
+
+// 1.7.3 (#53): Register Admins delete an uncleared transaction (status Deleted) instead of voiding it. A cleared one
+// has posted at the bank and is final; a transfer is deleted with both legs.
+function DeleteTxnButton({ txn, onDeleted }: { txn: any; onDeleted: () => void }) {
+  const { can } = useMe();
+  const [open, setOpen] = useState(false);
+  if (!can("transaction.delete") || txn.status !== "ACTIVE" || txn.closed_fiscal_year_protected) return null;
+  if (txn.clear_date) {
+    return <span className="muted small delete-apart" title="Remove the clear date first if it is on the wrong transaction">Cleared transactions cannot be deleted</span>;
+  }
+  return (
+    <>
+      <button type="button" className="danger delete-apart" onClick={() => setOpen(true)}>Delete transaction…</button>
+      {open ? <DeleteTxnForm txn={txn} onClose={() => setOpen(false)} onDeleted={onDeleted} /> : null}
+    </>
+  );
+}
+
+function DeleteTxnForm({ txn, onClose, onDeleted }: { txn: any; onClose: () => void; onDeleted: () => void }) {
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState<unknown>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try { await api.post(`/api/transactions/${txn.id}/delete`, { reason }); onDeleted(); } catch (x) { setErr(x); }
+  };
+  return (
+    <Modal title={`Delete transaction #${txn.id}`} onClose={onClose}>
+      <GuardedForm onSubmit={submit}>
+        <ErrorBox error={err} />
+        {txn.transfer ? <div className="alert warn">This is one side of a transfer. <b>Both</b> the withdrawal and the deposit will be deleted.</div> : null}
+        <div className="alert warn" role="alert"><b>The transaction will be deleted.</b> It disappears from the Register, the balances, the budgets
+          and the reports. Auditors can still see it, with your reason. This cannot be undone.{txn.check_number ? ` Check number ${txn.check_number} stays used.` : ""}</div>
+        <Field label="Reason (required)"><textarea required value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary danger" type="submit" disabled={!reason.trim()}>Delete transaction</button></div>
+      </GuardedForm>
+    </Modal>
   );
 }

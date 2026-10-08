@@ -59,7 +59,7 @@ def _pie(rows: list[tuple[str, int]]) -> dict:
 
 
 def data(db: Session, ctx, fy: FiscalYear) -> dict:
-    budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id)))
+    budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id, Budget.status != "DELETED")))
     by_id = {b.id: b for b in budgets}
     parent_of = {b.id: (by_id.get(b.parent_budget_id) or b) for b in budgets}
     zero = {b.id for b in budgets if b.is_budget_zero}

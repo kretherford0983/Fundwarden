@@ -28,7 +28,8 @@ def snapshot(b: Budget) -> dict:
 
 
 def children_of(db: Session, parent: Budget) -> tuple[list[Budget], Budget | None]:
-    kids = list(db.scalars(select(Budget).where(Budget.parent_budget_id == parent.id).order_by(Budget.child_code)))
+    kids = list(db.scalars(select(Budget).where(Budget.parent_budget_id == parent.id, Budget.status != "DELETED")
+                           .order_by(Budget.child_code)))
     other = next((k for k in kids if k.is_other), None)
     return [k for k in kids if not k.is_other], other
 
@@ -67,6 +68,8 @@ def has_allocations(db: Session, budget_id: int) -> bool:
 
 def state(b: Budget) -> dict:
     """BR-079/080 compact state indicator + accessible text."""
+    if b.status == "DELETED":  # 1.7.3 (#52): only Auditors see deleted budgets
+        return {"code": "DELETED", "icon": "X", "label": "Deleted", "tone": "grey"}
     if b.status == "REJECTED":
         return {"code": "REJECTED", "icon": "X", "label": "Rejected", "tone": "red"}
     if b.status == "INACTIVE":
@@ -123,7 +126,7 @@ def create(db: Session, ctx, data) -> Budget:
         if data.code == BUDGET_ZERO_CODE:
             raise validation("Code 0 is reserved for the protected Budget 0.", "code")
         dup = db.scalar(select(Budget.id).where(Budget.fiscal_year_id == fy.id, Budget.parent_budget_id.is_(None),
-                                                 Budget.parent_code == data.code))
+                                                 Budget.parent_code == data.code, Budget.status != "DELETED"))
         if dup:
             raise conflict("DUPLICATE_CODE", f"Budget code {data.code} already exists in {fy.display_name}.")
         b = Budget(workspace_id=ctx.workspace_id, fiscal_year_id=fy.id, parent_code=data.code, name=data.name,
@@ -139,8 +142,8 @@ def create(db: Session, ctx, data) -> Budget:
     if parent.parent_budget_id is not None or parent.system_managed or parent.fiscal_year_id != fy.id:
         raise validation("Sub-budgets can only be added to a user parent budget in the same Fiscal Year.",
                          "parent_budget_id")
-    if parent.status in ("REJECTED", "INACTIVE"):
-        raise conflict("PARENT_NOT_ACTIVE", "Cannot add a sub-budget to a rejected or inactive budget.")
+    if parent.status in ("REJECTED", "INACTIVE", "DELETED"):
+        raise conflict("PARENT_NOT_ACTIVE", "Cannot add a sub-budget to a rejected, inactive or deleted budget.")
     if parent.locked:
         raise conflict("BUDGET_LOCKED", "The parent budget is locked.")
     if data.budget_type and data.budget_type != parent.budget_type:
@@ -163,8 +166,14 @@ def create(db: Session, ctx, data) -> Budget:
     return b
 
 
+def _not_deleted(b: Budget) -> None:
+    if b.status == "DELETED":
+        raise conflict("BUDGET_DELETED", "The budget has been deleted.")
+
+
 def update(db: Session, ctx, b: Budget, data) -> Budget:
     fy = db.get(FiscalYear, b.fiscal_year_id)
+    _not_deleted(b)
     _editable(db, b, fy)
     if b.status in ("REJECTED", "INACTIVE") and data.amount is not None:
         raise conflict("BUDGET_NOT_ACTIVE", "Rejected or inactive budgets have an allowed amount of zero.")
@@ -189,6 +198,7 @@ def update(db: Session, ctx, b: Budget, data) -> Budget:
 
 def _set_terminal(db: Session, ctx, b: Budget, status: str, reason: str, action: str) -> Budget:
     fy = db.get(FiscalYear, b.fiscal_year_id)
+    _not_deleted(b)
     _editable(db, b, fy)
     if b.status not in ("DRAFT", "APPROVED"):
         raise conflict("INVALID_STATE", f"Budget is already {b.status.lower()}.")
@@ -218,6 +228,46 @@ def reject(db: Session, ctx, b: Budget, reason: str) -> Budget:
 
 def inactivate(db: Session, ctx, b: Budget, reason: str) -> Budget:
     return _set_terminal(db, ctx, b, "INACTIVE", reason, "BUDGET_INACTIVATED")
+
+
+def delete(db: Session, ctx, b: Budget, reason: str) -> Budget:
+    """1.7.3 (#52): a Budget Admin marks a budget of a not-yet-approved (Draft) Fiscal Year Deleted - BR-001 holds:
+    nothing is removed from the database. Blocked while Register allocations, sub-budgets or a fundraiser use it."""
+    from ..models import FundraiserBudget, RegisterTransaction
+    fy = db.get(FiscalYear, b.fiscal_year_id)
+    _not_deleted(b)
+    if not reason or not reason.strip():
+        raise validation("A reason for deleting the budget is required.", "reason")
+    if b.system_managed:
+        raise AppError(422, "SYSTEM_MANAGED", "Budget 0 and the system-managed Other budgets cannot be deleted.")
+    if fy.status != "DRAFT":
+        raise conflict("FISCAL_YEAR_APPROVED", f"Budgets can only be deleted while {fy.display_name} is not approved.")
+    explicit, other = children_of(db, b) if b.parent_budget_id is None else ([], None)
+    if explicit:
+        raise conflict("HAS_SUB_BUDGETS", f"Delete its {len(explicit)} sub-budget(s) first.")
+    targets = [b, *([other] if other is not None else [])]
+    used = db.scalar(select(TransactionAllocation.id)
+                     .join(RegisterTransaction, RegisterTransaction.id == TransactionAllocation.transaction_id)
+                     .where(TransactionAllocation.budget_id.in_([t.id for t in targets]),
+                            TransactionAllocation.removed_at.is_(None), RegisterTransaction.status != "DELETED")
+                     .limit(1))
+    if used is not None:
+        raise conflict("HAS_ALLOCATIONS", "Register transactions are allocated to this budget. Move them to another "
+                                          "budget first.")
+    if db.scalar(select(FundraiserBudget.id).where(FundraiserBudget.budget_id.in_([t.id for t in targets])).limit(1)):
+        raise conflict("USED_BY_FUNDRAISER", "A fundraiser uses this budget.")
+    parent = top_of(db, b)
+    before = [snapshot(t) for t in targets]
+    for t in targets:
+        t.status = "DELETED"
+        t.status_reason = reason.strip()
+        t.updated_by_user_id = ctx.user.id
+    db.flush()
+    after = {"budgets": [snapshot(t) for t in targets], "reason": reason.strip()}
+    if b.parent_budget_id is not None:
+        after["other"] = snapshot(recalc_other(db, parent))  # the parent's Other gets the deleted amount back
+    audit.record(db, ctx, "BUDGET_DELETED", "budget", b.id, {"budgets": before}, after)
+    return b
 
 
 def unlock(db: Session, ctx, b: Budget, reason: str) -> Budget:
@@ -286,10 +336,13 @@ def _sum_rows(rows: list[dict], key: str) -> int:
     return sum(pa(r[key], allow_negative=True) for r in rows)
 
 
-def tree(db: Session, fy: FiscalYear, include_hidden: bool = False) -> dict:
-    """Holistic Fiscal Year budget view: Income and Expense sections, Q1-Q4 + yearly actuals."""
-    budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id)
-                              .order_by(Budget.parent_code, Budget.child_code)))
+def tree(db: Session, fy: FiscalYear, include_hidden: bool = False, include_deleted: bool = False) -> dict:
+    """Holistic Fiscal Year budget view: Income and Expense sections, Q1-Q4 + yearly actuals.
+    include_deleted (1.7.3, #52): Auditors also see deleted budgets (never counted in the totals)."""
+    q = select(Budget).where(Budget.fiscal_year_id == fy.id)
+    if not include_deleted:
+        q = q.where(Budget.status != "DELETED")
+    budgets = list(db.scalars(q.order_by(Budget.parent_code, Budget.child_code)))
     ids = [b.id for b in budgets]
     totals = active_allocation_totals(db, ids)
     qs = quarters(fy)
@@ -331,6 +384,7 @@ def tree(db: Session, fy: FiscalYear, include_hidden: bool = False) -> dict:
         sections[p.budget_type].append(row)
 
     def summary(rows, income: bool = False):
+        rows = [r for r in rows if r["status"] != "DELETED"]
         active = [r for r in rows if r["status"] not in ("REJECTED", "INACTIVE")]
         remaining = _sum_rows(active, "amount") - _sum_rows(rows, "actual")
         return {"amount": fmt(_sum_rows(active, "amount")), "actual": fmt(_sum_rows(rows, "actual")),
@@ -372,7 +426,7 @@ def filter_options(db: Session, ws_id: int, fy: FiscalYear | None) -> list[dict]
     fys.sort(key=lambda f: f.start_date, reverse=True)
     out = []
     for f in fys:
-        budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == f.id)
+        budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == f.id, Budget.status != "DELETED")
                                   .order_by(Budget.parent_code, Budget.child_code)))
         for btype in ("INCOME", "EXPENSE"):
             for p in (b for b in budgets if b.parent_budget_id is None and b.budget_type == btype):
@@ -403,7 +457,8 @@ def selectable(db: Session, ws_id: int, fy: FiscalYear, txn_type: str | None) ->
     if fy.status == "CLOSED":
         return []
     btype = {"DEPOSIT": "INCOME", "WITHDRAWAL": "EXPENSE"}.get(txn_type or "")
-    budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id).order_by(Budget.parent_code, Budget.child_code)))
+    budgets = list(db.scalars(select(Budget).where(Budget.fiscal_year_id == fy.id, Budget.status != "DELETED")
+                              .order_by(Budget.parent_code, Budget.child_code)))
     totals = active_allocation_totals(db, [b.id for b in budgets])
     by_id = {b.id: b for b in budgets}
     out = []
@@ -467,7 +522,7 @@ def resolve_for_allocation(db: Session, ctx, budget_id: int, txn_type: str, unch
                        f"{txn_type.title()} allocations may only reference {expected.title()} budgets.")
     if not unchanged:
         top = top_of(db, b)
-        if b.status in ("REJECTED", "INACTIVE") or top.status in ("REJECTED", "INACTIVE"):
+        if b.status in ("REJECTED", "INACTIVE", "DELETED") or top.status in ("REJECTED", "INACTIVE", "DELETED"):
             raise conflict("BUDGET_NOT_ACTIVE", "New allocations to rejected or inactive budgets are not permitted.")
         if b.is_other and b.amount_cents == 0 and children_of(db, top)[0]:
             raise AppError(422, "OTHER_NOT_SELECTABLE", "The Other sub-budget has a zero amount and is not selectable.")
