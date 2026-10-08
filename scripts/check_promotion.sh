@@ -23,5 +23,9 @@ if [ "$BASE" = "main" ]; then
     fail "v$VERSION is already released. Bump the version (backend/fmpoc/config.py + frontend/package.json) and add a CHANGELOG entry before merging into main."
   fi
   grep -q "^## $VERSION " "$ROOT/CHANGELOG.md" || fail "CHANGELOG.md has no '## $VERSION' section."
+  # 1.7.3: the section must carry its release date before it reaches main (it said "unreleased" in 1.7.2 and 1.7.3)
+  if grep -qiE "^## $VERSION .*unreleased" "$ROOT/CHANGELOG.md"; then
+    fail "CHANGELOG.md still says '## $VERSION — unreleased'. Put the release date in the heading (e.g. '## $VERSION — $(date +%Y-%m-%d)') on develop and promote it before merging into main."
+  fi
 fi
 echo "OK: $HEAD -> $BASE (version $VERSION)"

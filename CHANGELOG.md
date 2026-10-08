@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.7.3 — unreleased
+## 1.7.3 — 2026-10-08
 Database migrations `0019` (two roles and three columns added) and `0020` (balance history, rebuilt from the audit
 log); no existing balance changes. Rolling back to 1.7.2 needs the data snapshot the installer takes before the
 upgrade (docs/upgrade.md).
