@@ -33,8 +33,9 @@ one afterwards means unlocking it with a stated reason, which is recorded.
 ### Bank registers
 
 One continuous register per checking, savings or investment account. A transaction can be split across several
-budgets, transfers between accounts are entered once, and cleared dates give a running balance you can compare
-with the bank statement. Duplicate transactions and check numbers are caught, missing check numbers are listed for
+budgets, transfers between accounts are entered once, and cleared dates separate the **Current** balance (what the
+bank has) from the **Available** balance (everything you have written or deposited), with the outstanding items that
+make up the difference. Duplicate transactions and check numbers are caught, missing check numbers are listed for
 review, and a mistake is voided — never silently deleted.
 
 <p align="center"><img src="docs/screenshots/readme/register.png" alt="The register of a checking account with cleared dates, check numbers, running balance and attachment counts" width="820"></p>

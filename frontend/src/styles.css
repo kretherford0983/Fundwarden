@@ -139,6 +139,9 @@ tr.child td.indent { padding-left: 28px; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
 .tile-label { font-size: 12px; color: var(--muted); }
 .tile-value { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile-note { font-size: 11px; }
+/* 1.7.2 (#56): bank balance + outstanding items under the Opening / Ending balance */
+.recon-link { display: block; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--link, #1a5fb4); text-decoration: underline; cursor: pointer; font-size: 12px; text-align: left; }
 .dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0; }
 .dl dt { color: var(--muted); font-weight: 600; }
 .dl dd { margin: 0; }

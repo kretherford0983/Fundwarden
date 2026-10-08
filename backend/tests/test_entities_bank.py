@@ -152,9 +152,15 @@ def test_ac_bank_006_register_balance(env, base):
     w = env.txn(a, "WITHDRAWAL", [{"budget_id": base["exp_leaf"], "amount": "200.00"}])
     v = env.txn(a, "WITHDRAWAL", [{"budget_id": base["exp_leaf"], "amount": "999.00"}])
     env.ru.post(f"/api/transactions/{v['id']}/void", {"reason": "error", "confirm_irreversible": True})
-    assert env.bu.get(f"/api/bank-accounts/{a}").json()["current_balance"] == "1300.00"
+    # 1.7.2 (#56): Current Balance counts cleared transactions only; Available (Register) counts all active ones
+    assert env.bu.get(f"/api/bank-accounts/{a}").json()["current_balance"] == "1000.00"
     reg = env.bu.get(f"/api/register?bank_account_id={a}").json()
     assert [t["running_balance"] for t in reg["transactions"]] == ["1500.00", "1300.00", "1300.00"]
+    assert reg["available_balance"] == "1300.00" and reg["current_balance"] == "1000.00"
+    for t in reg["transactions"]:
+        if t["status"] == "ACTIVE":
+            env.ru.patch(f"/api/transactions/{t['id']}", {"clear_date": "2026-08-02"})
+    assert env.bu.get(f"/api/bank-accounts/{a}").json()["current_balance"] == "1300.00"   # VOID has no effect
     assert w
 
 
