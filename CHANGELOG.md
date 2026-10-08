@@ -10,6 +10,11 @@ No database migration.
   (`OWN_ROLES_LOCKED`). Your email address and display name can still be changed, and any Administrator can still
   change the roles of *other* users, other Administrators included. A local install (Windows, Mac, single user) is
   not restricted. Keep a second Administrator on a server so roles can always be changed.
+- **Nobody can disable their own account (#55 follow-up, all installs).** On your own account the *Active* box is
+  greyed out ("You cannot disable your own account."), and a direct request is refused (`OWN_ACCOUNT_DISABLE`).
+  Disabling yourself signed you out at once, and an Administrator who meant to disable someone else could lock
+  themselves out. Another Administrator can still disable you. (Disabling the *last* Administrator was already
+  refused.)
 - **Current and Available balances (#56, #57).** Two balances, defined the way the bank does:
   - **Current balance** is the real bank balance: only transactions that have cleared (have a Clear/Post Date).
     For a past date it counts what had cleared by that date. It is now the balance shown everywhere outside the
