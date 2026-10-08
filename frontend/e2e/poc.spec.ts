@@ -23,12 +23,16 @@ async function logout(page: Page) {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 }
 
+// 1.7.1 (#47): every user has a display name - it is what the top bar shows (#46)
+const SHOWN: Record<string, string> = { bm1: "Bea Manager", ru1: "Rae Register" };
+
 async function createUser(page: Page, username: string, roleLabel: string) {
   await page.goto("/users");
   await page.getByRole("button", { name: "New user" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Username").fill(username);
   await dlg.getByLabel("Email").fill(`${username}@example.org`);
+  await dlg.getByLabel("Display name").fill(SHOWN[username] || `${username} person`);
   await dlg.getByLabel("Initial password").fill(PW);
   await dlg.getByLabel("FINANCIAL").check();
   await dlg.getByLabel(roleLabel).check();
@@ -75,6 +79,59 @@ test("AC-UI-THEME-001..003: dark mode persists across logout/login", async ({ pa
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(bg).not.toBe("rgb(246, 247, 249)");
+});
+
+test("#47 / #46 / #50: display name is required; the top bar shows it without the roles; roles are on My account", async ({ page }) => {
+  await login(page, "admin");
+  const userName = page.locator("header.topbar .user-name");
+  await expect(userName).toHaveText("admin");                       // the first Administrator: the username
+  await expect(page.locator("header.topbar")).not.toContainText("Administrator");
+  await page.goto("/users");
+  await expect(page.getByRole("row", { name: /bm1/ })).toContainText("Bea Manager");
+  // new user: no display name, then one that is too short, then a valid one (stored trimmed)
+  await page.getByRole("button", { name: "New user" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Username").fill("dana");
+  await dlg.getByLabel("Email").fill("dana@example.org");
+  await dlg.getByLabel("Initial password").fill(PW);
+  await dlg.getByLabel("FINANCIAL").check();
+  await dlg.getByLabel("Budget User").check();
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg.getByRole("alert")).toContainText("Display name is required.");
+  await dlg.getByLabel("Display name").fill("  ab ");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(dlg.getByRole("alert")).toContainText("Display name must be at least 3 characters.");
+  await dlg.getByLabel("Display name").fill("   Dana Display  ");
+  await dlg.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row", { name: /dana/ })).toContainText("Dana Display");
+  // editing: it cannot be removed or shortened
+  await page.getByRole("row", { name: /dana/ }).getByRole("button", { name: "Edit" }).click();
+  const ed = page.getByRole("dialog");
+  await expect(ed.getByLabel("Display name")).toHaveValue("Dana Display");
+  await ed.getByLabel("Display name").fill("");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(ed.getByRole("alert")).toContainText("Display name is required.");
+  await ed.getByLabel("Display name").fill("Da");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(ed.getByRole("alert")).toContainText("Display name must be at least 3 characters.");
+  await ed.getByLabel("Display name").fill("Dana D. Display");
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("row", { name: /dana/ })).toContainText("Dana D. Display");
+  await logout(page);
+  // a Budget Manager: the display name instead of the username, and no roles in the top bar
+  await login(page, "bm1");
+  await expect(userName).toHaveText("Bea Manager");
+  const bar = page.locator("header.topbar");
+  await expect(bar).not.toContainText("bm1");
+  await expect(bar).not.toContainText("Budget Manager");
+  await expect(bar.getByRole("link", { name: "My account" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await bar.getByRole("link", { name: "My account" }).click();
+  const facts = page.getByLabel("Your account");
+  await expect(facts).toContainText("bm1");
+  await expect(facts).toContainText("bm1@example.org");
+  await expect(facts).toContainText("Budget Manager");
+  await expect(page.getByText("Signed in as")).toContainText("Bea Manager");
 });
 
 test("#68: signing in while the page's first form-token request is still under way works", async ({ page }) => {
@@ -243,6 +300,37 @@ test("AC-FY-004 / AC-REG-015: UI confirmation flows (gap warning, void)", async 
   const row = page.getByRole("row", { name: /Details for transaction 1/ });
   await expect(row).toContainText("VOID");
   await expect(row).toContainText("$5,000.00");
+});
+
+test("1.7.1: what is typed in the bank account form survives while a new institution is still being loaded", async ({ page }) => {
+  // After "+ New institution" the form reloads the institution list and then selects the new one. That step used to
+  // put back the form as it was when the institution was saved, wiping anything typed in the meantime.
+  await login(page, "bm1");
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  await page.getByRole("button", { name: "New bank account" }).click();
+  const a = page.getByRole("dialog", { name: "New bank account" });
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ })).toContainText("First National");
+  let hold = false;
+  let release!: () => void;
+  const held = new Promise<void>((r) => (release = r));
+  await page.route("**/api/entities?financial_institution=true", async (route) => {
+    if (hold) await held;
+    await route.continue();
+  });
+  await a.getByRole("button", { name: "+ New institution" }).click();
+  const fi = page.getByRole("dialog", { name: "New entity" });
+  await fi.getByLabel(/Organization Name/).fill("Second Savings");
+  hold = true;                                   // the list reload that follows the save is kept waiting
+  await fi.getByRole("button", { name: "Save" }).click();
+  await expect(fi).toHaveCount(0);
+  await a.getByLabel("Account name").fill("Typed meanwhile");
+  await a.getByLabel("Full account number").fill("555000111222");
+  release();
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ })).toContainText("Second Savings");
+  await expect(a.getByRole("combobox", { name: /Financial Institution/ }).locator("option:checked")).toContainText("Second Savings");
+  await expect(a.getByLabel("Account name")).toHaveValue("Typed meanwhile");
+  await expect(a.getByLabel("Full account number")).toHaveValue("555000111222");
+  await a.getByRole("button", { name: "Cancel" }).click();
 });
 
 test("AC-UI-THEME-003: core screens render in light and dark (screenshots)", async ({ page }) => {
@@ -638,6 +726,15 @@ test("1.6.7: an Entity's phone number is typed any way and shown as (nnn) nnn-nn
   let dlg = page.getByRole("dialog", { name: "New entity" });
   await dlg.getByLabel(/Organization Name/).fill("Phone Format Co");
   const phone = dlg.getByLabel("Phone");
+  // 1.7.1 (#51): Email and Phone are on one line - labels level, boxes level, the hint below the Phone box
+  const email = dlg.getByLabel("Email");
+  const [eb, pb] = [(await email.boundingBox())!, (await phone.boundingBox())!];
+  expect(Math.abs(eb.y - pb.y)).toBeLessThan(1);
+  expect(Math.abs(eb.height - pb.height)).toBeLessThan(1);
+  const labelY = async (text: string) => (await dlg.locator(".field-label", { hasText: new RegExp(`^${text}$`) }).boundingBox())!.y;
+  expect(Math.abs((await labelY("Email")) - (await labelY("Phone")))).toBeLessThan(1);
+  const hint = dlg.getByText("Any format, e.g. 555-123-4567.");
+  expect((await hint.boundingBox())!.y).toBeGreaterThanOrEqual(pb.y + pb.height);
   await phone.fill("555.123.4567");
   await phone.blur();
   await expect(phone).toHaveValue("(555) 123-4567"); // tidied as soon as the field is left
@@ -940,6 +1037,68 @@ test("CR-028 / CR-030 / CR-029 / CR-032: account groups, chart columns, signatur
   const b = await page.getByLabel("Repeat the passphrase").boundingBox();
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
   expect(Math.abs(a!.height - b!.height)).toBeLessThan(2);
+});
+
+// ---------------------------------------------------------------- 1.7.1 #74: bank account order
+test("#74: a Budget Manager sets the bank account order with the keyboard; Dashboard and Register follow it", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const fi = await (await post("/api/entities", { entity_type: "ORGANIZATION", organization_name: "Order Test Bank",
+    is_financial_institution: true, confirmations: ["DUPLICATE_ENTITY"] })).json();
+  for (const [name, num] of [["Order A", "741000000001"], ["Order B", "741000000002"]]) {
+    const r = await post("/api/bank-accounts", { account_name: name, financial_institution_entity_id: fi.id, account_type: "CHECKING",
+      account_number: num, opening_balance: "0.00", opening_balance_date: "2026-01-01" });
+    expect(r.status()).toBe(201);
+  }
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  const table = page.getByTestId("accounts-CHECKING_SAVINGS");
+  const names = async () => (await table.locator("tbody tr td:nth-child(2)").allInnerTexts()).map((t) => t.trim());
+  await expect(table).toContainText("Order B");
+  let order = await names();
+  const n = order.length;
+  expect(order.slice(-2)).toEqual(["Order A", "Order B"]);                 // new accounts go to the end of their group
+  await expect(page.getByRole("button", { name: "Move Order B down" })).toBeDisabled();
+  // keyboard only: focus the button, press Enter; focus stays on it and the new position is announced
+  const up = page.getByRole("button", { name: "Move Order B up" });
+  await up.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("order-status")).toHaveText(`Order B moved to position ${n - 1} of ${n} in Checking & Savings.`);
+  await expect(page.getByRole("button", { name: "Move Order B up" })).toBeFocused();
+  order = await names();
+  expect(order.slice(-2)).toEqual(["Order B", "Order A"]);
+  await page.keyboard.press("Space");
+  await expect(page.getByTestId("order-status")).toHaveText(`Order B moved to position ${n - 2} of ${n} in Checking & Savings.`);
+  order = await names();
+  expect(order.indexOf("Order B")).toBe(n - 3);
+  await page.reload();                                                       // saved
+  await expect(table).toContainText("Order B");
+  expect(await names()).toEqual(order);
+  // the Dashboard lists the group in the same order
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  const dash = page.getByTestId("bank-group-CHECKING_SAVINGS");
+  await expect(dash).toContainText("Order B");
+  const dashText = await dash.innerText();
+  expect(dashText.indexOf("Order B")).toBeLessThan(dashText.indexOf("Order A"));
+  // the Register lists the accounts in that order and still opens on the Primary account
+  const accounts = await (await page.request.get("/api/bank-accounts")).json();
+  const primary = accounts.find((a: any) => a.is_primary);
+  await page.getByRole("link", { name: "Register" }).click();
+  const sel = page.getByLabel("Register bank account");
+  if (primary) await expect(sel).toHaveValue(String(primary.id));
+  const opts = await sel.locator("option").allInnerTexts();
+  const want = accounts.filter((a: any) => a.register_enabled).map((a: any) => a.label + (a.status === "CLOSED" ? " (closed)" : ""));
+  expect(opts.map((o) => o.trim())).toEqual(want);
+  expect(opts.findIndex((o) => o.startsWith("Order B"))).toBeLessThan(opts.findIndex((o) => o.startsWith("Order A")));
+  await logout(page);
+  // other roles see the order but cannot change it
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Bank Accounts" }).click();
+  await expect(page.getByTestId("accounts-CHECKING_SAVINGS")).toContainText("Order B");
+  await expect(page.getByRole("button", { name: /^Move / })).toHaveCount(0);
+  const me = await (await page.request.get("/api/auth/me")).json();
+  const r = await page.request.post(`/api/bank-accounts/${accounts.find((a: any) => a.account_name === "Order A").id}/move`,
+    { headers: { "X-CSRF-Token": me.csrf_token }, data: { direction: "up" } });
+  expect(r.status()).toBe(403);
 });
 
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout

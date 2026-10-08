@@ -12,6 +12,7 @@ from ..errors import AppError
 from ..models import BankAccount, FiscalYear, FiscalYearReview, RegisterTransaction, TransactionAllocation
 from ..schemas import (CheckAckIn, NoteIn, ReviewResolveIn, TransactionCreateIn, TransactionUpdateIn, TransferIn,
                        VoidCheckNumberIn, VoidDateIn, VoidIn)
+from ..services import bank_accounts as bank_svc
 from ..services import idempotency
 from ..services import register as svc
 from ..services.common import get_scoped
@@ -39,7 +40,7 @@ def register_view(
         if acct is None:
             acct = db.scalar(select(BankAccount).where(BankAccount.workspace_id == ctx.workspace_id,
                                                        BankAccount.register_enabled.is_(True))
-                             .order_by(BankAccount.status, BankAccount.id))
+                             .order_by(BankAccount.status, *bank_svc.listing_order()))
         if acct is None:
             return {"bank_account": None, "transactions": []}
     else:

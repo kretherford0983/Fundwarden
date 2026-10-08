@@ -265,6 +265,10 @@ class ManualBalanceIn(In):
     reason: OptStr(500) = None
 
 
+class MoveAccountIn(In):
+    direction: Literal["up", "down"]
+
+
 class CloseAccountIn(In):
     reason: Str(500)
     closed_date: OptDate = None

@@ -94,6 +94,7 @@ class Env:
 
     def user(self, username, domain, roles) -> Api:
         r = self.admin.post("/api/users", {"username": username, "email": f"{username}@example.com",
+                                           "display_name": f"{username.capitalize()} Person",
                                            "password": PASSWORD, "security_domain": domain, "roles": roles})
         assert r.status_code == 201, r.text
         a = Api(self.app)

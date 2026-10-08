@@ -2,6 +2,59 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.7.1 — 2026-10-07
+Database migrations `0017` (no column added or removed; fills in missing display names and adds the rule to the
+database) and `0018` (adds the bank account order). Rolling back to 1.7.0 needs the data snapshot the installer
+takes before the upgrade (docs/upgrade.md).
+- **Your name in the top bar (#46).** The top bar shows the signed-in user's **display name** instead of the
+  username.
+- **Roles moved out of the top bar (#50).** The list of roles next to the name is gone; the top bar is the name,
+  the theme switch, reminders, *My account* and *Sign out*. **My account** now shows your username, email address
+  and roles.
+- **Every user has a display name (#47).** *Display name* is required when an Administrator creates a user and
+  cannot be removed when editing one. It is stored without leading or trailing spaces and must be at least 3
+  characters (at most 120, as before): "Display name is required." / "Display name must be at least 3
+  characters." Existing users without a display name — or with one shorter than 3 characters — get their
+  **username** as display name during the upgrade; all others are unchanged. The first Administrator created by
+  the Initialization Wizard starts with the username too. The database enforces the rule as well. The Users list
+  has a *Display name* column.
+- **Audit and Fiscal Year Close reports — start and end pages for the fundraisers (#59).** When a report includes
+  fundraisers, they now sit between a **"Start of fundraisers"** page and an **"End of fundraisers"** page, like
+  each bank account's transactions since 1.6.7. Both pages name the Fiscal Year, the number of fundraisers, the
+  first and the last one, and state the page range ("pages 36 to 42 of 42 (7 pages…)"), each pointing at the other;
+  the start page lists the fundraisers in order. Every page in between shows **"Fundraisers - section page k of
+  n"** at the bottom right. One fundraiser gets the two pages as well; a report without fundraisers is unchanged.
+  The page range is recorded with the report in the audit log.
+- **Bank accounts in the order you choose (#74).** On the Bank Accounts page a Budget Manager moves accounts up
+  and down with the new **▲ ▼** buttons (mouse or keyboard; each button names its account for screen readers and
+  the new position is announced, e.g. "Savings moved to position 1 of 3 in Checking & Savings."). The order is kept
+  separately for *Checking & Savings* and *Investments and Other*, and is used on the Bank Accounts page, the
+  Dashboard (also the balances chart) and in the Register's account list. The Primary account is not pinned — it
+  goes wherever it is placed — and the Register still opens on the Primary account. After the upgrade each group
+  lists the Primary account first and the others by name, as before; a new account is added at the end of its
+  group (also an account whose type moves it to the other group). Only Budget Managers can change the order (also
+  refused through the API); each change is recorded in the audit log (`BANK_ACCOUNT_ORDER_CHANGED`, with the
+  order before and after). Totals are unchanged. Reports keep their own order.
+- **Entity form — Email and Phone line up (#51).** The two labels and the two boxes are level; the hint stays under
+  the Phone box and is shorter ("Any format, e.g. 555-123-4567. Shown as (555) 123-4567.").
+- **Fixed: new bank account form lost what was typed after "+ New institution".** After a new institution was saved
+  the form selected it a moment later — and put the other fields back to what they were when it was saved, so an
+  account name typed in between disappeared. Found by an E2E run that failed once at this point.
+- **Dependabot no longer proposes major versions (#80).** When 1.6.8 switched Dependabot on, it opened a pull
+  request for every major upgrade it could find (React 19, TypeScript 7, Vite 8, …) and one for `pydantic_core`
+  alone; none of them could pass the tests. Major upgrades are now left to be planned as issues, and
+  `pydantic_core` is only updated together with `pydantic`. The weekly grouped minor and patch updates are
+  unchanged, and security updates are not held back by the new rules — also when the fix is a major version.
+  No change to the application.
+- **Documentation after the rename.** New quick guide *What's new in 1.7* (the new name, and what to do on a
+  server, a Windows PC and a Mac). The 1.4, 1.5 and 1.6 guides use the name PennyWarden; the README's *Origin*
+  paragraph, docs/deployment.md and docs/implementation-notes.md record both renames.
+- **Mac installation guide with pictures (#61).** New page *docs/install-macos.md*: download, copy to
+  Applications, and the one-time *Open Anyway* step in System Settings, each with an illustration marking where to
+  click; the shorter right-click → *Open* way for macOS 14 and earlier; upgrading; and what to do when something
+  looks different. The README and docs/deployment.md link to it. The illustrations are drawings (marked
+  "Illustration"), made by `scripts/macos_install_mockups.mjs`.
+
 ## 1.7.0 — 2026-10-07
 **The application is renamed to PennyWarden** (#70). Another product in the financial field already uses the name
 Fundwarden. This release contains the rename and nothing else: no database migration, no change to data, settings
