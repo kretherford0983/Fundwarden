@@ -1,4 +1,4 @@
-# Upgrading a Linux server install (current release: 1.7.1)
+# Upgrading a Linux server install (current release: 1.7.2)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
@@ -10,6 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.7.1 → 1.7.2 | none | switch binaries |
 | 1.7.0 → 1.7.1 | migrations `0017` and `0018` — `0017`: no column added or removed: users without a display name (or with one shorter than 3 characters) get their **username** as display name, every other display name is left as it is; two database triggers then require a display name of at least 3 characters for every user; `0018`: adds `bank_account.sort_order` and fills it so that each group lists the Primary account first and the others by name (as before) | switch binaries **and** restore the pre-upgrade data backup (1.7.0 does not know revisions 0017 and 0018) |
 | 1.6.8 → 1.7.0 | none — the application is renamed to PennyWarden (see *1.7.0: the rename to PennyWarden* below) | switch back to the old `fundwarden` service (left in place) |
 | 1.6.7 → 1.6.8 | none | switch binaries only |

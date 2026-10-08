@@ -10,7 +10,8 @@ const ROLES: Record<string, [string, string][]> = {
 };
 
 export default function Users() {
-  const { can } = useMe();
+  const { me, can } = useMe();
+  const [mode, setMode] = useState<string>("local");
   const [users, setUsers] = useState<any[] | null>(null);
   const [edit, setEdit] = useState<any | null>(null);
   const [reset, setReset] = useState<any | null>(null);
@@ -19,6 +20,7 @@ export default function Users() {
   const load = () => api.get("/api/users").then(setUsers, setErr);
   useEffect(() => {
     load();
+    api.get("/api/system/status").then((s) => setMode(s.mode), () => undefined);
   }, []);
   if (!users) return <><ErrorBox error={err} /><Loading /></>;
   const manage = can("users.manage");
@@ -48,14 +50,14 @@ export default function Users() {
           ))}
         </tbody>
       </table>
-      {edit ? <UserForm user={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
+      {edit ? <UserForm user={edit} ownRolesLocked={mode === "server" && edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
       {reset ? <ResetForm user={reset} onClose={() => setReset(null)} /> : null}
       {mfaReset ? <MfaResetForm user={mfaReset} onClose={() => { setMfaReset(null); load(); }} /> : null}
     </div>
   );
 }
 
-function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; onSaved: () => void }) {
+function UserForm({ user, ownRolesLocked = false, onClose, onSaved }: { user: any; ownRolesLocked?: boolean; onClose: () => void; onSaved: () => void }) {
   const isNew = !user.id;
   const [f, setF] = useState({
     username: user.username || "", email: user.email || "", display_name: user.display_name || "", password: "",
@@ -88,14 +90,16 @@ function UserForm({ user, onClose, onSaved }: { user: any; onClose: () => void; 
         <Field label="Email"><input required type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
         <Field label="Display name" hint="The name shown in the top bar for this user. At least 3 characters."><input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
         {isNew ? <Field label="Initial password" hint="At least 12 characters including a letter and a digit."><input required type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field> : null}
-        <fieldset>
+        {/* 1.7.2 (#55): in server mode an Administrator cannot change their own roles (also refused by the server) */}
+        {ownRolesLocked ? <p className="hint" id="own-roles-hint">You cannot change your own security domain or roles. Another Administrator can change them for you.</p> : null}
+        <fieldset disabled={ownRolesLocked} aria-describedby={ownRolesLocked ? "own-roles-hint" : undefined}>
           <legend>Security domain (exactly one)</legend>
           {Object.keys(ROLES).map((d) => (
             <label key={d} className="check"><input type="radio" name="domain" checked={f.security_domain === d} onChange={() => setDomain(d)} /> {d}</label>
           ))}
         </fieldset>
         {f.security_domain === "FINANCIAL" ? (
-          <fieldset>
+          <fieldset disabled={ownRolesLocked}>
             <legend>Financial roles</legend>
             {ROLES.FINANCIAL.map(([code, name]) => (
               <label key={code} className="check"><input type="checkbox" checked={f.roles.includes(code)} onChange={() => toggle(code)} /> {name}</label>

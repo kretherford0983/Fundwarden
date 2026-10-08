@@ -80,7 +80,9 @@ def create(db: Session, ctx, data) -> User:
     return u
 
 
-def update(db: Session, ctx, u: User, data) -> User:
+def update(db: Session, ctx, u: User, data, mode: str = "local") -> User:
+    """mode (1.7.2, #55): in server mode an Administrator cannot change their own roles or security domain; another
+    Administrator has to. A local install (one person, one computer) is not restricted."""
     before = snapshot(u)
     f = data.model_fields_set
     if "email" in f:
@@ -97,6 +99,9 @@ def update(db: Session, ctx, u: User, data) -> User:
         if err:
             raise validation(err, "roles")
         if codes != u.role_codes or domain != u.security_domain:
+            if mode == "server" and u.id == ctx.user.id:
+                raise AppError(403, "OWN_ROLES_LOCKED", "You cannot change your own roles. Another Administrator "
+                                                        "can change them for you.")
             roles_changed = True
             u.security_domain = domain
             _set_roles(db, u, codes)
