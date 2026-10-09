@@ -423,6 +423,8 @@ class Scheduler:
                 tick(self.app)
             except Exception:  # pragma: no cover - never let the scheduler die
                 log.exception("backup scheduler")
+            from . import updates   # 1.10.0 (#58): the daily update check shares this thread
+            updates.tick(self.app)
             self.stop_event.wait(TICK_SECONDS)
 
 

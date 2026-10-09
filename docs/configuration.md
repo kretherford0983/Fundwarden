@@ -59,6 +59,8 @@ database (key check value stored in the workspace row).
 | `lockout_3_failures` / `lockout_3_minutes` | `FM_LOCKOUT_3_FAILURES` / `FM_LOCKOUT_3_MINUTES` | `15` / `1440` | Third lock (24 hours) |
 | `lockout_disable_failures` | `FM_LOCKOUT_DISABLE_FAILURES` | `20` | The account is disabled; an Administrator (or the host `reset-password` / `reset-mfa`) enables it again |
 | `backup_folders` | `FM_BACKUP_FOLDERS` | *(empty)* | 1.9.0, server mode: the folders an Administrator may choose for scheduled backups — in `config.toml` a list (`backup_folders = ["/mnt/nas/pennywarden", "/srv/backups"]`), in the environment separated by `:` (Windows `;`). Local installs accept any folder |
+| `update_channel` | `FM_UPDATE_CHANNEL` | `auto` | 1.10.0, the update notification: `auto` follows the build (production builds look for releases, test builds for newer test builds and releases, other builds do not check); `stable`, `test` or `off` force it. Administrators turn the check on or off in System/About |
+| `update_base_url` | `FM_UPDATE_BASE_URL` | `https://pennywarden.org` | Where the release data files (`releases.json`, `releases-test.json`) are read |
 | `log_level` | `FM_LOG_LEVEL` | `INFO` | Log level |
 
 Example `config.toml`:

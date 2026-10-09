@@ -19,6 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy import false as sa_false
+from sqlalchemy import true as sa_true
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 NAMING = {
@@ -680,3 +681,17 @@ class BackupRun(Base):
     error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     deleted_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)   # removed by retention
     deleted_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
+class UpdateCheck(Base):
+    """1.10.0 (#58): the update notification - one row for the installation: whether the check is on (an
+    Administrator can turn it off) and the last result, kept so that restarts do not fetch again."""
+    __tablename__ = "update_check"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sa_true(), nullable=False)
+    channel: Mapped[str | None] = mapped_column(String(10), nullable=True)      # stable | test (of the last check)
+    checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)        # the newer releases found
+    last_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

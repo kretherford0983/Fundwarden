@@ -54,6 +54,25 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.10.0 Update notification (issue #58; channel decided 2026-10-09).** Migration `0024`: `update_check` (one row).
+`services/updates.py`: `channel(settings)` - setting `update_channel` (`auto` → from `build_info.json`: `main` →
+stable, `test` → test, anything else / no build info → none); `check(app, force)` - due after 24 h (6 h after an error),
+the channel is part of the cache key; `fetch` (urllib, 10 s, 2 MB, schema 1, `_clean` per release); `is_newer` (numeric
+version; the same version is newer only for a test build with a higher build number); `status` for
+`GET /api/updates` (every signed-in user); `PUT /api/updates/settings`, `POST /api/updates/check` (`users.manage`).
+The check runs in the scheduler thread of #62 (`Scheduler._loop` calls `updates.tick`), so it only runs under the real
+web server: first ~60 s after the start (local mode "at start-up"), then whenever due. Download link: the product
+page's `#download` for production, the GitHub release page for test builds. Frontend `pages/Updates.tsx`: indicator
+(SVG circle in the coin's gold `#f2b632` with the arrow cut out by a mask), `WhatsNew` dialog, `ReleaseNotes`
+(paragraphs, bullets with wrapped lines, headings, `**bold**`, `` `code` ``, links to github.com / pennywarden.org
+only - React elements, no HTML parsing), `UpdateBanner` (shell for Administrators in server mode; My account in local
+mode), `UpdateSettings` (System/About). E2E: the fresh server reads `http://127.0.0.1:8796`, served by the "#58" test.
+Tests: `tests/test_v1_10_updates.py`, E2E "#58".
+
+**1.10.0 Dialog focus (issue #139).** `Modal` focused the dialog in an effect keyed on `onClose`; a parent that holds
+the dialog's input state passes a new `onClose` on every keystroke, so the focus jumped out of the field. The effect now
+runs once; the latest `onClose` is kept in a ref for Escape. E2E "#106" types the reason key by key.
+
 **1.10.0 pennywarden.org (issue #83; settled 2026-10-09: in this repository, a hand-written page, one domain).**
 `site/` (static HTML/CSS/JS, CSP `default-src 'self'`, no third-party resources; `site.js` fills the download
 buttons from `releases.json` with `textContent`/attributes only and accepts only `https://github.com/` URLs),

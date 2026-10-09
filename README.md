@@ -96,7 +96,7 @@ return every quarter, renew the insurance every year — so duties survive a cha
 | **Roles** | Administrator, Budget Manager, Budget User, Register User and read-only Auditor; administration is kept strictly apart from financial work |
 | **Security** | Argon2id passwords, two-step verification (TOTP) with recovery codes, server-side sessions, CSRF protection, AES-256-GCM encrypted bank account numbers, an append-only audit log of every change |
 | **Your data** | One folder on your machine; encrypted backup and restore from inside the application; moves between Windows, Mac and Linux; upgrades never touch data or configuration |
-| **Where it runs** | Single user on a Windows PC or a Mac (Apple Silicon); several users on a Linux server behind HTTPS, or in Docker |
+| **Where it runs** | Single user on a Windows PC or a Mac (Apple Silicon); several users on a Linux or Windows server behind HTTPS, or in Docker |
 
 <p align="center"><img src="docs/screenshots/readme/dashboard-dark.png" alt="The dashboard in dark mode" width="600"></p>
 
@@ -107,6 +107,7 @@ return every quarter, renew the insurance every year — so duties survive a cha
 | **Mac with Apple Silicon (single user)** | Download `PennyWarden-<version>-macos-arm64.dmg` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest), drag PennyWarden to Applications and open it. First start: *System Settings → Privacy & Security → Open Anyway* — [step by step with pictures](docs/install-macos.md). |
 | **Windows (single user)** | Download `PennyWarden-<version>-windows-x64.exe` from the [latest release](https://github.com/kretherford0983/PennyWarden/releases/latest) and double-click it. |
 | **Linux server (multiple users)** | `curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh \| sudo bash` — installs or upgrades a systemd service; put an HTTPS reverse proxy in front of it. |
+| **Windows server (multiple users)** | `PennyWarden-windows-x64.zip` in server mode behind HTTPS, started with Windows by Task Scheduler — [step by step](docs/install-windows-server.md). |
 
 The first start shows the **Initialization Wizard** (organization name, administrator account). There are no
 default credentials. Details, HTTPS, Docker and moving data between machines: [docs/deployment.md](docs/deployment.md).
@@ -123,11 +124,13 @@ tax or legal advice.
 report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verification, charts, backup) ·
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
 reminders) · [1.7](docs/user-guide-v1.7.md) (the new name) · [1.8](docs/user-guide-v1.8.md) (budget history, Financial
-Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person on a local install, automatic backups).
+Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person on a local install, automatic backups) ·
+[1.10](docs/user-guide-v1.10.md) (pennywarden.org, update notification).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability
 - [docs/install-macos.md](docs/install-macos.md) — installing on a Mac, step by step with pictures (including *Open Anyway*)
+- [docs/install-windows-server.md](docs/install-windows-server.md) — running PennyWarden as a server on Windows
 - [docs/upgrade.md](docs/upgrade.md) — upgrading and rolling back; database changes per version
 - [docs/backup-restore.md](docs/backup-restore.md) — encrypted backups, restore, disaster recovery
 - [docs/configuration.md](docs/configuration.md) — settings, config file, environment variables, data layout

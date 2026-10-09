@@ -3,6 +3,17 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.10.0 — unreleased
+Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot
+the installer takes before the upgrade (docs/upgrade.md).
+- **Server on Windows, documented.** A step-by-step guide for running PennyWarden for several people on a Windows
+  machine — the portable zip in server mode, a fixed data folder, HTTPS through Cloudflare Tunnel or Caddy, and Task
+  Scheduler to start it with Windows (docs/install-windows-server.md, #144); linked from the README and pennywarden.org.
+- **Update notification (#58).** When a newer version is out, a gold circle with an up arrow appears next to your
+  name in the top bar. It opens **What's new**: the release notes of every newer release, newest first, and a button
+  to the download page. On a server, Administrators also see a banner above every page; on a local install the banner
+  is on My account. PennyWarden itself (not your browser) asks pennywarden.org about once a day; nothing about your
+  organization is sent, and an Administrator can turn the check off in System/About. Production installs are told
+  about releases only; test builds also about newer test builds.
 - **pennywarden.org (#83).** A product page on GitHub Pages at <https://pennywarden.org>: what PennyWarden is, for
   whom, screenshots, and direct download buttons for Windows, Mac and Linux (the visitor's own system highlighted)
   with the current version, its date and the checksums, plus help with the "unverified app" warnings. It is rebuilt

@@ -1941,3 +1941,53 @@ test("#62: an Administrator sets up scheduled backups to a folder, tests it and 
   expect(files).toHaveLength(1);
   expect(files[0]).toMatch(/^pennywarden-backup-e2e-org-\d{8}-\d{6}\.fmbak$/);
 });
+
+// ---------------------------------------------------------------- 1.10.0 #58: update notification
+test("#58: a newer release shows the gold arrow, the What's new dialog with every newer release, and the banner", async ({ page }) => {
+  const { createServer } = await import("node:http");
+  await login(page, "admin");
+  const cur: string = (await (await page.request.get("/api/system/version")).json()).version;
+  const [a, b, c] = cur.split(".").map(Number);
+  const next = `${a}.${b + 1}.0`, next2 = `${a}.${b + 1}.1`;
+  const rel = (v: string, notes: string) => ({ version: v, tag: `v${v}`, channel: "stable", build: null, date: "2026-11-01",
+    url: `https://github.com/kretherford0983/PennyWarden/releases/tag/v${v}`, notes, downloads: [] });
+  const feed = { schema: 1, releases: [rel(next2, "- **Fix:** a thing <script>window.pwned=1</script>"), rel(next, "Something new"), rel(cur, "this one")] };
+  const srv = createServer((req, res) => {
+    res.writeHead(req.url === "/releases.json" ? 200 : 404, { "Content-Type": "application/json" });
+    res.end(req.url === "/releases.json" ? JSON.stringify(feed) : "{}");
+  });
+  await new Promise<void>((r) => srv.listen(8796, "127.0.0.1", () => r()));
+  try {
+    void c;
+    await page.getByRole("link", { name: "System/About" }).click();
+    const sec = page.locator("section", { has: page.getByRole("heading", { name: "Update check" }) });
+    await expect(sec.getByLabel("Check for new versions of PennyWarden")).toBeChecked();
+    await sec.getByRole("button", { name: "Check now" }).click();
+    await expect(sec).toContainText(`${next2} is available`);
+    await page.reload();
+    const dot = page.getByTestId("update-indicator");
+    await expect(dot).toBeVisible();
+    await dot.click();
+    const dlg = page.getByRole("dialog", { name: `PennyWarden ${next2} is available` });
+    const notes = dlg.getByTestId("whats-new");
+    await expect(notes.getByRole("heading")).toHaveText([new RegExp(`^${next2}`), new RegExp(`^${next.replace(/\./g, "\\.")} `)]);
+    await expect(notes).toContainText("<script>window.pwned=1</script>");          // shown as text, never run
+    await expect(notes.locator("b", { hasText: "Fix:" })).toHaveCount(1);
+    expect(await page.evaluate(() => (window as any).pwned)).toBeUndefined();
+    await expect(dlg.getByRole("link", { name: "Open the download page" })).toHaveAttribute("target", "_blank");
+    await page.screenshot({ path: "e2e-screenshots/light-update-whats-new.png" });
+    await dlg.getByRole("button", { name: "Close" }).last().click();
+    // local install: the banner is on My account, not on the other pages
+    await expect(page.getByTestId("update-banner")).toHaveCount(0);
+    await page.getByRole("link", { name: "My account" }).click();
+    await expect(page.getByTestId("update-banner")).toContainText(`PennyWarden ${next2} is available`);
+    // turned off: no arrow
+    await page.getByRole("link", { name: "System/About" }).click();
+    await sec.getByLabel("Check for new versions of PennyWarden").uncheck();
+    await page.reload();
+    await expect(page.getByTestId("update-indicator")).toHaveCount(0);
+    await sec.getByLabel("Check for new versions of PennyWarden").check();
+  } finally {
+    srv.close();
+  }
+});

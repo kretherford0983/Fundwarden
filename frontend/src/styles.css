@@ -389,3 +389,13 @@ tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }
 /* 1.9.0 (#62): scheduled backups */
 fieldset.keep { border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 6px 12px 8px; margin: 10px 0; }
 .row > .test-folder { flex: 0 0 auto; align-self: flex-start; margin-top: 22px; }
+
+/* 1.10.0 (#58): update notification */
+.update-dot { background: none; border: none; padding: 0; margin-right: 2px; cursor: pointer; display: inline-flex; align-items: center; }
+.update-dot:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 50%; }
+.whats-new { max-height: 55vh; overflow: auto; border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 4px 14px; }
+.whats-new h3 { margin: 14px 0 4px; }
+.release-notes h4 { margin: 10px 0 4px; }
+.release-notes ul { padding-left: 1.2em; }
+.release-notes li { margin: 4px 0; }
+.update-banner .link { margin: 0 2px; }
