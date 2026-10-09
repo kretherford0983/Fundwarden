@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.8.0 — unreleased
+## 1.8.0 — 2026-10-09
 Database migrations `0021` and `0022` (columns and tables added; no existing data changes). Rolling back to 1.7.3
 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). **Every user chooses three
 security questions at the next sign-in.**
