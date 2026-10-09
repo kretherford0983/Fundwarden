@@ -123,7 +123,8 @@ tax or legal advice.
 report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verification, charts, backup) ·
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
 reminders) · [1.7](docs/user-guide-v1.7.md) (the new name) · [1.8](docs/user-guide-v1.8.md) (budget history, Financial
-Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person on a local install, automatic backups).
+Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person on a local install, automatic backups) ·
+[1.10](docs/user-guide-v1.10.md) (pennywarden.org, update notification).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability

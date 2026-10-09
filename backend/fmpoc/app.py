@@ -21,7 +21,7 @@ from .db import make_engine, make_session_factory, upgrade_database
 from .deps import enforce_csrf
 from .errors import install_handlers
 from .routers import (attachments, audit_log, auth, backup, bank_accounts, budgets, dashboard, entities,
-                      fiscal_years, fundraisers, register, reminders, reports, system, users)
+                      fiscal_years, fundraisers, register, reminders, reports, system, updates, users)
 from .security import crypto
 from .services import bootstrap
 from .services.auth import LoginRateLimiter
@@ -207,7 +207,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(BodyLimitMiddleware)
 
     for r in (system, backup, auth, users, audit_log, fiscal_years, budgets, entities, bank_accounts, register,
-              attachments, dashboard, reports, fundraisers, reminders):
+              attachments, dashboard, reports, fundraisers, reminders, updates):
         app.include_router(r.router)
 
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

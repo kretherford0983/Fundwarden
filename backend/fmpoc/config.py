@@ -110,6 +110,10 @@ class Settings:
     # 1.9.0 (#62): server mode - the folders an Administrator may choose for scheduled backups (config.toml: a list;
     # FM_BACKUP_FOLDERS: separated by the system's path separator, ';' on Windows, ':' elsewhere)
     backup_folders: str = ""
+    # 1.10.0 (#58): where the update check reads the release data files, and which channel it follows ("auto": from
+    # the build - main builds stable, test builds test, other builds none; or stable | test | off)
+    update_base_url: str = "https://pennywarden.org"
+    update_channel: str = "auto"
     log_level: str = "INFO"
     debug: bool = False  # never enabled in packaged builds
     frontend_dir: Path | None = None

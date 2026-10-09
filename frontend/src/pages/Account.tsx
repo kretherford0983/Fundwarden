@@ -4,8 +4,9 @@ import { BuildDetails, ErrorBox, Field, GuardedForm } from "../components";
 import { ROLE_NAMES, useMe } from "../App";
 import { SecuritySection } from "./Mfa";
 import { SecurityQuestionsSection } from "./Recovery";
+import { UpdateBanner, type UpdateStatus } from "./Updates";
 
-export default function Account() {
+export default function Account({ updates = null }: { updates?: UpdateStatus | null }) {
   const { me, setTheme } = useMe();
   const [f, setF] = useState({ current_password: "", new_password: "", new_password_confirmation: "" });
   const [err, setErr] = useState<unknown>(null);
@@ -33,6 +34,8 @@ export default function Account() {
   return (
     <div>
       <h1>My account</h1>
+      {/* 1.10.0 (#58): on a local install the update banner is shown here only */}
+      <UpdateBanner s={updates} />
       <p>Signed in as <b>{me.display_name || me.username}</b></p>
       <dl className="dl" aria-label="Your account">
         <dt>Username</dt><dd>{me.username}</dd>

@@ -22,6 +22,7 @@ import Fundraisers, { FundraiserDetail } from "./pages/Fundraisers";
 import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
 import { AdminSecurityNotices, SignInNotices } from "./pages/Recovery";
 import { BackupFailedBanner } from "./pages/ScheduledBackups";
+import { UpdateBanner, UpdateIndicator, useUpdates } from "./pages/Updates";
 
 export const ROLE_NAMES: Record<string, string> = {
   ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
@@ -125,7 +126,7 @@ export default function App() {
   };
   return (
     <MeCtx.Provider value={ctx}>
-      <Shell workspace={status.workspace_name} warning={status.insecure_transport_warning} onLogout={() => { setCsrf(null); setMe(null); }} />
+      <Shell workspace={status.workspace_name} warning={status.insecure_transport_warning} mode={status.mode} onLogout={() => { setCsrf(null); setMe(null); }} />
     </MeCtx.Provider>
   );
 }
@@ -151,8 +152,9 @@ function navFor(me: Me) {
   return fin;
 }
 
-function Shell({ workspace, warning, onLogout }: { workspace: string; warning: boolean; onLogout: () => void }) {
+function Shell({ workspace, warning, mode, onLogout }: { workspace: string; warning: boolean; mode: string; onLogout: () => void }) {
   const { me, can, setTheme, patchMe } = useMe();
+  const updates = useUpdates(); // 1.10.0 (#58)
   // CR-014: collapsible left navigation, remembered per user (like the theme)
   const [collapsed, setCollapsed] = useState(!!me.nav_collapsed);
   const toggleNav = () => {
@@ -180,7 +182,7 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
   let m: Record<string, string> | null;
   const guard = (base: string, el: JSX.Element) => (allowed.has(base) ? el : <NotAuthorized />);
   if (path === "/") page = <Dashboard />;
-  else if (path === "/account") page = <Account />;
+  else if (path === "/account") page = <Account updates={mode === "local" ? updates : null} />;
   else if (path === "/users") page = guard("/users", <Users />);
   else if (path === "/audit-log") page = guard("/audit-log", <AuditLog />);
   else if (path === "/about") page = <About />;
@@ -204,6 +206,7 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
         </div>
         <div className="userbox">
           {/* 1.7.1: the display name (#46), without the roles - they are on My account (#50) */}
+          <UpdateIndicator s={updates} />
           <span className="muted user-name">{me.display_name || me.username}</span>
           <button className="small" onClick={toggleTheme} aria-label={`Switch to ${me.theme === "dark" ? "light" : "dark"} mode`}>
             {me.theme === "dark" ? "☀ Light" : "☾ Dark"}
@@ -217,6 +220,7 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
       <SignInNotices notices={me.sign_in_notices || []} onDismissed={() => patchMe({ sign_in_notices: [] })} />
       {can("users.manage") ? <AdminSecurityNotices path={path} /> : null}
       {can("users.manage") ? <BackupFailedBanner path={path} /> : null}
+      {mode === "server" && can("users.manage") ? <UpdateBanner s={updates} /> : null}
       <div className="body">
         <nav className="sidenav" aria-label="Main navigation">
           <button type="button" className="nav-toggle" onClick={toggleNav} aria-expanded={!collapsed}
