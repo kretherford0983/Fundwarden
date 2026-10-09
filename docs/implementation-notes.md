@@ -54,6 +54,29 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.8.0 Financial Flow Report (issue #106; decisions recorded in the issue).** `services/flow_report.py`, two
+endpoints under `financial.view` (Administrators refused): `POST /api/reports/financial-flow/review` returns the lines
+for the review form (not audited; nothing is produced) and `POST /api/reports/financial-flow` the PDF (POST because
+the reviewed exclusions and line notes travel in the body). Lines: ACTIVE, `transfer_group IS NULL`, Transaction Date
+in the period, cleared or not; a withdrawal is one line `t<transaction id>` with its full amount (description:
+payee - the allocation descriptions, de-duplicated), a deposit one line per live allocation `a<allocation id>`
+(its entity, or the parent's, - its description). The transaction's and allocations' Notes are never read. Sections
+follow `bank_accounts.listing_order()` (#74); several accounts add the overall summary. Validation: register
+accounts of the workspace only (404 / 422 `bank_account_ids`), From ≤ Through, Compare Date only with Include Bank
+Balances and earlier than the Through Date (422 `compare_date`); no Through Date = server's today, printed
+"Current". Exclusions need a non-blank reason and an existing line key (422 `exclusions`); unknown note keys 422
+`line_notes`. Balances: every account open on the Through Date (not closed by then; register accounts from their
+opening date, non-register accounts from their first history entry) in Checking / Savings / Investments (all other
+types), `current_cents(as_of)` (#56 / #88), 0 before an account existed; subtotals, Total Checking & Savings, Total
+Investments, Total Assets, and with a Compare Date the balance then and the change. PDF: reportlab like the other
+reports, user text escaped (`P()`), Notes column on every table only when a line has a note, Difference and changes
+green / red with `+` / `−` (U+2212). The audit entry (REPORT_GENERATED, report `FINANCIAL_FLOW`) records the
+parameters, the line notes and each excluded line (transaction, allocation, date, amount, description, reason).
+Frontend: Reports → *Financial Flow* tab (`pages/FlowReport.tsx`); totals in the form are recalculated client-side
+in cents; unchecking opens a required-reason dialog, checking again discards the reason; the PDF is fetched with
+`api.postBlob` and offered as Open / Download links. Tests: `tests/test_v180_flow_report.py`, E2E "#106" (last in
+the file so its transactions do not become fundraiser lines in CR-034).
+
 **1.8.0 Historic Budget Traceability (issue #89; decisions recorded in the issue).** Migration `0021` adds the
 nullable, indexed `budget.continues_budget_id` (no foreign key, like other soft references; existing budgets are not
 linked). One link per budget, 1:1: a budget continues at most one earlier budget and is continued by at most one

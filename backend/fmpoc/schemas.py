@@ -480,3 +480,30 @@ class ReminderIn(In):
 class ReminderResolveIn(In):
     note: OptStr(500) = None
     stop_repeating: bool = False
+
+
+# ------------------------------------------------------------------ 1.8.0 (#106) Financial Flow Report
+class FlowReportIn(In):
+    title: Str(120)
+    date_from: Date
+    date_to: OptDate = None                     # empty = today, printed as "Current"
+    bank_account_ids: list[int] = Field(min_length=1, max_length=50)
+    include_balances: bool = False
+    compare_date: OptDate = None                # only with include_balances; earlier than the Through Date
+    notes: OptStr(4000) = None
+
+
+class FlowExclusionIn(In):
+    key: str = Field(min_length=2, max_length=24)
+    reason: str = Field(max_length=1000)        # required (checked by the service so the message names the line)
+
+
+class FlowLineNoteIn(In):
+    key: str = Field(min_length=2, max_length=24)
+    note: OptStr(1000) = None
+
+
+class FlowReportPdfIn(FlowReportIn):
+    exclusions: list[FlowExclusionIn] = Field(default_factory=list, max_length=5000)
+    line_notes: list[FlowLineNoteIn] = Field(default_factory=list, max_length=5000)
+    download: bool = False

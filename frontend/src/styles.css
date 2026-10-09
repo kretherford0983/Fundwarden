@@ -356,3 +356,20 @@ td.ua { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space
 /* 1.8.0 (#89): budget history */
 .history-link { margin-left: 0.5em; font-size: 0.85em; }
 tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }
+
+/* 1.8.0 (#106): Financial Flow Report */
+.row.space-between { justify-content: space-between; align-items: center; }
+.amount-up { color: var(--green-fg); }
+.amount-down { color: var(--red-fg); }
+.flow-review tr.excluded td { opacity: 0.55; text-decoration: line-through; }
+.flow-review tr.excluded td:first-child, .flow-review tr.excluded td:last-child { text-decoration: none; }
+.flow-review tr.excluded td:last-child { opacity: 1; }
+.flow-review td input:not([type="checkbox"]) { width: 100%; min-width: 12em; }
+.flow-section { margin-bottom: 1.5em; }
+.flow-diff { font-size: 1.05em; }
+.account-picks { border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 6px 12px; margin: 8px 0; }
+.account-picks label.check { display: block; margin: 4px 0; }
+.flow-review table { table-layout: fixed; }
+.flow-review th:nth-child(1) { width: 4.5em; }
+.flow-review th:nth-child(2), .flow-review th:nth-child(3) { width: 7.5em; }
+.flow-review th:nth-child(5) { width: 35%; }

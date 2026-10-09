@@ -3,10 +3,11 @@ import { Fragment, useEffect, useState } from "react";
 import { api, money, qs } from "../api";
 import { EntityPicker, ErrorBox, Field, Loading } from "../components";
 import { useMe } from "../App";
+import FlowReport from "./FlowReport";
 import { SIG_EMPTY, SignatureOptions, signatureProblem, type SigState } from "./SignatureOptions";
 
 export default function Reports() {
-  const [tab, setTab] = useState<"audit" | "close" | "entity">("audit");
+  const [tab, setTab] = useState<"audit" | "close" | "entity" | "flow">("audit");
   const [fys, setFys] = useState<any[] | null>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [err, setErr] = useState<unknown>(null);
@@ -25,11 +26,13 @@ export default function Reports() {
           <button role="tab" aria-selected={tab === "audit"} className={tab === "audit" ? "primary" : ""} onClick={() => setTab("audit")}>End of Year Audit</button>
           <button role="tab" aria-selected={tab === "close"} className={tab === "close" ? "primary" : ""} onClick={() => setTab("close")}>Fiscal Year Close</button>
           <button role="tab" aria-selected={tab === "entity"} className={tab === "entity" ? "primary" : ""} onClick={() => setTab("entity")}>Entity activity</button>
+          <button role="tab" aria-selected={tab === "flow"} className={tab === "flow" ? "primary" : ""} onClick={() => setTab("flow")}>Financial Flow</button>
         </div>
       </div>
       {tab === "audit" ? <AuditReport fys={fys} accounts={accounts} /> : null}
       {tab === "close" ? <CloseReport fys={fys} /> : null}
       {tab === "entity" ? <EntityReport fys={fys} accounts={accounts} /> : null}
+      {tab === "flow" ? <FlowReport accounts={accounts} /> : null}
     </div>
   );
 }
