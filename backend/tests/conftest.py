@@ -13,7 +13,18 @@ from PIL import Image
 from fmpoc.app import create_app
 from fmpoc.config import load_settings
 
+# 1.8.0 (#113): every test user hashes three security answers at the first sign-in. Production uses the library's
+# recommended Argon2id cost; the tests hash answers with a much cheaper one (verification reads the parameters from
+# the hash, so it works the same) to keep the suite's run time.
+from argon2 import PasswordHasher as _PH  # noqa: E402
+
+import fmpoc.services.recovery as _recovery  # noqa: E402
+
+_recovery.hash_password = _PH(time_cost=1, memory_cost=1024, parallelism=1).hash
+
 PASSWORD = "Correct-Horse-9-Battery"
+# 1.8.0 (#113): the security questions every test user sets up at the first sign-in
+QUESTION_ANSWERS = [("FIRST_TEACHER", "Mrs. Lee"), ("FIRST_PET", "Rex"), ("FIRST_CAR", "Blue Civic")]
 ADMIN = {"workspace_name": "Acme Org", "admin_username": "admin", "admin_email": "admin@example.com",
          "password": PASSWORD, "password_confirmation": PASSWORD}
 
@@ -48,11 +59,22 @@ class Api:
     def delete(self, url, **kw):
         return self.c.delete(url, headers=self._h(kw.pop("headers", None)), **kw)
 
-    def login(self, username, password=PASSWORD):
+    def login(self, username, password=PASSWORD, setup=True):
+        """setup (1.8.0, #113): a first sign-in sets up the security questions like the app does; the answer of that
+        step (the signed-in user) is returned in place of the login answer."""
         self.pre_csrf()
         r = self.post("/api/auth/login", {"username": username, "password": password})
         if r.status_code == 200:
             self.csrf = r.json()["csrf_token"]
+            if setup and r.json().get("mfa_pending") == "QUESTIONS":
+                r = self.setup_questions()
+        return r
+
+    def setup_questions(self, answers=QUESTION_ANSWERS):
+        r = self.post("/api/auth/setup/security-questions",
+                      {"questions": [{"question": q, "answer": a} for q, a in answers]})
+        assert r.status_code == 200, r.text
+        self.csrf = r.json()["csrf_token"]
         return r
 
 
@@ -76,7 +98,10 @@ def initialize(app) -> Api:
     a.pre_csrf()
     r = a.post("/api/system/initialize", ADMIN)
     assert r.status_code == 200, r.text
-    a.csrf = a.get("/api/auth/me").json()["csrf_token"]
+    me = a.get("/api/auth/me").json()
+    a.csrf = me["csrf_token"]
+    if me.get("mfa_pending") == "QUESTIONS":   # 1.8.0 (#113)
+        a.setup_questions()
     return a
 
 

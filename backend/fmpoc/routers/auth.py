@@ -7,12 +7,14 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session, object_session
 
 from .. import audit
-from ..deps import PRE_CSRF_COOKIE, SESSION_COOKIE, Ctx, auth_ctx, get_ctx, get_db, pre_mfa_ctx
+from ..deps import PRE_CSRF_COOKIE, SESSION_COOKIE, Ctx, auth_ctx, get_ctx, get_db, pre_mfa_ctx, require
 from ..errors import AppError
 from ..permissions import permissions_for
-from ..schemas import ChangePasswordIn, LoginIn, MfaCodeIn, MfaEnrollStartIn, MfaVerifyIn, PreferencesIn
+from ..schemas import (ChangePasswordIn, ForgotCompleteIn, ForgotStartIn, LoginIn, MfaCodeIn, MfaEnrollStartIn,
+                       MfaVerifyIn, PreferencesIn, SecurityQuestionsChangeIn, SecurityQuestionsIn, SetupPasswordIn)
 from ..services import auth as svc
 from ..services import mfa
+from ..services import recovery
 from ..services.charts import charts_for
 from ..services.dashboard_layout import encode as encode_layout
 from ..services.dashboard_layout import is_customized, layout_for
@@ -60,6 +62,7 @@ def me_payload(ctx: Ctx) -> dict:
             "theme": u.theme, "nav_collapsed": bool(u.nav_collapsed), "dashboard_charts": charts_for(u),
             "dashboard_layout": layout_for(u), "dashboard_layout_customized": is_customized(u),
             "modules": {"fundraisers": module_enabled(object_session(u), u.workspace_id)},  # v1.6.0 CR-033
+            "sign_in_notices": recovery.sign_in_notices(u),  # 1.8.0 (#113)
             "csrf_token": ctx.session.csrf_token}
 
 
@@ -104,8 +107,9 @@ def _finish(request: Request, response: Response, db: Session, ctx: Ctx, how: st
         _set_trusted_cookie(request, response, t)
     db.commit()
     set_session_cookie(request, response, token)
-    ctx.roles = ctx.user.role_codes
-    ctx.perms = permissions_for(ctx.roles)
+    if not ctx.mfa_pending:   # 1.8.0 (#113): a setup step may still follow
+        ctx.roles = ctx.user.role_codes
+        ctx.perms = permissions_for(ctx.roles)
     return me_payload(ctx)
 
 
@@ -226,3 +230,81 @@ def preferences(body: PreferencesIn, db: Session = Depends(get_db), ctx: Ctx = D
     return {"theme": ctx.user.theme, "nav_collapsed": bool(ctx.user.nav_collapsed),
             "dashboard_charts": charts_for(ctx.user), "dashboard_layout": layout_for(ctx.user),
             "dashboard_layout_customized": is_customized(ctx.user)}
+
+
+# ------------------------------------------------------------------ 1.8.0 (#113): forgotten password
+@router.get("/auth/security-questions")
+def question_catalog():
+    """The fixed list of security questions."""
+    return recovery.catalog()
+
+
+def _gate(ctx: Ctx, step: str) -> None:
+    if ctx.mfa_pending != step:
+        raise AppError(409, "STEP_NOT_PENDING", "This step is not waiting for this session.")
+
+
+@router.post("/auth/setup/password")
+def setup_password(body: SetupPasswordIn, request: Request, response: Response, db: Session = Depends(get_db),
+                   ctx: Ctx = Depends(pre_mfa_ctx)):
+    """After the host `reset-password`: the temporary password is replaced before anything else."""
+    _gate(ctx, "PASSWORD")
+    svc.set_new_password(db, ctx, body.new_password, body.new_password_confirmation)
+    return _finish(request, response, db, ctx, "password_changed", False)
+
+
+@router.post("/auth/setup/security-questions")
+def setup_questions(body: SecurityQuestionsIn, request: Request, response: Response, db: Session = Depends(get_db),
+                    ctx: Ctx = Depends(pre_mfa_ctx)):
+    """First sign-in (or the next one after the upgrade / an Administrator's reset): choose and answer 3 questions."""
+    _gate(ctx, "QUESTIONS")
+    recovery.set_questions(db, ctx, ctx.user, body.questions, "sign_in")
+    return _finish(request, response, db, ctx, "questions_set", False)
+
+
+@router.get("/me/security-questions")
+def my_questions(db: Session = Depends(get_db), ctx: Ctx = Depends(auth_ctx)):
+    return recovery.my_questions(db, ctx.user)
+
+
+@router.put("/me/security-questions")
+def change_questions(body: SecurityQuestionsChangeIn, db: Session = Depends(get_db), ctx: Ctx = Depends(auth_ctx)):
+    """My account: new questions and answers (the current password is needed)."""
+    svc.check_current_password(db, ctx, body.current_password, "security_questions")
+    recovery.set_questions(db, ctx, ctx.user, body.questions, "my_account")
+    db.commit()
+    return recovery.my_questions(db, ctx.user)
+
+
+@router.post("/me/sign-in-notices/dismiss")
+def dismiss_notices(db: Session = Depends(get_db), ctx: Ctx = Depends(auth_ctx)):
+    recovery.dismiss_sign_in_notices(ctx.user)
+    db.commit()
+    return {"sign_in_notices": []}
+
+
+@router.post("/auth/forgot/start")
+def forgot_start(body: ForgotStartIn, request: Request, db: Session = Depends(get_db), ctx: Ctx = Depends(get_ctx)):
+    """One of the user's questions, chosen at random (the same one until a failed attempt or a timeout). An unknown
+    username gets a question too, so the answer never tells whether an account exists."""
+    s = request.app.state.settings
+    return recovery.forgot_start(db, s, request.app.state.limiter, ctx, body.username)
+
+
+@router.post("/auth/forgot/complete")
+def forgot_complete(body: ForgotCompleteIn, request: Request, db: Session = Depends(get_db), ctx: Ctx = Depends(get_ctx)):
+    s = request.app.state.settings
+    return recovery.forgot_complete(db, s, request.app.state.key, request.app.state.limiter, ctx, body)
+
+
+@router.get("/security-notices")
+def security_notices(db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
+    """Administrators: locks of an hour or more, accounts disabled after failed attempts, self-service resets."""
+    return recovery.admin_notices(db, ctx.workspace_id)
+
+
+@router.post("/security-notices/{notice_id}/dismiss")
+def dismiss_security_notice(notice_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
+    recovery.dismiss_admin_notice(db, ctx, notice_id)
+    db.commit()
+    return recovery.admin_notices(db, ctx.workspace_id)

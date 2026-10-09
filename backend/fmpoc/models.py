@@ -83,6 +83,18 @@ class User(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     updated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
 
+    # 1.8.0 (#113): failed attempts in a row (sign-in passwords and Forgot password answers / codes together),
+    # escalating locks, the temporary password from the host `reset-password`, the question currently offered by
+    # Forgot password, and the notices shown once at the next sign-in.
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    locked_until: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)
+    reset_question_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reset_question_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    notice_failed_attempts_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    notice_password_reset_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    notice_password_reset_method: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
     roles: Mapped[list[Role]] = relationship(secondary="user_role", lazy="selectin")
 
     __table_args__ = (UniqueConstraint("workspace_id", "username_normalized", name="uq_user_ws_username"),)
@@ -593,3 +605,31 @@ class Reminder(Base):
     repeat_anchor: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     repeat_index: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     repeat_source_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
+
+class UserSecurityQuestion(Base):
+    """1.8.0 (#113): one of a user's three security questions (a code from the fixed list) and its answer, hashed
+    like a password after normalization (case, spaces and punctuation ignored)."""
+    __tablename__ = "user_security_question"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), index=True)
+    slot: Mapped[int] = mapped_column(Integer)  # 1..3
+    question_code: Mapped[str] = mapped_column(String(40))
+    answer_hash: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "slot", name="uq_user_security_question_slot"),)
+
+
+class SecurityNotice(Base):
+    """1.8.0 (#113): a notice for the Administrators (account locked for an hour or more, disabled after failed
+    attempts, password reset with the security questions) until one of them dismisses it."""
+    __tablename__ = "security_notice"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    subject_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kind: Mapped[str] = mapped_column(String(30))  # ACCOUNT_LOCKED | ACCOUNT_DISABLED | PASSWORD_RESET
+    message: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    dismissed_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    dismissed_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

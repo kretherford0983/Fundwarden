@@ -14,6 +14,8 @@ def _enroll(a: Api) -> None:
     r = a.post("/api/auth/mfa/enroll/confirm", {"code": pyotp.TOTP(s["secret"].replace(" ", "")).now()})
     assert r.status_code == 200, r.text
     a.csrf = r.json()["me"]["csrf_token"]
+    if r.json()["me"]["mfa_pending"] == "QUESTIONS":   # 1.8.0 (#113)
+        a.setup_questions()
 
 
 @pytest.fixture

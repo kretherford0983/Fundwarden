@@ -18,6 +18,7 @@ export default function Users() {
   const [edit, setEdit] = useState<any | null>(null);
   const [reset, setReset] = useState<any | null>(null);
   const [mfaReset, setMfaReset] = useState<any | null>(null);
+  const [qReset, setQReset] = useState<any | null>(null); // 1.8.0 (#113)
   const [err, setErr] = useState<unknown>(null);
   const load = () => api.get("/api/users").then(setUsers, setErr);
   useEffect(() => {
@@ -34,18 +35,24 @@ export default function Users() {
       </div>
       <ErrorBox error={err} />
       <table className="table">
-        <thead><tr><th>Username</th><th>Display name</th><th>Email</th><th>Security domain</th><th>Roles</th><th>Status</th><th>Two-step</th>{manage ? <th /> : null}</tr></thead>
+        <thead><tr><th>Username</th><th>Display name</th><th>Email</th><th>Security domain</th><th>Roles</th><th>Status</th><th>Two-step</th><th>Security questions</th>{manage ? <th /> : null}</tr></thead>
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
               <td>{u.username}</td><td>{u.display_name}</td><td>{u.email}</td><td>{u.security_domain}</td><td>{u.roles.join(", ")}</td>
-              <td>{u.active ? "Active" : "Disabled"}</td>
+              <td>
+                {u.active ? "Active" : "Disabled"}
+                {u.locked_until ? <div className="badge red" title="Too many failed attempts">Locked until {new Date(u.locked_until).toLocaleString()}</div> : null}
+                {u.failed_attempts ? <div className="muted small-text">{u.failed_attempts} failed attempt{u.failed_attempts === 1 ? "" : "s"} in a row</div> : null}
+              </td>
               <td>{u.mfa_enabled ? <span className="badge green">On</span> : <span className="badge grey">Not set up</span>}</td>
+              <td>{u.security_questions_set ? <span className="badge green">Set</span> : <span className="badge grey">At next sign-in</span>}</td>
               {manage ? (
                 <td className="actions-cell">
                   <button className="small" onClick={() => setEdit(u)}>Edit</button>
                   <button className="small" onClick={() => setReset(u)}>Reset password</button>
                   {u.mfa_enabled ? <button className="small" onClick={() => setMfaReset(u)}>Reset two-step</button> : null}
+                  {u.security_questions_set ? <button className="small" onClick={() => setQReset(u)}>Reset security questions</button> : null}
                 </td>
               ) : null}
             </tr>
@@ -55,6 +62,7 @@ export default function Users() {
       {edit ? <UserForm user={edit} ownRolesLocked={mode === "server" && edit.id === me.id} isSelf={edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
       {reset ? <ResetForm user={reset} onClose={() => setReset(null)} /> : null}
       {mfaReset ? <MfaResetForm user={mfaReset} onClose={() => { setMfaReset(null); load(); }} /> : null}
+      {qReset ? <QuestionsResetForm user={qReset} onClose={() => { setQReset(null); load(); }} /> : null}
     </div>
   );
 }
@@ -173,6 +181,36 @@ function MfaResetForm({ user, onClose }: { user: any; onClose: () => void }) {
             <p>Use this when {user.username} has lost both the authenticator app and the recovery codes. Their authenticator, recovery codes and trusted browsers are removed and they are signed out everywhere.</p>
             <Field label="Reason (required)"><input required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Lost phone" /></Field>
             <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Reset two-step verification</button></div>
+          </>
+        )}
+      </GuardedForm>
+    </Modal>
+  );
+}
+
+// 1.8.0 (#113): the user chooses new security questions at the next sign-in.
+function QuestionsResetForm({ user, onClose }: { user: any; onClose: () => void }) {
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState<unknown>(null);
+  const [done, setDone] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post(`/api/users/${user.id}/reset-security-questions`, { reason });
+      setDone(true);
+    } catch (x) {
+      setErr(x);
+    }
+  };
+  return (
+    <Modal title={`Reset security questions for ${user.username}`} onClose={onClose}>
+      <GuardedForm onSubmit={submit}>
+        <ErrorBox error={err} />
+        {done ? <><div className="alert ok" role="status">The security questions were reset. {user.username} will choose new ones at the next sign-in.</div><div className="actions"><button type="button" className="primary" onClick={onClose}>Done</button></div></> : (
+          <>
+            <p>Use this when {user.username} no longer remembers the answers. Their questions and answers are removed; they choose new ones at the next sign-in. Until then, <i>Forgot password?</i> does not work for them.</p>
+            <Field label="Reason (required)"><input required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Forgot the answers" /></Field>
+            <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Reset security questions</button></div>
           </>
         )}
       </GuardedForm>

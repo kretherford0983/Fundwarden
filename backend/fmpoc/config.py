@@ -94,8 +94,18 @@ class Settings:
     trusted_proxies: str = ""
     session_idle_minutes: int = 30
     session_absolute_hours: int = 12
+    # per client address (and per unknown username): a brake on top of the per-account count below
     login_max_failures: int = 5
     login_lockout_seconds: int = 900
+    # 1.8.0 (#113): failed attempts in a row per account (sign-in and Forgot password together), kept in the
+    # database: locks at the three counts for the given minutes, the account is disabled at the last count.
+    lockout_1_failures: int = 5
+    lockout_1_minutes: int = 15
+    lockout_2_failures: int = 10
+    lockout_2_minutes: int = 60
+    lockout_3_failures: int = 15
+    lockout_3_minutes: int = 1440
+    lockout_disable_failures: int = 20
     restore_max_mb: int = 20480  # v1.4.1 CR-024/025: largest backup file accepted for a restore
     log_level: str = "INFO"
     debug: bool = False  # never enabled in packaged builds

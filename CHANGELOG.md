@@ -3,8 +3,22 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.8.0 — unreleased
-Database migration `0021` (one column added; no existing data changes). Rolling back to 1.7.3 needs the data
-snapshot the installer takes before the upgrade (docs/upgrade.md).
+Database migrations `0021` and `0022` (columns and tables added; no existing data changes). Rolling back to 1.7.3
+needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). **Every user chooses three
+security questions at the next sign-in.**
+- **Forgot password (#113).** Each user chooses three security questions from a list (at the first sign-in; existing
+  users at their next one) and can change them in **My account**. **Forgot password?** on the sign-in page asks one
+  of them at random; on a server — and on a local install with two-step verification — an authenticator or recovery
+  code is needed as well. Then the user sets a new password and is signed out everywhere. The page never reveals
+  whether a username exists. The user is told about the reset at the next sign-in and Administrators see a notice.
+  Administrators can *Reset security questions* on the Users page.
+- **Failed attempts lock the account (#113).** Wrong passwords and wrong *Forgot password* answers now add up per
+  account and are kept across restarts: 5 in a row lock the account for 15 minutes, 10 for an hour (Administrators
+  get a notice), 15 for 24 hours, and at 20 the account is disabled until an Administrator enables it again. The
+  numbers can be changed in `config.toml` (docs/configuration.md). The user is told at the next sign-in.
+- **Host command `reset-password` (#113)** for the only Administrator who forgot both the password and the answers:
+  it prints a temporary password that must be changed at the next sign-in. `reset-password` and `reset-mfa` also
+  enable a disabled account again.
 - **Financial Flow Report (#106).** A new report on the Reports page for the treasurer's periodic update: the money
   that came in and went out of the chosen accounts between a From Date and a Through Date (empty: "Current"), one
   section per account with its income, expenses, totals and the **Difference** (green with + or red with −), and an
