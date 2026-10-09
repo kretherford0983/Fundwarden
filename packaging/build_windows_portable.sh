@@ -72,8 +72,8 @@ set PYTHONDONTWRITEBYTECODE=1
 CMD
 cat > "$OUT/PennyWarden-Server.cmd" <<'CMD'
 @echo off
-rem Server mode. Configure host/port in %LOCALAPPDATA%\PennyWarden\config.toml or FM_* variables.
-rem Put an HTTPS reverse proxy in front for network use and set FM_SECURE_COOKIES=true.
+rem Server mode. Settings: config.toml in the data folder (%LOCALAPPDATA%\PennyWarden, or --data-dir DIR) or FM_*
+rem variables. Put HTTPS in front for network use - step by step: README-WINDOWS-SERVER.md
 setlocal
 set "HERE=%~dp0"
 set PYTHONNOUSERSITE=1
@@ -82,5 +82,6 @@ set PYTHONDONTWRITEBYTECODE=1
 CMD
 sed -i 's/$/\r/' "$OUT"/*.cmd
 cp "$ROOT/docs/deployment.md" "$OUT/README-DEPLOYMENT.md" 2>/dev/null || true
+cp "$ROOT/docs/install-windows-server.md" "$OUT/README-WINDOWS-SERVER.md" 2>/dev/null || true   # 1.10.0
 (cd "$ROOT/dist" && rm -f "$NAME.zip" && python3 -m zipfile -c "$NAME.zip" "$NAME" >/dev/null)
 echo "Built $ROOT/dist/$NAME.zip"
