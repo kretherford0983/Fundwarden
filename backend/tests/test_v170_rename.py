@@ -138,7 +138,7 @@ def test_no_user_facing_file_still_says_fundwarden():
     allowed = {"CHANGELOG.md", "README.md", "THIRD-PARTY-NOTICES.txt", "backend/fmpoc/config.py", "docs/upgrade.md",
                "docs/implementation-notes.md", "docs/user-guide-v1.4.md", "docs/user-guide-v1.5.md",
                "docs/user-guide-v1.6.md", "docs/user-guide-v1.7.md", "docs/backup-restore.md", "docs/branching.md",
-               "docs/deployment.md",
+               "docs/deployment.md", "docs/configuration.md",  # 1.8.0 (#112): the earlier folder names
                "packaging/linux/install-server.sh", "packaging/linux/install.sh",
                "backend/tests/test_v166_rename.py", "backend/tests/test_v170_rename.py"}
     hits = []

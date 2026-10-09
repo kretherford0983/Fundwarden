@@ -13,9 +13,10 @@ export interface BudgetActions {
 }
 
 /** Holistic budget table: Q1-Q4 + yearly actuals, amount, remaining, state icon + text (BR-079/080). */
-export function BudgetSection({ title, rows, summary, fyStatus, actions, showOutside, registerLinks }: {
+export function BudgetSection({ title, rows, summary, fyStatus, actions, showOutside, registerLinks, onHistory }: {
   title: string; rows: any[]; summary: any; fyStatus: string; actions?: BudgetActions; showOutside?: boolean;
   registerLinks?: boolean; // 1.7.3 (#105): each budget links to its transactions in the Register
+  onHistory?: (row: any) => void; // 1.8.0 (#89): budgets linked across Fiscal Years
 }) {
   const editable = !!actions && fyStatus !== "CLOSED";
   return (
@@ -35,8 +36,8 @@ export function BudgetSection({ title, rows, summary, fyStatus, actions, showOut
             {rows.length === 0 ? <tr><td colSpan={12} className="muted">No {title.toLowerCase()} budgets.</td></tr> : null}
             {rows.map((r) => (
               <Fragment key={r.id}>
-                <Row r={r} level={0} editable={editable} actions={actions} showOutside={showOutside} registerLinks={registerLinks} />
-                {r.children.map((c: any) => <Row key={c.id} r={c} level={1} editable={editable} actions={actions} parent={r} showOutside={showOutside} registerLinks={registerLinks} />)}
+                <Row r={r} level={0} editable={editable} actions={actions} showOutside={showOutside} registerLinks={registerLinks} onHistory={onHistory} />
+                {r.children.map((c: any) => <Row key={c.id} r={c} level={1} editable={editable} actions={actions} parent={r} showOutside={showOutside} registerLinks={registerLinks} onHistory={onHistory} />)}
               </Fragment>
             ))}
           </tbody>
@@ -55,7 +56,7 @@ export function BudgetSection({ title, rows, summary, fyStatus, actions, showOut
   );
 }
 
-function Row({ r, level, editable, actions, parent, showOutside, registerLinks }: { r: any; level: number; editable: boolean; actions?: BudgetActions; parent?: any; showOutside?: boolean; registerLinks?: boolean }) {
+function Row({ r, level, editable, actions, parent, showOutside, registerLinks, onHistory }: { r: any; level: number; editable: boolean; actions?: BudgetActions; parent?: any; showOutside?: boolean; registerLinks?: boolean; onHistory?: (row: any) => void }) {
   const tone = r.state.tone;
   const locked = parent ? parent.locked : r.locked;
   const canEdit = editable && !r.system_managed && !locked && !["REJECTED", "INACTIVE"].includes(r.status);
@@ -70,6 +71,7 @@ function Row({ r, level, editable, actions, parent, showOutside, registerLinks }
           </Link>
         ) : <><span className="code">{r.display_code}</span> {r.name}</>}
         {r.is_other ? <span className="muted"> (system-managed, calculated)</span> : null}
+        {onHistory && r.has_history ? <button type="button" className="link small history-link" aria-label={`History of ${r.display_code}`} title="This budget across Fiscal Years" onClick={() => onHistory(r)}>History</button> : null}
         {r.status === "REJECTED" && r.requested_amount ? <span className="muted"> · requested {money(r.requested_amount)}</span> : null}
       </td>
       <td className="num">{money(r.amount)}</td>

@@ -32,3 +32,6 @@ jobs:
 
   tests:
     uses: ./.github/workflows/tests.yml
+    with:
+      # 1.8.0 (#98): Dependabot cannot regenerate THIRD-PARTY-NOTICES.txt - its pull requests still run every test
+      notices: ${{ startsWith(github.head_ref, 'dependabot/') && 'regenerate' || 'check' }}

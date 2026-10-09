@@ -97,7 +97,23 @@ async function request<T>(method: string, url: string, body?: unknown, isForm = 
   return data as T;
 }
 
+/** 1.8.0 (#106): a POST that returns a file (e.g. a PDF made from a reviewed form); errors are thrown like api.post. */
+async function requestBlob(url: string, body: unknown): Promise<Blob> {
+  const headers: Record<string, string> = { Accept: "application/pdf, application/json", "Content-Type": "application/json" };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), credentials: "same-origin" });
+  checkFrontendBuild(res.headers.get("X-Frontend-Build"));
+  if (!res.ok) {
+    let data: any = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (res.status === 401) window.dispatchEvent(new CustomEvent("fm:unauthenticated", { detail: { code: data?.error?.code } }));
+    throw new ApiError(res.status, data);
+  }
+  return res.blob();
+}
+
 export const api = {
+  postBlob: (url: string, body: unknown) => requestBlob(url, body),
   get: <T = any>(url: string) => request<T>("GET", url),
   post: <T = any>(url: string, body?: unknown) => request<T>("POST", url, body ?? {}),
   patch: <T = any>(url: string, body?: unknown) => request<T>("PATCH", url, body ?? {}),

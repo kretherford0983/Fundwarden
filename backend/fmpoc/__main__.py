@@ -62,8 +62,80 @@ def reset_mfa_cli(argv: list[str]) -> int:
         from types import SimpleNamespace
         host_ctx = SimpleNamespace(workspace_id=user.workspace_id, user=None, correlation_id="host-cli", ip=None)
         mfa.reset(db, host_ctx, user, a.reason, via="host_cli")  # audit context: host action, no signed-in user
+        enabled = _reenable(db, host_ctx, user)   # 1.8.0 (#113)
         db.commit()
     print(f"Two-step verification for '{user.username}' was reset. They will set it up again at the next sign-in.")
+    if enabled:
+        print("The account was disabled; it is enabled again and its failed attempts are cleared.")
+    return 0
+
+
+def _reenable(db, host_ctx, user) -> bool:
+    """1.8.0 (#113): the host commands also end a lock, clear the failed attempts and re-enable a disabled account
+    (the way back in for the only Administrator)."""
+    from . import audit
+    was = bool(user.active)
+    had = user.failed_attempts or 0
+    user.active, user.failed_attempts, user.locked_until = True, 0, None
+    if not was or had:
+        audit.record(db, host_ctx, "USER_ENABLED" if not was else "ACCOUNT_UNLOCKED", "user", user.id,
+                     {"active": was, "failed_attempts": had}, {"active": True, "failed_attempts": 0, "via": "host_cli"},
+                     category="SECURITY")
+    return not was
+
+
+def reset_password_cli(argv: list[str]) -> int:
+    """1.8.0 (#113): host-side password reset (e.g. the only Administrator forgot both the password and the answers).
+
+        pennywarden reset-password --user NAME [--data-dir DIR]
+
+    Prints a temporary password that must be changed at the next sign-in. Also ends a lock, clears the failed attempts
+    and re-enables the account. Signs the user out everywhere. Audited as USER_PASSWORD_RESET via "host_cli".
+    """
+    p = argparse.ArgumentParser(prog="pennywarden reset-password", description="Reset a user's password")
+    p.add_argument("--user", required=True, help="username")
+    p.add_argument("--data-dir")
+    a = p.parse_args(argv)
+    import secrets
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from . import audit
+    from .db import make_engine, make_session_factory, upgrade_database
+    from .models import User, utcnow
+    from .security.passwords import hash_password
+    from .services import mfa
+    from .services.auth import revoke_user_sessions
+
+    settings = load_settings({"data_dir": a.data_dir})
+    if not settings.database_path.is_file():
+        print(f"No database found in {settings.data_dir}", file=sys.stderr)
+        return 2
+    upgrade_database(settings.database_url)
+    factory = make_session_factory(make_engine(settings.database_url))
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    temp = "".join(secrets.choice(alphabet) for _ in range(14)) + secrets.choice("23456789") + secrets.choice("abcdefghjk")
+    with factory() as db:
+        user = db.scalar(select(User).where(User.username_normalized == a.user.strip().lower()))
+        if user is None:
+            print(f"User '{a.user}' not found.", file=sys.stderr)
+            return 1
+        host_ctx = SimpleNamespace(workspace_id=user.workspace_id, user=None, correlation_id="host-cli", ip=None)
+        user.password_hash = hash_password(temp)
+        user.password_changed_at = utcnow()
+        user.must_change_password = True
+        sessions = revoke_user_sessions(db, user.id)
+        trusted = mfa.revoke_trusted(db, user.id)
+        audit.record(db, host_ctx, "USER_PASSWORD_RESET", "user", user.id, None,
+                     {"via": "host_cli", "temporary": True, "sessions_revoked": sessions,
+                      "trusted_browsers_revoked": trusted}, category="SECURITY")
+        enabled = _reenable(db, host_ctx, user)
+        db.commit()
+    print(f"Temporary password for '{user.username}': {temp}")
+    print("It must be changed at the next sign-in.")
+    if enabled:
+        print("The account was disabled; it is enabled again and its failed attempts are cleared.")
     return 0
 
 
@@ -72,6 +144,8 @@ def main(argv: list[str] | None = None, window: bool = False) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "reset-mfa":
         return reset_mfa_cli(argv[1:])
+    if argv and argv[0] == "reset-password":
+        return reset_password_cli(argv[1:])
     p = argparse.ArgumentParser(prog="pennywarden", description="PennyWarden")
     p.add_argument("--mode", choices=["local", "server"])
     p.add_argument("--host")

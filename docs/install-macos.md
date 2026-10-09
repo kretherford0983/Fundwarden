@@ -84,4 +84,5 @@ new version as a new app and ask again — then repeat steps 3 to 5.
 - **Your Mac is managed by an organization** (school or company): it may not allow apps that are not notarized. Ask
   the people who manage it, or use the Linux server installation instead (docs/deployment.md).
 
-More about the Mac app (server mode from Terminal, where the data is, backups): [docs/deployment.md](deployment.md).
+More about the Mac app: where the data and the log are, settings in `config.toml` and starting it with options from
+Terminal — [configuration.md](configuration.md#on-a-mac); server mode and backups — [deployment.md](deployment.md).

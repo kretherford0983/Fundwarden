@@ -84,12 +84,18 @@ advisory is published, also when the fix is a major version, once *Dependabot se
 (Settings → Advanced Security). Dependabot reads its settings from `main`, so a change to
 `.github/dependabot.yml` takes effect when it is released. Its branches are named `dependabot/...`:
 1. The `ci` workflow runs the full test suite on the pull request, like any other.
-2. If the update changes a dependency that ships in the packages, the *Third-party notices up to date* step fails
-   until `THIRD-PARTY-NOTICES.txt` is regenerated on that branch (`python scripts/third_party_notices.py`) — ask me
-   to do it, or close the pull request and have the update made on a feature branch.
+2. If the update changes a dependency that ships in the packages, `THIRD-PARTY-NOTICES.txt` is out of date.
+   Dependabot cannot regenerate it, so on its pull requests (and on develop builds) the *Third-party notices* step
+   regenerates the file for that run only and reports the difference as a warning and in the run's summary; the
+   tests, build and E2E tests still run (1.8.0, #98). A package that the update brings in and that is not pinned in
+   `backend/requirements.txt` is named there too — it has to be added to that file.
 3. Merge when green. The update then travels develop → test → main with the next release; nothing is released by
    merging it.
-4. Not wanted? Close the pull request — Dependabot does not propose that version again. (Avoid the comment
+4. **Before promoting develop to test**, regenerate the notices on develop (on a `feature/` branch:
+   `python scripts/third_party_notices.py`, review the licenses of new packages, commit) — ask me to do it. Pull
+   requests into test and main, and the test and main builds, check the file strictly and fail while it is out of
+   date or a shipped package is not pinned.
+5. Not wanted? Close the pull request — Dependabot does not propose that version again. (Avoid the comment
    `@dependabot ignore this dependency`: it also stops security fixes for that dependency.)
 
 ## One-time GitHub settings (Settings tab of the repository)

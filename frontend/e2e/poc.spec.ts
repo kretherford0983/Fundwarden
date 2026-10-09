@@ -9,13 +9,35 @@ import { expect, test, type Page } from "@playwright/test";
 const PW = "Correct-Horse-9-Battery";
 test.describe.configure({ mode: "serial" });
 
+// 1.8.0 (#113): the security questions every E2E user chooses at the first sign-in
+const QUESTIONS: [string, string][] = [["What was the name of your first teacher?", "Mrs. Lee"],
+  ["What was the name of your first pet?", "Rex"], ["What was the make and model of your first car?", "Blue Civic"]];
+
+async function setupQuestions(page: Page) {
+  await expect(page.getByRole("heading", { name: "Choose your security questions" })).toBeVisible();
+  for (const [i, [q, a]] of QUESTIONS.entries()) {
+    await page.getByLabel(`Security question ${i + 1}`).selectOption({ label: q });
+    await page.getByLabel(`Answer ${i + 1}`).fill(a);
+  }
+  await page.getByRole("button", { name: "Save and continue" }).click();
+}
+
+/** After the password (and two-step) step: the security questions on a first sign-in, then the application. */
+async function passGates(page: Page) {
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  const q = page.getByRole("heading", { name: "Choose your security questions" });
+  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
+  await expect(nav.or(q)).toBeVisible({ timeout: 20_000 });
+  if (await q.isVisible()) await setupQuestions(page);
+  await expect(nav).toBeVisible({ timeout: 20_000 });
+}
+
 async function login(page: Page, user: string, pw = PW) {
   await page.goto("/");
   await page.getByLabel("Username").fill(user);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Sign in" }).click();
-  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
+  await passGates(page);
 }
 
 async function logout(page: Page) {
@@ -49,6 +71,9 @@ test("AC-INIT-001..007: fresh install wizard bootstraps a working Administrator"
   await page.getByLabel("Password", { exact: true }).fill(PW);
   await page.getByLabel("Password Confirmation").fill(PW);
   await page.getByRole("button", { name: "Initialize" }).click();
+  await expect(page.getByRole("heading", { name: "Choose your security questions" })).toBeVisible();
+  await page.screenshot({ path: "e2e-screenshots/light-security-questions.png", fullPage: true });
+  await setupQuestions(page);   // 1.8.0 (#113): the first Administrator chooses the security questions too
   await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Main navigation" });
   await expect(nav.getByRole("link")).toHaveText(["Dashboard", "Users", "Audit Log", "System/About"]);
@@ -166,7 +191,7 @@ test("#68: signing in while the page's first form-token request is still under w
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForTimeout(300);
   releaseFirst();
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
+  await passGates(page);
   expect(requests).toBe(1);                  // Sign in waited for the request that was already under way
 });
 
@@ -999,7 +1024,7 @@ test("CR-024: a new installation is set up from the backup in the initialization
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password").fill(PW);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await passGates(page);
   } finally {
     child.kill();
   }
@@ -1280,6 +1305,45 @@ test("#88: updating a non-register balance keeps a dated history", async ({ page
   await expect(hist).toContainText("September statement");
   await expect(hist).toContainText(d);
   await page.screenshot({ path: "e2e-screenshots/light-balance-history.png" });
+});
+
+// ---------------------------------------------------------------- 1.8.0 #89: historic budget traceability
+test("#89: a copied budget continues its source; Continues can be set; History shows the lineage", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const mkFy = async (body: any) => {
+    let r = await post("/api/fiscal-years", { confirmations: [], ...body });
+    if (r.status() === 409) r = await post("/api/fiscal-years", { ...body, confirmations: ((await r.json()).error.warnings || []).map((w: any) => w.code) });
+    expect(r.status(), await r.text()).toBe(201);
+    return r.json();
+  };
+  const a = await mkFy({ identifier: "2040", start_date: "2039-07-01", end_date: "2040-06-30" });
+  const src = await (await post("/api/budgets", { fiscal_year_id: a.id, code: "8900", name: "Lineage", budget_type: "EXPENSE", amount: "100.00" })).json();
+  await post("/api/budgets", { fiscal_year_id: a.id, code: "8950", name: "Old name", budget_type: "EXPENSE", amount: "50.00" });
+  const b = await mkFy({ identifier: "2041", start_date: "2040-07-01", end_date: "2041-06-30", copy_from_fiscal_year_id: a.id, copy_budget_ids: [src.id] });
+  // a new budget in FY2041 picks the FY2040 budget it continues
+  await page.goto(`/budgets?fiscal_year_id=${b.id}`);
+  await page.getByRole("button", { name: "New budget" }).click();
+  const dlg = page.getByRole("dialog", { name: "New budget" });
+  await dlg.getByLabel("Budget code (e.g. 1000)").fill("8960");
+  await dlg.getByLabel("Name").fill("New name");
+  await dlg.getByLabel("Amount").fill("60.00");
+  const cont = dlg.getByLabel("Continues budget");
+  await expect(cont.locator("option", { hasText: "FY2040 - 8950 - Old name" })).toHaveCount(1);
+  await expect(cont.locator("option", { hasText: "8900" })).toHaveCount(0);            // already continued by the copy
+  await cont.selectOption({ label: "FY2040 - 8950 - Old name" });
+  await dlg.getByRole("button", { name: "Create" }).click();
+  await expect(dlg).toHaveCount(0);
+  // History of the copied budget
+  await page.getByRole("button", { name: "History of 8900" }).click();
+  const h = page.getByRole("dialog", { name: "History of 8900 Lineage" });
+  await expect(h.getByRole("table", { name: "Budget history" }).locator("tbody tr")).toHaveCount(2);
+  await expect(h.locator("tbody tr").first()).toContainText("FY2040");
+  await expect(h.locator("tr[aria-current='true']")).toContainText("FY2041");
+  await page.screenshot({ path: "e2e-screenshots/light-budget-history.png" });
+  await h.locator(".actions").getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "History of 8960" }).click();
+  await expect(page.getByRole("dialog", { name: "History of 8960 New name" })).toContainText("Old name");
 });
 
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
@@ -1678,6 +1742,7 @@ test("v1.5.0: a bookmarked page leads to the dashboard address, two-step setup/v
     await page.getByRole("button", { name: "Turn on two-step verification" }).click();
     await page.getByLabel("I have saved my recovery codes").check();
     await page.getByRole("button", { name: "Continue" }).click();
+    await setupQuestions(page);   // 1.8.0 (#113): after two-step, the security questions
     await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
     await page.getByRole("button", { name: "Sign out" }).click();
 
@@ -1712,4 +1777,114 @@ test("v1.5.0: a bookmarked page leads to the dashboard address, two-step setup/v
   } finally {
     child.kill();
   }
+});
+
+// ---------------------------------------------------------------- 1.8.0 #106: Financial Flow Report
+// (last: its transactions would otherwise become lines of the fundraiser in the CR-034 test)
+test("#106: Financial Flow Report - review, exclude a line with a reason, note a line, generate the PDF", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  const post = await apiAs(page);
+  // yesterday (UTC): on or before the server's own "today" whatever its time zone
+  const today = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const accts = (await (await page.request.get("/api/bank-accounts")).json()).filter((a: any) => a.register_enabled && a.status === "ACTIVE");
+  const acct = accts[0];
+  const nat = await (await page.request.get(`/api/fiscal-years/natural?date=${today}`)).json();
+  const dep = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${nat.default_fiscal_year_id}&transaction_type=DEPOSIT`)).json();
+  const wd = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${nat.default_fiscal_year_id}&transaction_type=WITHDRAWAL`)).json();
+  const mk = async (body: any) => {
+    body = { bank_account_id: acct.id, transaction_date: today, no_attachment: true, no_attachment_reason: "e2e", ...body };
+    let r = await post("/api/transactions", body);
+    if (r.status() === 409) { body.confirmations = ((await r.json()).error.warnings || []).map((w: any) => w.code); r = await post("/api/transactions", body); }
+    expect(r.status(), await r.text()).toBe(201);
+    return r.json();
+  };
+  await mk({ transaction_type: "DEPOSIT", allocations: [{ budget_id: dep[0].id, amount: "300.00", description: "Flow gift A" },
+                                                        { budget_id: dep[0].id, amount: "200.00", description: "Flow gift B" }] });
+  await mk({ transaction_type: "WITHDRAWAL", allocations: [{ budget_id: wd[0].id, amount: "80.00", description: "Flow supplies" }] });
+  const before = await (await post("/api/reports/financial-flow/review", { title: "x", date_from: today, bank_account_ids: [acct.id] })).json();
+  const inc0 = Math.round(Number(before.sections[0].income_total) * 100);
+  const exp0 = Math.round(Number(before.sections[0].expense_total) * 100);
+
+  await page.getByRole("link", { name: "Reports" }).click();
+  await page.getByRole("tab", { name: "Financial Flow" }).click();
+  await page.getByLabel("Title").fill("E2E flow");
+  await page.getByLabel("From Date").fill(today);
+  const picks = page.locator(".account-picks input[type=checkbox]");
+  for (let i = 0; i < await picks.count(); i++) await picks.nth(i).uncheck();
+  await page.locator(".account-picks label", { hasText: acct.label }).locator("input").check();
+  await page.getByRole("button", { name: "Review transactions" }).click();
+  await expect(page.getByRole("heading", { name: /E2E flow — Financial Flow Report · .* – Current/ })).toBeVisible();
+  const incTotal = page.getByTestId(`flow-total-${acct.id}-income`);
+  await expect(incTotal).toHaveText(`$${(inc0 / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+  // unchecking asks for a reason; Cancel keeps the line
+  const gift = page.getByRole("checkbox", { name: /Flow gift B/ });
+  await expect(gift).toBeChecked();
+  await gift.click();                                         // asks first: the line stays checked until a reason is given
+  const ask = page.getByRole("dialog", { name: "Exclude this line" });
+  await expect(ask.getByRole("button", { name: "Exclude line" })).toBeDisabled();
+  await ask.getByRole("button", { name: "Cancel" }).click();
+  await expect(gift).toBeChecked();
+  await gift.click();
+  await ask.getByLabel("Reason (required)").fill("Entered twice");
+  await ask.getByRole("button", { name: "Exclude line" }).click();
+  await expect(gift).not.toBeChecked();
+  await expect(incTotal).toHaveText(`$${((inc0 - 20000) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+  const diff = inc0 - 20000 - exp0;
+  await expect(page.getByTestId(`flow-diff-${acct.id}`)).toContainText(diff >= 0 ? "+" : "\u2212");
+  await page.getByRole("textbox", { name: /Note for .* \$80\.00/ }).first().fill("Paid by check");
+  await page.screenshot({ path: "e2e-screenshots/light-flow-review.png" });
+  const resp = page.waitForResponse((r) => r.url().endsWith("/api/reports/financial-flow") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Generate PDF" }).click();
+  const r = await resp;
+  expect(r.status()).toBe(200);
+  expect(r.headers()["content-type"]).toBe("application/pdf");
+  const sent = r.request().postDataJSON();
+  expect(sent.exclusions).toHaveLength(1);
+  expect(sent.exclusions[0].reason).toBe("Entered twice");
+  expect(sent.line_notes.map((n: any) => n.note)).toEqual(["Paid by check"]);
+  await expect(page.getByRole("link", { name: "Download PDF" })).toBeVisible();
+  // checking the line again discards its reason
+  await gift.check();
+  await expect(incTotal).toHaveText(`$${(inc0 / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+});
+
+// ---------------------------------------------------------------- 1.8.0 #113: Forgot password
+test("#113: security questions at the first sign-in, Forgot password, notices for the user and the Administrators", async ({ page }) => {
+  await login(page, "admin");
+  const adm = await apiAs(page);
+  const r = await adm("/api/users", { username: "fp1", email: "fp1@example.org", display_name: "Frankie Pass", password: PW,
+    security_domain: "FINANCIAL", roles: ["BUDGET_USER"] });
+  expect(r.status(), await r.text()).toBe(201);
+  await logout(page);
+  await login(page, "fp1");                                   // chooses the questions on the way in
+  await page.getByRole("link", { name: "My account" }).click();
+  await expect(page.getByTestId("my-questions").locator("li")).toHaveCount(3);
+  await logout(page);
+
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await page.getByLabel("Username").fill("fp1");
+  await page.getByRole("button", { name: "Continue" }).click();
+  const q = (await page.getByTestId("security-question").textContent())!.trim();
+  const answer = QUESTIONS.find(([text]) => text === q)![1];
+  await page.getByLabel("Your answer").fill(` ${answer.toUpperCase()}! `);   // case, spaces and punctuation do not matter
+  await page.getByLabel("New password", { exact: true }).fill("Forgot-Reset-Pass-77");
+  await page.getByLabel("Confirm new password").fill("Forgot-Reset-Pass-77");
+  await page.screenshot({ path: "e2e-screenshots/light-forgot-password.png", fullPage: true });
+  await page.getByRole("button", { name: "Set new password" }).click();
+  await expect(page.getByRole("status")).toContainText("Your password was changed");
+  await page.getByRole("button", { name: "Back to sign in" }).first().click();
+  await login(page, "fp1", "Forgot-Reset-Pass-77");
+  const notice = page.getByTestId("sign-in-notices");
+  await expect(notice).toContainText("Your password was reset on");
+  await notice.getByRole("button", { name: "OK" }).click();
+  await expect(notice).toHaveCount(0);
+  await logout(page);
+
+  await login(page, "admin");
+  const admin = page.getByTestId("security-notices");
+  await expect(admin).toContainText("Frankie Pass reset their password");
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page.getByRole("row", { name: /fp1/ })).toContainText("Set");
+  await admin.getByRole("button", { name: "Dismiss" }).first().click();
+  await expect(page.getByTestId("security-notices")).toHaveCount(0);
 });

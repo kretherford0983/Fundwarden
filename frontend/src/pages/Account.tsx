@@ -3,6 +3,7 @@ import { api } from "../api";
 import { BuildDetails, ErrorBox, Field, GuardedForm } from "../components";
 import { ROLE_NAMES, useMe } from "../App";
 import { SecuritySection } from "./Mfa";
+import { SecurityQuestionsSection } from "./Recovery";
 
 export default function Account() {
   const { me, setTheme } = useMe();
@@ -57,6 +58,7 @@ export default function Account() {
         <button className="primary" type="submit">Change password</button>
       </GuardedForm>
       <SecuritySection />
+      <SecurityQuestionsSection />
       <section className="card" aria-labelledby="about-h">
         <h2 id="about-h">About</h2>
         {ver ? <BuildDetails info={ver} /> : <p className="hint">Loading…</p>}
