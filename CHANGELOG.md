@@ -2,6 +2,10 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.10.0 — unreleased
+- **Fix: typing in the "Exclude this line" dialog of the Financial Flow Report (#139).** The reason box lost the focus
+  after every letter, so a reason could hardly be entered. Dialogs now take the focus once, when they open.
+
 ## 1.9.0 — 2026-10-09
 Database migration `0023` (two tables added; no existing data changes). Rolling back to 1.8.0 needs the data
 snapshot the installer takes before the upgrade (docs/upgrade.md).

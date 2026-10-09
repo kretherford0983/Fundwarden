@@ -1844,7 +1844,12 @@ test("#106: Financial Flow Report - review, exclude a line with a reason, note a
   await ask.getByRole("button", { name: "Cancel" }).click();
   await expect(gift).toBeChecked();
   await gift.click();
-  await ask.getByLabel("Reason (required)").fill("Entered twice");
+  // 1.10.0 (#139): typed key by key - every letter must land in the box (the focus used to jump to the dialog)
+  const reason = ask.getByLabel("Reason (required)");
+  await reason.click();
+  await reason.pressSequentially("Entered twice", { delay: 20 });
+  await expect(reason).toHaveValue("Entered twice");
+  await expect(reason).toBeFocused();
   await ask.getByRole("button", { name: "Exclude line" }).click();
   await expect(gift).not.toBeChecked();
   await expect(incTotal).toHaveText(`$${((inc0 - 20000) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
