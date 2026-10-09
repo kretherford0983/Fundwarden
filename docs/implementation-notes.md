@@ -54,6 +54,36 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.8.0 Forgotten password (issue #113; decisions recorded in the issue: one random question, fixed list).**
+`services/recovery.py`; migration `0022` (`app_user.failed_attempts`, `locked_until`, `must_change_password`,
+`reset_question_slot`/`_at`, `notice_failed_attempts_at`, `notice_password_reset_at`/`_method`; tables
+`user_security_question` (slot 1-3, question code, Argon2id hash of the normalized answer) and `security_notice`).
+**Sign-in steps** reuse the MFA-pending session (`AuthSession.mfa_pending`): after the password and two-step
+verification, `recovery.gate_for` returns `PASSWORD` (temporary password from the host `reset-password`) or
+`QUESTIONS` (fewer than 3 questions); `auth.login`, `auth.complete_mfa` and the initialization wizard create the
+session in that state (15 minutes, no roles). `POST /api/auth/setup/password` and `/api/auth/setup/security-questions`
+complete a step through `routers/auth._finish` (session rotation, next step or full session; `LOGIN` audited once the
+session is full). `GET /api/auth/security-questions` is the list; `GET/PUT /api/me/security-questions` (PUT needs
+`current_password`). **Forgot password:** `POST /api/auth/forgot/start {username}` and `/complete {username, answer,
+code?, new_password, new_password_confirmation}` (anonymous, pre-auth CSRF). The offered slot is stored on the user
+for 15 minutes and cleared by a failed attempt; unknown / disabled / not-set-up usernames get a decoy question from an
+in-memory map with the same lifetime and always fail (`400 RESET_FAILED`, same message). Password rules are checked
+before anything is counted. A code is needed when `mfa.required(settings)` or the user has MFA on (`mfa.verify`:
+TOTP with replay protection, or a recovery code that is spent). Success: new password, sessions and trusted browsers
+revoked, `PASSWORD_RESET_SELF_SERVICE {method}`, user notice, Administrator notice. **Lock-out:**
+`recovery.register_failure` (sign-in and reset failures of an existing active account) - locks at
+`lockout_{1,2,3}_failures` for `lockout_{1,2,3}_minutes`, disabled at `lockout_disable_failures` (sessions revoked);
+`auth.login` refuses a locked account before checking the password (`429 RATE_LIMITED`, the same answer as the
+in-memory brake, which stays for client addresses and unknown usernames). A successful sign-in or reset clears the
+count; so does re-enabling (`services/users.update`) and the host commands (`__main__._reenable`). **Notices:** the
+user's (`sign_in_notices` in `/api/auth/me`, cleared by `POST /api/me/sign-in-notices/dismiss`): password reset,
+failed attempts (set at the first lock). Administrators': `GET /api/security-notices`,
+`POST /api/security-notices/{id}/dismiss` (`users.manage`) - second lock and later, disabled, self-service reset.
+`GET /api/users` adds `security_questions_set`, `failed_attempts`, `locked_until`; `POST /api/users/{id}/reset-security-questions {reason}`.
+Frontend: `pages/Recovery.tsx` (question picker, sign-in steps in `MfaGate`, Forgot password on the sign-in page,
+My account section, notice banners in the shell). Tests: `tests/test_v180_forgot_password.py`; test helpers set up
+the questions on a first sign-in (`conftest.Api.login(setup=True)`, E2E `passGates`); E2E "#113".
+
 **1.8.0 Financial Flow Report (issue #106; decisions recorded in the issue).** `services/flow_report.py`, two
 endpoints under `financial.view` (Administrators refused): `POST /api/reports/financial-flow/review` returns the lines
 for the review form (not audited; nothing is produced) and `POST /api/reports/financial-flow` the PDF (POST because
@@ -369,7 +399,7 @@ implementation (plan: project doc `claude/freedger-plan-1.3.md`).
   after creation (name/amount/notes editable).
 - A guard prevents disabling/demoting the last active Administrator.
 - Theme preference changes are not audited (preference, not business data). All other mutations are audited.
-- The login rate limiter is in-process; run one application process per data directory.
+- The login rate limiter per client address is in-process (the per-account count of failed attempts is in the database, 1.8.0); run one application process per data directory.
 - Frontend routing uses a small built-in History-API router (removes the vulnerable `react-router` dependency chain).
 
 ## 3. Known limitations / not verified in this environment

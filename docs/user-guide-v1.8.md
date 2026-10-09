@@ -3,6 +3,29 @@
 *1.8.0: budgets linked across Fiscal Years, the Financial Flow Report, a forgotten password reset with security
 questions, and configuration notes for the Mac.*
 
+## 1.8.0: forgot your password?
+**Security questions.** At your next sign-in PennyWarden asks you to choose **three security questions** and answer
+them. Pick questions whose answers you will remember and that other people cannot easily find out. Upper and lower
+case, spaces and punctuation do not matter ("Rex", "rex" and "REX!" are the same). You can change them in
+**My account → Security questions** (your password is needed).
+
+**Forgot password?** On the sign-in page, click **Forgot password?**, enter your username and answer the question
+shown. On a server — or if you turned on two-step verification — also enter the code from your authenticator app or
+one of your recovery codes. Then choose a new password. You are signed out on every computer; sign in with the new
+password. At your next sign-in you see when the password was reset — if it was not you, tell an Administrator.
+
+**Too many wrong tries.** Wrong passwords and wrong answers add up: after 5 in a row your account is locked for 15
+minutes, after 10 for an hour, after 15 for a day, and after 20 it is disabled until an Administrator enables it again.
+Signing in successfully starts the count over.
+
+**Administrators** see a notice at the top of the page when someone reset their password this way, or when an
+account was locked for an hour or more or disabled. On the **Users** page they see who has set up their questions,
+can **Reset security questions** (the user chooses new ones at the next sign-in) and enable a disabled account again.
+If you are the only Administrator and forgot both your password and your answers, run on the computer or server
+itself `pennywarden reset-password --user NAME` (on a Mac:
+`/Applications/PennyWarden.app/Contents/MacOS/PennyWarden reset-password --user NAME`): it prints a temporary
+password that you change at the next sign-in.
+
 ## 1.8.0: the Financial Flow Report
 **Reports → Financial Flow.** Enter a **Title** (e.g. "August 2026"), the **From Date**, and a **Through Date** — or
 leave it empty for "Current" (today). Choose the account(s), and optionally **Include Bank Balances** with a

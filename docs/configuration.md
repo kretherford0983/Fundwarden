@@ -52,8 +52,12 @@ database (key check value stored in the workspace row).
 | `trusted_proxies` | `FM_TRUSTED_PROXIES` | *(empty)* | Comma list of proxy IPs whose `X-Forwarded-*` headers are trusted (`*` only on a private network) |
 | `session_idle_minutes` | `FM_SESSION_IDLE_MINUTES` | `30` | Idle session timeout |
 | `session_absolute_hours` | `FM_SESSION_ABSOLUTE_HOURS` | `12` | Absolute session lifetime |
-| `login_max_failures` | `FM_LOGIN_MAX_FAILURES` | `5` | Failed logins per username/IP before lock-out |
-| `login_lockout_seconds` | `FM_LOGIN_LOCKOUT_SECONDS` | `900` | Failed-login window / lock-out duration |
+| `login_max_failures` | `FM_LOGIN_MAX_FAILURES` | `5` | Failed sign-ins per client address (and per unknown username) before a pause - a brake on top of the per-account count below |
+| `login_lockout_seconds` | `FM_LOGIN_LOCKOUT_SECONDS` | `900` | Window / pause for `login_max_failures` |
+| `lockout_1_failures` / `lockout_1_minutes` | `FM_LOCKOUT_1_FAILURES` / `FM_LOCKOUT_1_MINUTES` | `5` / `15` | 1.8.0: failed attempts in a row on one account (wrong passwords and wrong *Forgot password* answers or codes together, kept in the database) that lock it, and for how long |
+| `lockout_2_failures` / `lockout_2_minutes` | `FM_LOCKOUT_2_FAILURES` / `FM_LOCKOUT_2_MINUTES` | `10` / `60` | Second lock; from this one on, Administrators see a notice |
+| `lockout_3_failures` / `lockout_3_minutes` | `FM_LOCKOUT_3_FAILURES` / `FM_LOCKOUT_3_MINUTES` | `15` / `1440` | Third lock (24 hours) |
+| `lockout_disable_failures` | `FM_LOCKOUT_DISABLE_FAILURES` | `20` | The account is disabled; an Administrator (or the host `reset-password` / `reset-mfa`) enables it again |
 | `log_level` | `FM_LOG_LEVEL` | `INFO` | Log level |
 
 Example `config.toml`:
@@ -95,6 +99,9 @@ settings as Windows and Linux. What is different:
   Started this way, `FM_*` environment variables of that Terminal do apply. In local mode the small PennyWarden
   window opens as usual (set `FM_NO_WINDOW=1` to run in the Terminal instead); closing it stops PennyWarden.
 - **Host commands** work the same way, e.g. after a lost authenticator:
-  `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden reset-mfa --user NAME`.
+  `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden reset-mfa --user NAME`, or when the only Administrator
+  forgot the password and the answers to the security questions:
+  `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden reset-password --user NAME` (prints a temporary password
+  that must be changed at the next sign-in). Both also enable a disabled account again.
 - More about the Mac app (upgrading, the first start): [deployment.md](deployment.md) and
   [install-macos.md](install-macos.md).

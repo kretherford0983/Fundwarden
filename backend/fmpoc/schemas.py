@@ -507,3 +507,34 @@ class FlowReportPdfIn(FlowReportIn):
     exclusions: list[FlowExclusionIn] = Field(default_factory=list, max_length=5000)
     line_notes: list[FlowLineNoteIn] = Field(default_factory=list, max_length=5000)
     download: bool = False
+
+
+# ------------------------------------------------------------------ 1.8.0 (#113) forgotten password
+class SecurityAnswerIn(In):
+    question: Annotated[str, StringConstraints(max_length=40)]
+    answer: Annotated[str, StringConstraints(max_length=200)]
+
+
+class SecurityQuestionsIn(In):
+    questions: list[SecurityAnswerIn] = Field(max_length=10)
+
+
+class SecurityQuestionsChangeIn(SecurityQuestionsIn):
+    current_password: Annotated[str, StringConstraints(max_length=256)]
+
+
+class SetupPasswordIn(In):
+    new_password: Annotated[str, StringConstraints(max_length=256)]
+    new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]
+
+
+class ForgotStartIn(In):
+    username: Annotated[str, StringConstraints(max_length=64)]
+
+
+class ForgotCompleteIn(In):
+    username: Annotated[str, StringConstraints(max_length=64)]
+    answer: Annotated[str, StringConstraints(max_length=200)]
+    code: Annotated[str | None, StringConstraints(max_length=40)] = None
+    new_password: Annotated[str, StringConstraints(max_length=256)]
+    new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]

@@ -373,3 +373,12 @@ tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }
 .flow-review th:nth-child(1) { width: 4.5em; }
 .flow-review th:nth-child(2), .flow-review th:nth-child(3) { width: 7.5em; }
 .flow-review th:nth-child(5) { width: 35%; }
+
+/* 1.8.0 (#113): security questions and Forgot password */
+.question-row { border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 4px 12px 8px; margin: 0 0 10px; }
+.question-row select { max-width: 100%; }
+.forgot-link { margin-top: 10px; display: block; }
+.security-question { font-size: 1.05em; }
+.small-text { font-size: 0.85em; }
+.banner ul { margin: 4px 0 0; }
+.banner p { margin: 2px 0; }

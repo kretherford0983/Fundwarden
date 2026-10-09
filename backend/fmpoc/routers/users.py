@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from ..deps import Ctx, get_db, require
 from ..models import User, UserMfa
 from ..schemas import MfaResetIn, PasswordResetIn, UserCreateIn, UserUpdateIn
 from ..services import mfa as mfa_svc
+from ..services import recovery
 from ..services import users as svc
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -18,7 +19,12 @@ def _mfa_on(db: Session) -> set[int]:
 
 
 def _out(u: User, on: set[int]) -> dict:
-    return {**svc.out(u), "mfa_enabled": u.id in on}  # v1.4.1 CR-018
+    db = object_session(u)
+    locked = recovery.is_locked(u)
+    return {**svc.out(u), "mfa_enabled": u.id in on,  # v1.4.1 CR-018
+            # 1.8.0 (#113)
+            "security_questions_set": recovery.has_questions(db, u), "failed_attempts": u.failed_attempts or 0,
+            "locked_until": u.locked_until.isoformat() + "Z" if locked else None}
 
 
 @router.get("")
@@ -38,6 +44,16 @@ def reset_mfa(user_id: int, body: MfaResetIn, db: Session = Depends(get_db),
     """v1.4.1 CR-018: the user sets two-step verification up again at the next sign-in (audited, reason required)."""
     u = svc.get(db, ctx, user_id)
     mfa_svc.reset(db, ctx, u, body.reason)
+    db.commit()
+    return _out(u, _mfa_on(db))
+
+
+@router.post("/{user_id}/reset-security-questions")
+def reset_questions(user_id: int, body: MfaResetIn, db: Session = Depends(get_db),
+                    ctx: Ctx = Depends(require("users.manage"))):
+    """1.8.0 (#113): the user chooses new security questions at the next sign-in (audited, reason required)."""
+    u = svc.get(db, ctx, user_id)
+    recovery.admin_reset_questions(db, ctx, u, body.reason)
     db.commit()
     return _out(u, _mfa_on(db))
 

@@ -9,13 +9,35 @@ import { expect, test, type Page } from "@playwright/test";
 const PW = "Correct-Horse-9-Battery";
 test.describe.configure({ mode: "serial" });
 
+// 1.8.0 (#113): the security questions every E2E user chooses at the first sign-in
+const QUESTIONS: [string, string][] = [["What was the name of your first teacher?", "Mrs. Lee"],
+  ["What was the name of your first pet?", "Rex"], ["What was the make and model of your first car?", "Blue Civic"]];
+
+async function setupQuestions(page: Page) {
+  await expect(page.getByRole("heading", { name: "Choose your security questions" })).toBeVisible();
+  for (const [i, [q, a]] of QUESTIONS.entries()) {
+    await page.getByLabel(`Security question ${i + 1}`).selectOption({ label: q });
+    await page.getByLabel(`Answer ${i + 1}`).fill(a);
+  }
+  await page.getByRole("button", { name: "Save and continue" }).click();
+}
+
+/** After the password (and two-step) step: the security questions on a first sign-in, then the application. */
+async function passGates(page: Page) {
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  const q = page.getByRole("heading", { name: "Choose your security questions" });
+  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
+  await expect(nav.or(q)).toBeVisible({ timeout: 20_000 });
+  if (await q.isVisible()) await setupQuestions(page);
+  await expect(nav).toBeVisible({ timeout: 20_000 });
+}
+
 async function login(page: Page, user: string, pw = PW) {
   await page.goto("/");
   await page.getByLabel("Username").fill(user);
   await page.getByLabel("Password").fill(pw);
   await page.getByRole("button", { name: "Sign in" }).click();
-  // generous: on a slow build machine the first page after sign-in can take more than the default 5 s (1.6.7)
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
+  await passGates(page);
 }
 
 async function logout(page: Page) {
@@ -49,6 +71,9 @@ test("AC-INIT-001..007: fresh install wizard bootstraps a working Administrator"
   await page.getByLabel("Password", { exact: true }).fill(PW);
   await page.getByLabel("Password Confirmation").fill(PW);
   await page.getByRole("button", { name: "Initialize" }).click();
+  await expect(page.getByRole("heading", { name: "Choose your security questions" })).toBeVisible();
+  await page.screenshot({ path: "e2e-screenshots/light-security-questions.png", fullPage: true });
+  await setupQuestions(page);   // 1.8.0 (#113): the first Administrator chooses the security questions too
   await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Main navigation" });
   await expect(nav.getByRole("link")).toHaveText(["Dashboard", "Users", "Audit Log", "System/About"]);
@@ -166,7 +191,7 @@ test("#68: signing in while the page's first form-token request is still under w
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForTimeout(300);
   releaseFirst();
-  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible({ timeout: 20_000 });
+  await passGates(page);
   expect(requests).toBe(1);                  // Sign in waited for the request that was already under way
 });
 
@@ -999,7 +1024,7 @@ test("CR-024: a new installation is set up from the backup in the initialization
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password").fill(PW);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await passGates(page);
   } finally {
     child.kill();
   }
@@ -1717,6 +1742,7 @@ test("v1.5.0: a bookmarked page leads to the dashboard address, two-step setup/v
     await page.getByRole("button", { name: "Turn on two-step verification" }).click();
     await page.getByLabel("I have saved my recovery codes").check();
     await page.getByRole("button", { name: "Continue" }).click();
+    await setupQuestions(page);   // 1.8.0 (#113): after two-step, the security questions
     await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
     await page.getByRole("button", { name: "Sign out" }).click();
 
@@ -1820,4 +1846,45 @@ test("#106: Financial Flow Report - review, exclude a line with a reason, note a
   // checking the line again discards its reason
   await gift.check();
   await expect(incTotal).toHaveText(`$${(inc0 / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+});
+
+// ---------------------------------------------------------------- 1.8.0 #113: Forgot password
+test("#113: security questions at the first sign-in, Forgot password, notices for the user and the Administrators", async ({ page }) => {
+  await login(page, "admin");
+  const adm = await apiAs(page);
+  const r = await adm("/api/users", { username: "fp1", email: "fp1@example.org", display_name: "Frankie Pass", password: PW,
+    security_domain: "FINANCIAL", roles: ["BUDGET_USER"] });
+  expect(r.status(), await r.text()).toBe(201);
+  await logout(page);
+  await login(page, "fp1");                                   // chooses the questions on the way in
+  await page.getByRole("link", { name: "My account" }).click();
+  await expect(page.getByTestId("my-questions").locator("li")).toHaveCount(3);
+  await logout(page);
+
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await page.getByLabel("Username").fill("fp1");
+  await page.getByRole("button", { name: "Continue" }).click();
+  const q = (await page.getByTestId("security-question").textContent())!.trim();
+  const answer = QUESTIONS.find(([text]) => text === q)![1];
+  await page.getByLabel("Your answer").fill(` ${answer.toUpperCase()}! `);   // case, spaces and punctuation do not matter
+  await page.getByLabel("New password", { exact: true }).fill("Forgot-Reset-Pass-77");
+  await page.getByLabel("Confirm new password").fill("Forgot-Reset-Pass-77");
+  await page.screenshot({ path: "e2e-screenshots/light-forgot-password.png", fullPage: true });
+  await page.getByRole("button", { name: "Set new password" }).click();
+  await expect(page.getByRole("status")).toContainText("Your password was changed");
+  await page.getByRole("button", { name: "Back to sign in" }).first().click();
+  await login(page, "fp1", "Forgot-Reset-Pass-77");
+  const notice = page.getByTestId("sign-in-notices");
+  await expect(notice).toContainText("Your password was reset on");
+  await notice.getByRole("button", { name: "OK" }).click();
+  await expect(notice).toHaveCount(0);
+  await logout(page);
+
+  await login(page, "admin");
+  const admin = page.getByTestId("security-notices");
+  await expect(admin).toContainText("Frankie Pass reset their password");
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await expect(page.getByRole("row", { name: /fp1/ })).toContainText("Set");
+  await admin.getByRole("button", { name: "Dismiss" }).first().click();
+  await expect(page.getByTestId("security-notices")).toHaveCount(0);
 });

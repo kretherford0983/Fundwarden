@@ -20,6 +20,7 @@ import Account from "./pages/Account";
 import Reports from "./pages/Reports";
 import Fundraisers, { FundraiserDetail } from "./pages/Fundraisers";
 import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
+import { AdminSecurityNotices, SignInNotices } from "./pages/Recovery";
 
 export const ROLE_NAMES: Record<string, string> = {
   ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
@@ -41,7 +42,8 @@ export interface Me {
   dashboard_layout?: { key: string; visible: boolean }[]; // v1.5.0 CR-031
   dashboard_layout_customized?: boolean;
   modules?: { fundraisers?: boolean }; // v1.6.0 CR-033
-  mfa_pending?: "VERIFY" | "ENROLL" | null; // v1.4.1 CR-018
+  mfa_pending?: "VERIFY" | "ENROLL" | "PASSWORD" | "QUESTIONS" | null; // v1.4.1 CR-018; 1.8.0 (#113) setup steps
+  sign_in_notices?: { kind: string; message: string }[]; // 1.8.0 (#113)
   csrf_token: string;
 }
 
@@ -144,7 +146,7 @@ function navFor(me: Me) {
 }
 
 function Shell({ workspace, warning, onLogout }: { workspace: string; warning: boolean; onLogout: () => void }) {
-  const { me, can, setTheme } = useMe();
+  const { me, can, setTheme, patchMe } = useMe();
   // CR-014: collapsible left navigation, remembered per user (like the theme)
   const [collapsed, setCollapsed] = useState(!!me.nav_collapsed);
   const toggleNav = () => {
@@ -206,6 +208,8 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
         </div>
       </header>
       {warning ? <div className="alert warn banner" role="alert">Security warning: this server is exposed on a network without HTTPS configuration. Deploy behind an HTTPS reverse proxy.</div> : null}
+      <SignInNotices notices={me.sign_in_notices || []} onDismissed={() => patchMe({ sign_in_notices: [] })} />
+      {can("users.manage") ? <AdminSecurityNotices path={path} /> : null}
       <div className="body">
         <nav className="sidenav" aria-label="Main navigation">
           <button type="button" className="nav-toggle" onClick={toggleNav} aria-expanded={!collapsed}
