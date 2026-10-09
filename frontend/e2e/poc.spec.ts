@@ -56,7 +56,7 @@ async function createUser(page: Page, username: string, roleLabel: string) {
   await dlg.getByLabel("Email").fill(`${username}@example.org`);
   await dlg.getByLabel("Display name").fill(SHOWN[username] || `${username} person`);
   await dlg.getByLabel("Initial password").fill(PW);
-  await dlg.getByLabel("FINANCIAL").check();
+  // 1.9.0 (#54): on a local install the roles of every domain are offered together; the domain follows the roles
   await dlg.getByLabel(roleLabel, { exact: true }).check();
   await dlg.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("cell", { name: username, exact: true })).toBeVisible();
@@ -74,13 +74,33 @@ test("AC-INIT-001..007: fresh install wizard bootstraps a working Administrator"
   await expect(page.getByRole("heading", { name: "Choose your security questions" })).toBeVisible();
   await page.screenshot({ path: "e2e-screenshots/light-security-questions.png", fullPage: true });
   await setupQuestions(page);   // 1.8.0 (#113): the first Administrator chooses the security questions too
-  await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
+  // 1.9.0 (#54): on a local install the first user holds every role - one account runs the organization's books
   const nav = page.getByRole("navigation", { name: "Main navigation" });
-  await expect(nav.getByRole("link")).toHaveText(["Dashboard", "Users", "Audit Log", "System/About"]);
+  await expect(nav.getByRole("link")).toHaveText(["Dashboard", "Fiscal Years", "Budgets", "Bank Accounts", "Register",
+    "Entities", "Reports", "Users", "Audit Log", "System/About"]);
   await nav.getByRole("link", { name: "Users" }).click();
   const row = page.getByRole("row", { name: /admin/ });
-  await expect(row).toContainText("ADMINISTRATOR");
+  await expect(row).toContainText("COMBINED");
   await expect(row).toContainText("admin@example.org");
+  await page.screenshot({ path: "e2e-screenshots/light-local-single-user.png", fullPage: true });
+  // the rest of this suite exercises separate security domains: the Administrator keeps only the Administrator role
+  // (on a local install an Administrator may change their own roles)
+  await row.getByRole("button", { name: "Edit" }).click();
+  const ed = page.getByRole("dialog", { name: "Edit admin" });
+  await expect(ed.getByText("On a local install one person can hold roles of every security domain.")).toBeVisible();
+  for (const label of ["Budget Manager", "Register User", "Auditor"]) {
+    if (label !== "Auditor") {   // the extra roles go first: each needs its base role
+      const extra = label === "Budget Manager" ? /Budget Admin \(/ : /Register Admin \(/;
+      await ed.getByLabel(extra).uncheck();
+    }
+    await ed.getByLabel(label, { exact: true }).uncheck();
+  }
+  await ed.getByRole("button", { name: "Save" }).click();
+  await expect(ed).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+  await expect(nav.getByRole("link")).toHaveText(["Dashboard", "Users", "Audit Log", "System/About"]);
+  await expect(page.getByRole("row", { name: /admin/ })).toContainText("ADMINISTRATOR");
   await nav.getByRole("link", { name: "Audit Log" }).click();
   await expect(page.getByText("SYSTEM_INITIALIZED")).toBeVisible();
   await page.goto("/fiscal-years");
@@ -119,8 +139,7 @@ test("#47 / #46 / #50: display name is required; the top bar shows it without th
   await dlg.getByLabel("Username").fill("dana");
   await dlg.getByLabel("Email").fill("dana@example.org");
   await dlg.getByLabel("Initial password").fill(PW);
-  await dlg.getByLabel("FINANCIAL").check();
-  await dlg.getByLabel("Budget User").check();
+  await dlg.getByLabel("Budget User", { exact: true }).check();   // 1.9.0 (#54): local - roles only, the domain follows
   await dlg.getByRole("button", { name: "Save" }).click();
   await expect(dlg.getByRole("alert")).toContainText("Display name is required.");
   await dlg.getByLabel("Display name").fill("  ab ");

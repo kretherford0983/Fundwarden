@@ -18,6 +18,12 @@ def dashboard(db: Session = Depends(get_db), ctx: Ctx = Depends(auth_ctx)):
         return svc.administrator(db, ctx)
     if ctx.user.security_domain == "AUDITOR":
         return svc.auditor(db, ctx)
+    if ctx.user.security_domain == "COMBINED":   # 1.9.0 (#54): one person with roles of several domains
+        if "AUDITOR" in ctx.roles:
+            return svc.auditor(db, ctx)             # the financial dashboard plus the Auditor's review summary
+        if ctx.has("financial.view"):
+            return svc.financial(db, ctx)
+        return svc.administrator(db, ctx)
     return svc.financial(db, ctx)
 
 

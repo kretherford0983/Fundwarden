@@ -22,6 +22,10 @@ ROLE_DEFS = [
 ]
 ROLE_DOMAIN = {code: domain for code, _n, domain in ROLE_DEFS}
 FINANCIAL_ROLES = {BUDGET_MANAGER, BUDGET_USER, REGISTER_USER, BUDGET_ADMIN, REGISTER_ADMIN}
+# 1.9.0 (#54): on a local install one person may hold roles of several domains; such a user's security domain is
+# COMBINED. The first user of a local install gets these roles (Budget User adds nothing to Budget Manager).
+COMBINED = "COMBINED"
+LOCAL_FIRST_USER_ROLES = [ADMINISTRATOR, BUDGET_MANAGER, BUDGET_ADMIN, REGISTER_USER, REGISTER_ADMIN, AUDITOR]
 
 PERMISSIONS: dict[str, set[str]] = {
     "users.view": {ADMINISTRATOR, AUDITOR},
@@ -61,17 +65,26 @@ def permissions_for(role_codes: set[str]) -> set[str]:
     return {p for p, roles in PERMISSIONS.items() if roles & role_codes}
 
 
-def validate_role_set(domain: str, role_codes: set[str]) -> str | None:
-    """BR-002: returns an error message when the combination crosses security domains."""
+def domain_of(role_codes: set[str]) -> str | None:
+    """The security domain a role set belongs to: its one domain, or COMBINED when it spans several (1.9.0, #54)."""
+    domains = {ROLE_DOMAIN[r] for r in role_codes if r in ROLE_DOMAIN}
+    if not domains:
+        return None
+    return domains.pop() if len(domains) == 1 else COMBINED
+
+
+def validate_role_set(domain: str, role_codes: set[str], mode: str = "server") -> str | None:
+    """BR-002: returns an error message when the combination crosses security domains. 1.9.0 (#54): on a local
+    install (mode "local") roles of different domains may be combined; the domain is then COMBINED."""
     if not role_codes:
         return "At least one role is required."
     unknown = role_codes - set(ROLE_DOMAIN)
     if unknown:
         return "Unknown role."
     domains = {ROLE_DOMAIN[r] for r in role_codes}
-    if len(domains) > 1:
+    if len(domains) > 1 and mode != "local":
         return "Roles from different security domains (Administrator, Financial, Auditor) cannot be combined."
-    if domains != {domain}:
+    if domain_of(role_codes) != domain:
         return "Roles do not match the user's security domain."
     for extra, base in REQUIRES.items():
         if extra in role_codes and base not in role_codes:

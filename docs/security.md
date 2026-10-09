@@ -72,3 +72,9 @@ History-API router is used instead) and pinning `vite@6.4.3`.
 
 Accepted trade-off (product owner, #113): someone who knows a username can fail 20 times to disable that account. It
 takes more than a day because of the locks, Administrators are warned along the way and can re-enable it at once.
+
+## 1.9.0 additions
+
+| Area | Control | Verified by |
+|---|---|---|
+| One person on a local install (#54) | **BR-002 relaxed for local mode only**: a user may hold roles of several security domains (domain `COMBINED`); the first user of a local install gets Administrator, Budget Manager, Budget Admin, Register User, Register Admin and Auditor. The separation of duties between domains still applies on servers: `validate_role_set(..., mode)` refuses combined roles in server mode, and the 1.7.2 rule that an Administrator cannot change their own roles stays server-only. Permissions are still the union of the roles' permissions (backend authoritative); the extra-role rule (Budget Admin needs Budget Manager, Register Admin needs Register User) and the last-Administrator rule apply in both modes. A combined user whose data is later run in server mode keeps the roles (no silent change) and can be edited, but the roles can only be changed to one domain; the Users page marks such users | `test_v190_single_user.py` |

@@ -60,9 +60,9 @@ def clean_display_name(value: str | None) -> str:
     return name
 
 
-def create(db: Session, ctx, data) -> User:
+def create(db: Session, ctx, data, mode: str = "server") -> User:
     display_name = clean_display_name(data.display_name)
-    err = validate_role_set(data.security_domain, set(data.roles))
+    err = validate_role_set(data.security_domain, set(data.roles), mode)
     if err:
         raise validation(err, "roles")
     if db.scalar(select(User.id).where(User.workspace_id == ctx.workspace_id,
@@ -95,7 +95,9 @@ def update(db: Session, ctx, u: User, data, mode: str = "local") -> User:
     roles_changed = False
     if "roles" in f or domain != u.security_domain:
         codes = set(data.roles) if data.roles is not None else u.role_codes
-        err = validate_role_set(domain, codes)
+        # 1.9.0 (#54): unchanged roles are not re-validated, so a user with local-only combined roles can still be
+        # edited (email, name, active) after the data moved to a server; changing the roles there needs one domain
+        err = None if (codes == u.role_codes and domain == u.security_domain) else validate_role_set(domain, codes, mode)
         if err:
             raise validation(err, "roles")
         if codes != u.role_codes or domain != u.security_domain:

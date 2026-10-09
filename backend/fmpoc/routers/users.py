@@ -59,8 +59,9 @@ def reset_questions(user_id: int, body: MfaResetIn, db: Session = Depends(get_db
 
 
 @router.post("", status_code=201)
-def create_user(body: UserCreateIn, db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
-    u = svc.create(db, ctx, body)
+def create_user(body: UserCreateIn, request: Request, db: Session = Depends(get_db),
+                ctx: Ctx = Depends(require("users.manage"))):
+    u = svc.create(db, ctx, body, mode=request.app.state.settings.mode)  # 1.9.0 (#54): combined roles when local
     db.commit()
     return svc.out(u)
 

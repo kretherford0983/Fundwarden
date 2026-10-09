@@ -93,7 +93,7 @@ def anon(app):
     return Api(app)
 
 
-def initialize(app) -> Api:
+def initialize(app, single_domain=True) -> Api:
     a = Api(app)
     a.pre_csrf()
     r = a.post("/api/system/initialize", ADMIN)
@@ -102,7 +102,22 @@ def initialize(app) -> Api:
     a.csrf = me["csrf_token"]
     if me.get("mfa_pending") == "QUESTIONS":   # 1.8.0 (#113)
         a.setup_questions()
+    if single_domain:
+        # 1.9.0 (#54): the first user of a local install holds every role. Most tests exercise the separation of the
+        # security domains, so the test Administrator keeps only the Administrator role (as on a server).
+        _set_roles_directly(app, ADMIN["admin_username"], "ADMINISTRATOR", ["ADMINISTRATOR"])
     return a
+
+
+def _set_roles_directly(app, username, domain, codes):
+    from fmpoc.models import Role, User, UserRole
+    with app.state.session_factory() as db:
+        u = db.query(User).filter(User.username_normalized == username).one()
+        db.query(UserRole).filter(UserRole.user_id == u.id).delete()
+        for r in db.query(Role).filter(Role.code.in_(codes)):
+            db.add(UserRole(user_id=u.id, role_id=r.id))
+        u.security_domain = domain
+        db.commit()
 
 
 _counter = itertools.count(1)
