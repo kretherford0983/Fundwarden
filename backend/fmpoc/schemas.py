@@ -185,12 +185,14 @@ class BudgetCreateIn(In):
     budget_type: Literal["INCOME", "EXPENSE"] | None = None
     amount: Amount
     notes: OptStr(4000) = None
+    continues_budget_id: int | None = None  # 1.8.0 (#89)
 
 
 class BudgetUpdateIn(In):
     name: Str(120) | None = None
     amount: Amount | None = None
     notes: OptStr(4000) = None
+    continues_budget_id: int | None = None  # 1.8.0 (#89): send null to remove the link
 
 
 class ReasonIn(In):

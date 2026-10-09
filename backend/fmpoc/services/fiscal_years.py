@@ -112,12 +112,17 @@ def copy_budgets(db: Session, ctx, source: FiscalYear, target: FiscalYear, paren
     if unknown:
         raise validation("copy_budget_ids must reference parent budgets of the source Fiscal Year.", "copy_budget_ids")
     created = []
+    link = source.start_date < target.start_date  # 1.8.0 (#89): a copy into a later year continues its source
+
+    def _link(src: Budget) -> int | None:
+        return src.id if link and bsvc._continued_by(db, src.id) is None else None
     for p in parents:
         if p.id not in wanted:
             continue
         np = Budget(workspace_id=target.workspace_id, fiscal_year_id=target.id, parent_code=p.parent_code,
                     name=p.name, budget_type=p.budget_type, amount_cents=p.amount_cents, status="DRAFT",
-                    notes=p.notes, created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id)
+                    notes=p.notes, created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id,
+                    continues_budget_id=_link(p))
         db.add(np)
         db.flush()
         explicit, _ = bsvc.children_of(db, p)
@@ -125,7 +130,8 @@ def copy_budgets(db: Session, ctx, source: FiscalYear, target: FiscalYear, paren
             db.add(Budget(workspace_id=target.workspace_id, fiscal_year_id=target.id, parent_budget_id=np.id,
                           parent_code=np.parent_code, child_code=c.child_code, name=c.name,
                           budget_type=c.budget_type, amount_cents=c.amount_cents, status="DRAFT", notes=c.notes,
-                          created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id))
+                          created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id,
+                          continues_budget_id=_link(c)))
         db.flush()
         bsvc.recalc_other(db, np)
         created.append(np.id)

@@ -55,8 +55,8 @@ export default function Budgets() {
       {fy?.status === "CLOSED" ? <div className="alert info">{fy.display_name} is closed; budgets are read-only.</div> : null}
       {tree ? (
         <>
-          <BudgetSection title="Income" rows={tree.income} summary={tree.income_summary} fyStatus={fy.status} actions={actions} registerLinks />
-          <BudgetSection title="Expense" rows={tree.expense} summary={tree.expense_summary} fyStatus={fy.status} actions={actions} registerLinks />
+          <BudgetSection title="Income" rows={tree.income} summary={tree.income_summary} fyStatus={fy.status} actions={actions} registerLinks onHistory={(r) => setModal({ kind: "history", row: r })} />
+          <BudgetSection title="Expense" rows={tree.expense} summary={tree.expense_summary} fyStatus={fy.status} actions={actions} registerLinks onHistory={(r) => setModal({ kind: "history", row: r })} />
           {tree.budget_zero ? (
             <p className="muted">Protected Budget 0 (non-budget activity such as transfers): inflows {money(tree.budget_zero.inflow)} · outflows {money(tree.budget_zero.outflow)}</p>
           ) : null}
@@ -64,6 +64,7 @@ export default function Budgets() {
       ) : fyId ? <Loading /> : null}
       {modal?.kind === "create" ? <BudgetForm fys={fys} fyId={fyId!} parent={modal.parent} onClose={() => setModal(null)} onSaved={done} /> : null}
       {modal?.kind === "edit" ? <BudgetEdit row={modal.row} canDelete={can("budget.delete") && fy?.status === "DRAFT"} onDelete={() => setModal({ kind: "reason", row: modal.row, action: "delete", title: `Delete ${modal.row.label}` })} onClose={() => setModal(null)} onSaved={done} /> : null}
+      {modal?.kind === "history" ? <BudgetHistory row={modal.row} onClose={() => setModal(null)} /> : null}
       {modal?.kind === "reason" ? <ReasonForm {...modal} onClose={() => setModal(null)} onSaved={done} /> : null}
     </div>
   );
@@ -71,12 +72,14 @@ export default function Budgets() {
 
 function BudgetForm({ fys, fyId, parent, onClose, onSaved }: any) {
   const [f, setF] = useState({ fiscal_year_id: fyId, code: "", name: "", budget_type: parent?.budget_type || "EXPENSE", amount: "", notes: "" });
+  const [cont, setCont] = useState("");
   const [err, setErr] = useState<unknown>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       await api.post("/api/budgets", {
         fiscal_year_id: Number(f.fiscal_year_id), code: f.code, name: f.name, amount: f.amount, notes: f.notes || null,
+        continues_budget_id: cont ? Number(cont) : null,
         ...(parent ? { parent_budget_id: parent.id } : { budget_type: f.budget_type }),
       });
       onSaved();
@@ -99,6 +102,7 @@ function BudgetForm({ fys, fyId, parent, onClose, onSaved }: any) {
           <Field label="Type"><select value={f.budget_type} onChange={(e) => setF({ ...f, budget_type: e.target.value })}><option value="INCOME">Income</option><option value="EXPENSE">Expense</option></select></Field>
         ) : null}
         <Field label="Amount"><input required inputMode="decimal" pattern="\d+(\.\d{1,2})?" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <ContinuesField fyId={Number(f.fiscal_year_id)} budgetType={f.budget_type} subBudget={!!parent} value={cont} onChange={setCont} />
         <Field label="Notes"><textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Create</button></div>
       </GuardedForm>
@@ -108,11 +112,13 @@ function BudgetForm({ fys, fyId, parent, onClose, onSaved }: any) {
 
 function BudgetEdit({ row, onClose, onSaved, canDelete, onDelete }: any) {
   const [f, setF] = useState({ name: row.name, amount: row.amount, notes: row.notes || "" });
+  const [cont, setCont] = useState(row.continues_budget_id ? String(row.continues_budget_id) : "");
   const [err, setErr] = useState<unknown>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await api.patch(`/api/budgets/${row.id}`, { name: f.name, amount: f.amount, notes: f.notes || null });
+      await api.patch(`/api/budgets/${row.id}`, { name: f.name, amount: f.amount, notes: f.notes || null,
+                                                continues_budget_id: cont ? Number(cont) : null });
       onSaved();
     } catch (x) { setErr(x); }
   };
@@ -122,6 +128,7 @@ function BudgetEdit({ row, onClose, onSaved, canDelete, onDelete }: any) {
         <ErrorBox error={err} />
         <Field label="Name"><input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
         <Field label="Amount" hint="Other is recalculated automatically; sub-budgets may not exceed the parent."><input required value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <ContinuesField fyId={row.fiscal_year_id} budgetType={row.budget_type} subBudget={!!row.parent_budget_id} budgetId={row.id} value={cont} onChange={setCont} />
         <Field label="Notes"><textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         <div className="actions">
           {/* 1.7.3 (#52): Budget Admins - red, set apart from Save / Cancel */}
@@ -159,6 +166,65 @@ function ReasonForm({ row, action, title, onClose, onSaved }: any) {
         <Field label="Reason (required)"><textarea required value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
         <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className={`primary${action === "delete" ? " danger" : ""}`} type="submit" disabled={!reason.trim()}>{action === "delete" ? "Delete budget" : "Confirm"}</button></div>
       </GuardedForm>
+    </Modal>
+  );
+}
+
+/** 1.8.0 (#89): the earlier budget this one continues - budgets of earlier Fiscal Years, same type and level,
+ * not already continued by another budget; grouped by Fiscal Year, newest first. */
+function ContinuesField({ fyId, budgetType, subBudget, budgetId, value, onChange }: {
+  fyId: number; budgetType: string; subBudget: boolean; budgetId?: number; value: string; onChange: (v: string) => void;
+}) {
+  const [groups, setGroups] = useState<any[] | null>(null);
+  useEffect(() => {
+    setGroups(null);
+    api.get(`/api/budgets/continue-options${qs({ fiscal_year_id: fyId, budget_type: budgetType, level: subBudget ? "sub-budget" : "budget", budget_id: budgetId })}`)
+      .then((g: any[]) => {
+        setGroups(g);
+        if (value && !g.some((x) => x.options.some((o: any) => String(o.id) === value))) onChange("");
+      }, () => setGroups([]));
+  }, [fyId, budgetType, subBudget, budgetId]);
+  if (groups && !groups.length) return null; // nothing earlier to continue
+  return (
+    <Field label="Continues" hint={subBudget ? "The sub-budget of an earlier Fiscal Year that this sub-budget continues (optional)."
+      : "The budget of an earlier Fiscal Year that this budget continues (optional). History then shows them together."}>
+      <select aria-label="Continues budget" value={value} onChange={(e) => onChange(e.target.value)} disabled={groups === null}>
+        <option value="">— None —</option>
+        {(groups || []).map((g) => (
+          <optgroup key={g.fiscal_year.id} label={g.fiscal_year.display_name}>
+            {g.options.map((o: any) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </optgroup>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+/** 1.8.0 (#89): the budget's lineage across Fiscal Years, oldest first. */
+function BudgetHistory({ row, onClose }: any) {
+  const [h, setH] = useState<any[] | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  useEffect(() => { api.get(`/api/budgets/${row.id}/history`).then(setH, setErr); }, [row.id]);
+  return (
+    <Modal title={`History of ${row.label}`} onClose={onClose}>
+      <ErrorBox error={err} />
+      {!h ? (err ? null : <Loading />) : (
+        <div className="table-wrap">
+          <table className="table" aria-label="Budget history">
+            <thead><tr><th>Fiscal Year</th><th>ID</th><th>Name</th><th className="num">Amount</th><th className="num">Actual</th></tr></thead>
+            <tbody>
+              {h.map((x) => (
+                <tr key={x.id} className={x.this ? "current-row" : ""} aria-current={x.this ? "true" : undefined}>
+                  <td>{x.fiscal_year.display_name}</td><td><span className="code">{x.code}</span></td>
+                  <td>{x.this ? <b>{x.name}</b> : x.name}{["REJECTED", "INACTIVE"].includes(x.status) ? <span className="muted"> ({x.status.toLowerCase()})</span> : null}</td>
+                  <td className="num">{money(x.amount)}</td><td className="num">{money(x.actual)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="actions"><button type="button" onClick={onClose}>Close</button></div>
     </Modal>
   );
 }

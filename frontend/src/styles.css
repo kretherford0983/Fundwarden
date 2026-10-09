@@ -352,3 +352,7 @@ td.ua { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space
 /* 1.7.3 (#52, #53): the Delete button sits on the far left, away from Save / Cancel */
 .actions .delete-apart { margin-right: auto; }
 .register tr.deleted td { text-decoration: line-through; color: var(--muted); }
+
+/* 1.8.0 (#89): budget history */
+.history-link { margin-left: 0.5em; font-size: 0.85em; }
+tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }

@@ -157,6 +157,9 @@ class Budget(Base):
     system_managed: Mapped[bool] = mapped_column(Boolean, default=False)
     is_other: Mapped[bool] = mapped_column(Boolean, default=False)
     is_budget_zero: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 1.8.0 (#89): the budget of an earlier Fiscal Year this one continues (independent of the code, so a budget can
+    # be renumbered and keep its history). At most one later budget continues a budget (checked in the service).
+    continues_budget_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)

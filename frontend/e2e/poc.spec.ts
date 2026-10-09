@@ -1282,6 +1282,45 @@ test("#88: updating a non-register balance keeps a dated history", async ({ page
   await page.screenshot({ path: "e2e-screenshots/light-balance-history.png" });
 });
 
+// ---------------------------------------------------------------- 1.8.0 #89: historic budget traceability
+test("#89: a copied budget continues its source; Continues can be set; History shows the lineage", async ({ page }) => {
+  await login(page, "bm1");
+  const post = await apiAs(page);
+  const mkFy = async (body: any) => {
+    let r = await post("/api/fiscal-years", { confirmations: [], ...body });
+    if (r.status() === 409) r = await post("/api/fiscal-years", { ...body, confirmations: ((await r.json()).error.warnings || []).map((w: any) => w.code) });
+    expect(r.status(), await r.text()).toBe(201);
+    return r.json();
+  };
+  const a = await mkFy({ identifier: "2040", start_date: "2039-07-01", end_date: "2040-06-30" });
+  const src = await (await post("/api/budgets", { fiscal_year_id: a.id, code: "8900", name: "Lineage", budget_type: "EXPENSE", amount: "100.00" })).json();
+  await post("/api/budgets", { fiscal_year_id: a.id, code: "8950", name: "Old name", budget_type: "EXPENSE", amount: "50.00" });
+  const b = await mkFy({ identifier: "2041", start_date: "2040-07-01", end_date: "2041-06-30", copy_from_fiscal_year_id: a.id, copy_budget_ids: [src.id] });
+  // a new budget in FY2041 picks the FY2040 budget it continues
+  await page.goto(`/budgets?fiscal_year_id=${b.id}`);
+  await page.getByRole("button", { name: "New budget" }).click();
+  const dlg = page.getByRole("dialog", { name: "New budget" });
+  await dlg.getByLabel("Budget code (e.g. 1000)").fill("8960");
+  await dlg.getByLabel("Name").fill("New name");
+  await dlg.getByLabel("Amount").fill("60.00");
+  const cont = dlg.getByLabel("Continues budget");
+  await expect(cont.locator("option", { hasText: "FY2040 - 8950 - Old name" })).toHaveCount(1);
+  await expect(cont.locator("option", { hasText: "8900" })).toHaveCount(0);            // already continued by the copy
+  await cont.selectOption({ label: "FY2040 - 8950 - Old name" });
+  await dlg.getByRole("button", { name: "Create" }).click();
+  await expect(dlg).toHaveCount(0);
+  // History of the copied budget
+  await page.getByRole("button", { name: "History of 8900" }).click();
+  const h = page.getByRole("dialog", { name: "History of 8900 Lineage" });
+  await expect(h.getByRole("table", { name: "Budget history" }).locator("tbody tr")).toHaveCount(2);
+  await expect(h.locator("tbody tr").first()).toContainText("FY2040");
+  await expect(h.locator("tr[aria-current='true']")).toContainText("FY2041");
+  await page.screenshot({ path: "e2e-screenshots/light-budget-history.png" });
+  await h.locator(".actions").getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "History of 8960" }).click();
+  await expect(page.getByRole("dialog", { name: "History of 8960 New name" })).toContainText("Old name");
+});
+
 // ---------------------------------------------------------------- v1.5.0 CR-031: dashboard layout
 test("CR-031: dashboard sections can be hidden, reordered and reset; saved per user", async ({ page }) => {
   await login(page, "ru1", "Brand-New-Pass-99");

@@ -24,6 +24,7 @@ def snapshot(b: Budget) -> dict:
         "amount": fmt(b.amount_cents), "requested_amount": fmt(b.requested_amount_cents), "status": b.status,
         "locked": b.locked, "system_managed": b.system_managed, "is_other": b.is_other,
         "is_budget_zero": b.is_budget_zero, "notes": b.notes, "status_reason": b.status_reason,
+        "continues_budget_id": b.continues_budget_id,
     }
 
 
@@ -136,6 +137,8 @@ def create(db: Session, ctx, data) -> Budget:
         db.flush()
         other = recalc_other(db, b)
         other.created_by_user_id = ctx.user.id
+        if getattr(data, "continues_budget_id", None):
+            _set_continues(db, b, data.continues_budget_id)
         audit.record(db, ctx, "BUDGET_CREATED", "budget", b.id, None, {**snapshot(b), "other": snapshot(other)})
         return b
     parent = get_scoped(db, Budget, data.parent_budget_id, ctx, "Parent budget")
@@ -161,6 +164,8 @@ def create(db: Session, ctx, data) -> Budget:
     db.add(b)
     db.flush()
     other = recalc_other(db, parent)  # raises CHILDREN_EXCEED_PARENT -> whole request rolls back (BR-018)
+    if getattr(data, "continues_budget_id", None):
+        _set_continues(db, b, data.continues_budget_id)
     audit.record(db, ctx, "BUDGET_CREATED", "budget", b.id, None,
                  {**snapshot(b), "parent_before": before_parent, "other_after": snapshot(other)})
     return b
@@ -189,6 +194,8 @@ def update(db: Session, ctx, b: Budget, data) -> Budget:
             b.amount_cents = parse_amount(data.amount)
         except ValueError as e:
             raise validation(str(e), "amount") from None
+    if "continues_budget_id" in fields:  # 1.8.0 (#89): set, change or remove the link (same rules as other edits)
+        _set_continues(db, b, data.continues_budget_id)
     b.updated_by_user_id = ctx.user.id
     db.flush()
     other = recalc_other(db, parent)
@@ -230,6 +237,102 @@ def inactivate(db: Session, ctx, b: Budget, reason: str) -> Budget:
     return _set_terminal(db, ctx, b, "INACTIVE", reason, "BUDGET_INACTIVATED")
 
 
+# ------------------------------------------------------------------ 1.8.0 (#89) Historic Budget Traceability
+def _continued_by(db: Session, target_id: int, except_id: int | None = None) -> Budget | None:
+    q = select(Budget).where(Budget.continues_budget_id == target_id, Budget.status != "DELETED")
+    if except_id is not None:
+        q = q.where(Budget.id != except_id)
+    return db.scalar(q.limit(1))
+
+
+def continue_options(db: Session, ws_id: int, fy: FiscalYear, budget_type: str, sub_budget: bool,
+                     budget_id: int | None = None) -> list[dict]:
+    """Budgets a budget can continue: same type and level, from an earlier Fiscal Year, not Budget 0 / Other, not
+    deleted, and not already continued by another budget (so each lineage offers its most recent budget, plus budgets
+    that were never continued). Grouped by Fiscal Year (newest first), then Budget ID descending."""
+    current = db.get(Budget, budget_id).continues_budget_id if budget_id else None
+    fys = list(db.scalars(select(FiscalYear).where(FiscalYear.workspace_id == ws_id, FiscalYear.start_date < fy.start_date)
+                          .order_by(FiscalYear.start_date.desc())))
+    taken = {r for r in db.scalars(select(Budget.continues_budget_id).where(
+        Budget.workspace_id == ws_id, Budget.continues_budget_id.is_not(None), Budget.status != "DELETED",
+        *([Budget.id != budget_id] if budget_id else [])))}
+    groups = []
+    for f in fys:
+        q = select(Budget).where(Budget.fiscal_year_id == f.id, Budget.budget_type == budget_type,
+                                 Budget.system_managed.is_(False), Budget.status != "DELETED")
+        q = q.where(Budget.parent_budget_id.is_not(None) if sub_budget else Budget.parent_budget_id.is_(None))
+        rows = []
+        for b in db.scalars(q):
+            if b.id in taken and b.id != current:
+                continue
+            parent = db.get(Budget, b.parent_budget_id) if b.parent_budget_id else None
+            code = budget_display_code(b, parent)
+            rows.append({"id": b.id, "code": code, "name": b.name,
+                         "label": f"{f.display_name} - {code} - {b.name}", "status": b.status})
+        rows.sort(key=lambda r: [int(x) if x.isdigit() else x for x in r["code"].split("-")], reverse=True)
+        if rows:
+            groups.append({"fiscal_year": fy_brief(f), "options": rows})
+    return groups
+
+
+def _set_continues(db: Session, b: Budget, target_id: int | None) -> None:
+    if target_id is None:
+        b.continues_budget_id = None
+        return
+    if b.system_managed:
+        raise validation("Budget 0 and the system-managed Other budgets are not linked.", "continues_budget_id")
+    t = db.get(Budget, target_id)
+    fy = db.get(FiscalYear, b.fiscal_year_id)
+    tfy = db.get(FiscalYear, t.fiscal_year_id) if t is not None else None
+    bad = (t is None or t.workspace_id != b.workspace_id or t.status == "DELETED" or t.system_managed
+           or tfy.start_date >= fy.start_date)
+    if bad:
+        raise validation("Choose a budget of an earlier Fiscal Year.", "continues_budget_id")
+    if t.budget_type != b.budget_type:
+        raise validation("A budget can only continue a budget of the same type (Income or Expense).",
+                         "continues_budget_id")
+    if (t.parent_budget_id is None) != (b.parent_budget_id is None):
+        raise validation("A budget continues a budget of the same level (budget to budget, sub-budget to sub-budget).",
+                         "continues_budget_id")
+    other = _continued_by(db, t.id, except_id=b.id)
+    if other is not None:
+        raise conflict("ALREADY_CONTINUED", "That budget is already continued by another budget.")
+    b.continues_budget_id = t.id
+
+
+def lineage(db: Session, b: Budget) -> list[dict]:
+    """The budget and every budget it is linked with, earlier and later, in Fiscal Year order."""
+    chain, seen = [b], {b.id}
+    cur = b
+    while cur.continues_budget_id and cur.continues_budget_id not in seen:
+        cur = db.get(Budget, cur.continues_budget_id)
+        if cur is None:
+            break
+        chain.insert(0, cur)
+        seen.add(cur.id)
+    cur = b
+    while True:
+        nxt = _continued_by(db, cur.id)
+        if nxt is None or nxt.id in seen:
+            break
+        chain.append(nxt)
+        seen.add(nxt.id)
+        cur = nxt
+    totals = active_allocation_totals(db, [x.id for x in chain])
+    out = []
+    for x in chain:
+        parent = db.get(Budget, x.parent_budget_id) if x.parent_budget_id else None
+        if parent is None:  # a parent's actual is its own plus its sub-budgets' (as on the Budgets page)
+            kids = [k.id for k in db.scalars(select(Budget).where(Budget.parent_budget_id == x.id))]
+            actual = totals.get(x.id, 0) + sum(active_allocation_totals(db, kids).values()) if kids else totals.get(x.id, 0)
+        else:
+            actual = totals.get(x.id, 0)
+        f = db.get(FiscalYear, x.fiscal_year_id)
+        out.append({"id": x.id, "fiscal_year": fy_brief(f), "code": budget_display_code(x, parent), "name": x.name,
+                    "amount": fmt(x.amount_cents), "actual": fmt(actual), "status": x.status, "this": x.id == b.id})
+    return out
+
+
 def delete(db: Session, ctx, b: Budget, reason: str) -> Budget:
     """1.7.3 (#52): a Budget Admin marks a budget of a not-yet-approved (Draft) Fiscal Year Deleted - BR-001 holds:
     nothing is removed from the database. Blocked while Register allocations, sub-budgets or a fundraiser use it."""
@@ -261,6 +364,7 @@ def delete(db: Session, ctx, b: Budget, reason: str) -> Budget:
     for t in targets:
         t.status = "DELETED"
         t.status_reason = reason.strip()
+        t.continues_budget_id = None  # 1.8.0 (#89): the earlier budget can be continued by another one again
         t.updated_by_user_id = ctx.user.id
     db.flush()
     after = {"budgets": [snapshot(t) for t in targets], "reason": reason.strip()}
@@ -325,6 +429,7 @@ def _row(b: Budget, parent: Budget | None, totals: dict, qtotals: list[dict], ou
         "above_budget": (fmt(actual - b.amount_cents) if b.budget_type == "INCOME" and not b.is_budget_zero
                          and actual > b.amount_cents else None),
         "quarters": [fmt(q.get(b.id, 0)) for q in qtotals], "outside_fiscal_year": fmt(outside.get(b.id, 0)),
+        "continues_budget_id": b.continues_budget_id,
         "status": b.status, "locked": b.locked, "state": state(b), "system_managed": b.system_managed,
         "is_other": b.is_other, "is_budget_zero": b.is_budget_zero, "notes": b.notes,
         "status_reason": b.status_reason,
@@ -390,6 +495,13 @@ def tree(db: Session, fy: FiscalYear, include_hidden: bool = False, include_dele
         return {"amount": fmt(_sum_rows(active, "amount")), "actual": fmt(_sum_rows(rows, "actual")),
                 "remaining": fmt(remaining), "above_budget": fmt(-remaining) if income and remaining < 0 else None,
                 "quarters": [fmt(sum(_amt(r["quarters"][i]) for r in rows)) for i in range(4)]}
+
+    # 1.8.0 (#89): has_history - the budget continues an earlier one or is continued by a later one
+    continued = set(db.scalars(select(Budget.continues_budget_id).where(
+        Budget.continues_budget_id.in_(ids), Budget.status != "DELETED"))) if ids else set()
+    for r in [*sections["INCOME"], *sections["EXPENSE"]]:
+        for x in [r, *r["children"]]:
+            x["has_history"] = bool(x.get("continues_budget_id")) or x["id"] in continued
 
     return {
         "fiscal_year": fy_brief(fy),
