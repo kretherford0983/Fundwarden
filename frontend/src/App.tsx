@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Fundraisers, { FundraiserDetail } from "./pages/Fundraisers";
 import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
 import { AdminSecurityNotices, SignInNotices } from "./pages/Recovery";
+import { BackupFailedBanner } from "./pages/ScheduledBackups";
 
 export const ROLE_NAMES: Record<string, string> = {
   ADMINISTRATOR: "Administrator", BUDGET_MANAGER: "Budget Manager", BUDGET_USER: "Budget User",
@@ -215,6 +216,7 @@ function Shell({ workspace, warning, onLogout }: { workspace: string; warning: b
       {warning ? <div className="alert warn banner" role="alert">Security warning: this server is exposed on a network without HTTPS configuration. Deploy behind an HTTPS reverse proxy.</div> : null}
       <SignInNotices notices={me.sign_in_notices || []} onDismissed={() => patchMe({ sign_in_notices: [] })} />
       {can("users.manage") ? <AdminSecurityNotices path={path} /> : null}
+      {can("users.manage") ? <BackupFailedBanner path={path} /> : null}
       <div className="body">
         <nav className="sidenav" aria-label="Main navigation">
           <button type="button" className="nav-toggle" onClick={toggleNav} aria-expanded={!collapsed}

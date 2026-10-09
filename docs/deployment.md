@@ -34,6 +34,10 @@ default browser when a desktop session is available. Plain HTTP is acceptable be
 
 > **Data protection:** create encrypted backups regularly (System/About → Backup / Restore, since 1.4.1 — see
 > docs/backup-restore.md) and keep them off this machine together with their passphrase.
+> From 1.9.0 PennyWarden can also write them on a schedule (Backup / Restore → **Scheduled**) to a folder you
+> choose, such as an external drive. On a server the folder must be listed by the server owner with
+> `backup_folders` in `config.toml` (e.g. a mounted NAS share; in Docker, a volume mounted into the container), and
+> the service account must be able to write to it.
 
 ## Server installation (multiple users)
 

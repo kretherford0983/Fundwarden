@@ -54,6 +54,21 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.9.0 Scheduled Automatic Backups (issue #62).** Migration `0023`: `backup_schedule` (one row per workspace) and
+`backup_run`. `services/backup.py` gains the key-pair format (`kdf: "keypair"` in the existing `FMBAK1` header:
+`public_key`, `private_key` = scrypt/AES-GCM-locked X25519 key, `epk`, `wrapped_dek`; `decrypt_file` handles both
+kinds, so Restore is unchanged) - `new_keypair`, `create_backup(..., keypair=)`. `services/scheduled_backup.py`:
+settings (`save`, `check_destination`, `test_folder`, `out`, `alert`), `run_backup` (work folder → copy to
+`<folder>/.<name>.partial` → rename; one run at a time), `apply_retention`/`keep_set`, `due`/`tick` and the
+`Scheduler` thread (started by the app's lifespan, so only under the real web server; first tick after 60 s, then
+every 30 s; skipped during a restore or a manual backup). Schedule times are server local time, stored as UTC
+(`next_run`). A scheduled run sets the next time and clears any retry first; a failure sets `retry_at` = 60 min, a
+failed retry doubles up to 1440; a run more than 15 minutes late counts as MISSED. Endpoints (`users.manage`):
+`GET/PUT /api/system/backup-schedule` (PUT with `passphrase` needs `password`), `POST …/test`, `POST …/run` (202,
+background thread), `GET …/alert` (banner). Setting `backup_folders` (TOML list or path-separator list). Frontend:
+`pages/ScheduledBackups.tsx` (tab *Scheduled* in Backup / Restore, banner in the shell). Tests:
+`tests/test_v190_scheduled_backups.py` (drive `tick`/`run_backup` with explicit times), E2E "#62".
+
 **1.9.0 Single User Local Install (issue #54).** No migration: `app_user.security_domain` gains the value
 `COMBINED` (`permissions.domain_of`). `permissions.validate_role_set(domain, roles, mode)` accepts roles of several
 domains only when `mode == "local"`, and the domain must equal `domain_of(roles)`. `bootstrap.initialize` gives the

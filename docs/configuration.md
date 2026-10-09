@@ -58,6 +58,7 @@ database (key check value stored in the workspace row).
 | `lockout_2_failures` / `lockout_2_minutes` | `FM_LOCKOUT_2_FAILURES` / `FM_LOCKOUT_2_MINUTES` | `10` / `60` | Second lock; from this one on, Administrators see a notice |
 | `lockout_3_failures` / `lockout_3_minutes` | `FM_LOCKOUT_3_FAILURES` / `FM_LOCKOUT_3_MINUTES` | `15` / `1440` | Third lock (24 hours) |
 | `lockout_disable_failures` | `FM_LOCKOUT_DISABLE_FAILURES` | `20` | The account is disabled; an Administrator (or the host `reset-password` / `reset-mfa`) enables it again |
+| `backup_folders` | `FM_BACKUP_FOLDERS` | *(empty)* | 1.9.0, server mode: the folders an Administrator may choose for scheduled backups — in `config.toml` a list (`backup_folders = ["/mnt/nas/pennywarden", "/srv/backups"]`), in the environment separated by `:` (Windows `;`). Local installs accept any folder |
 | `log_level` | `FM_LOG_LEVEL` | `INFO` | Log level |
 
 Example `config.toml`:

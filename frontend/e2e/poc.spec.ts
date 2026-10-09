@@ -1,7 +1,7 @@
 // E2E UI verification (AC-INIT-*, AC-UI-THEME-*, AC-FY-VIS-*, AC-SEC-005/011, AC-AUTH-SELF-001, AC-REG-001).
 import { spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -1906,4 +1906,33 @@ test("#113: security questions at the first sign-in, Forgot password, notices fo
   await expect(page.getByRole("row", { name: /fp1/ })).toContainText("Set");
   await admin.getByRole("button", { name: "Dismiss" }).first().click();
   await expect(page.getByTestId("security-notices")).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------- 1.9.0 #62: scheduled automatic backups
+test("#62: an Administrator sets up scheduled backups to a folder, tests it and runs one now", async ({ page }) => {
+  const folder = mkdtempSync(join(tmpdir(), "pw-e2e-backups-"));
+  await login(page, "admin");
+  await page.getByRole("link", { name: "System/About" }).click();
+  await page.getByRole("tab", { name: "Scheduled" }).click();
+  const card = page.locator("section", { has: page.getByRole("heading", { name: "Scheduled backups" }) });
+  await card.getByLabel("Back up automatically").check();
+  await card.getByLabel("Time").fill("02:30");
+  await card.getByLabel("Backup folder").fill(folder);
+  await card.getByRole("button", { name: "Test" }).click();
+  await expect(card.getByRole("status")).toContainText("can be written to");
+  await card.getByLabel("Daily backups").fill("3");
+  await expect(card.getByText("Remember this passphrase.")).toBeVisible();
+  await card.getByLabel("Backup passphrase").fill("e2e scheduled passphrase");
+  await card.getByLabel("Repeat the passphrase").fill("e2e scheduled passphrase");
+  await card.getByLabel("Your password").fill(PW);
+  await card.getByRole("button", { name: "Save" }).click();
+  await expect(card.getByTestId("next-backup")).toContainText("02:30");
+  await card.getByRole("button", { name: "Run now" }).click();
+  const hist = card.getByRole("table", { name: "Backup history" });
+  await expect(hist.locator("tbody tr").first()).toContainText("Done", { timeout: 30_000 });
+  await expect(hist.locator("tbody tr").first()).toContainText("Run now");
+  await page.screenshot({ path: "e2e-screenshots/light-scheduled-backups.png", fullPage: true });
+  const files = readdirSync(folder).filter((f) => f.endsWith(".fmbak"));
+  expect(files).toHaveLength(1);
+  expect(files[0]).toMatch(/^pennywarden-backup-e2e-org-\d{8}-\d{6}\.fmbak$/);
 });
