@@ -3,6 +3,27 @@
 *1.8.0: budgets linked across Fiscal Years, the Financial Flow Report, a forgotten password reset with security
 questions, and configuration notes for the Mac.*
 
+## 1.8.0: the Financial Flow Report
+**Reports → Financial Flow.** Enter a **Title** (e.g. "August 2026"), the **From Date**, and a **Through Date** — or
+leave it empty for "Current" (today). Choose the account(s), and optionally **Include Bank Balances** with a
+**Compare Date** (e.g. the date of your last report) and **Notes** to print on the report. Then **Review
+transactions**.
+
+The review shows every line of the report, one section per account:
+
+- **Income** — every part of each deposit (a deposit from three donors is three lines); **Expenses** — one line per
+  withdrawal. Uncleared transactions are included; transfers between your accounts and VOID transactions are not.
+- **Uncheck** a line to leave it out of the report and its totals, for example a transfer that was entered as a
+  withdrawal and a deposit. You are asked **why**; the reason is kept in the audit log with the report and is not
+  printed. Checking the line again discards the reason.
+- Type a **note** on a line to print it with that line. The transaction itself is not changed.
+
+**Generate PDF** makes the report from the checked lines; **Open PDF** / **Download PDF** then show or save it. The
+review is not saved — to keep a report, upload the PDF as a Fiscal Year document.
+
+With **Include Bank Balances**, the report ends with the bank balance of every account on the Through Date (Checking,
+Savings, Investments, Total Assets) and, with a Compare Date, each balance then and how much it grew or shrank.
+
 ## 1.8.0: budgets across Fiscal Years
 A budget's ID or name sometimes changes from one year to the next. To keep track, open the budget's **Edit** dialog
 (or create the budget) and choose in **Continues** the budget of an earlier year it carries on, e.g.

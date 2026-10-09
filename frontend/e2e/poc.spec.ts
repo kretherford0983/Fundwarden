@@ -1752,3 +1752,72 @@ test("v1.5.0: a bookmarked page leads to the dashboard address, two-step setup/v
     child.kill();
   }
 });
+
+// ---------------------------------------------------------------- 1.8.0 #106: Financial Flow Report
+// (last: its transactions would otherwise become lines of the fundraiser in the CR-034 test)
+test("#106: Financial Flow Report - review, exclude a line with a reason, note a line, generate the PDF", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  const post = await apiAs(page);
+  // yesterday (UTC): on or before the server's own "today" whatever its time zone
+  const today = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const accts = (await (await page.request.get("/api/bank-accounts")).json()).filter((a: any) => a.register_enabled && a.status === "ACTIVE");
+  const acct = accts[0];
+  const nat = await (await page.request.get(`/api/fiscal-years/natural?date=${today}`)).json();
+  const dep = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${nat.default_fiscal_year_id}&transaction_type=DEPOSIT`)).json();
+  const wd = await (await page.request.get(`/api/budgets/selectable?fiscal_year_id=${nat.default_fiscal_year_id}&transaction_type=WITHDRAWAL`)).json();
+  const mk = async (body: any) => {
+    body = { bank_account_id: acct.id, transaction_date: today, no_attachment: true, no_attachment_reason: "e2e", ...body };
+    let r = await post("/api/transactions", body);
+    if (r.status() === 409) { body.confirmations = ((await r.json()).error.warnings || []).map((w: any) => w.code); r = await post("/api/transactions", body); }
+    expect(r.status(), await r.text()).toBe(201);
+    return r.json();
+  };
+  await mk({ transaction_type: "DEPOSIT", allocations: [{ budget_id: dep[0].id, amount: "300.00", description: "Flow gift A" },
+                                                        { budget_id: dep[0].id, amount: "200.00", description: "Flow gift B" }] });
+  await mk({ transaction_type: "WITHDRAWAL", allocations: [{ budget_id: wd[0].id, amount: "80.00", description: "Flow supplies" }] });
+  const before = await (await post("/api/reports/financial-flow/review", { title: "x", date_from: today, bank_account_ids: [acct.id] })).json();
+  const inc0 = Math.round(Number(before.sections[0].income_total) * 100);
+  const exp0 = Math.round(Number(before.sections[0].expense_total) * 100);
+
+  await page.getByRole("link", { name: "Reports" }).click();
+  await page.getByRole("tab", { name: "Financial Flow" }).click();
+  await page.getByLabel("Title").fill("E2E flow");
+  await page.getByLabel("From Date").fill(today);
+  const picks = page.locator(".account-picks input[type=checkbox]");
+  for (let i = 0; i < await picks.count(); i++) await picks.nth(i).uncheck();
+  await page.locator(".account-picks label", { hasText: acct.label }).locator("input").check();
+  await page.getByRole("button", { name: "Review transactions" }).click();
+  await expect(page.getByRole("heading", { name: /E2E flow — Financial Flow Report · .* – Current/ })).toBeVisible();
+  const incTotal = page.getByTestId(`flow-total-${acct.id}-income`);
+  await expect(incTotal).toHaveText(`$${(inc0 / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+  // unchecking asks for a reason; Cancel keeps the line
+  const gift = page.getByRole("checkbox", { name: /Flow gift B/ });
+  await expect(gift).toBeChecked();
+  await gift.click();                                         // asks first: the line stays checked until a reason is given
+  const ask = page.getByRole("dialog", { name: "Exclude this line" });
+  await expect(ask.getByRole("button", { name: "Exclude line" })).toBeDisabled();
+  await ask.getByRole("button", { name: "Cancel" }).click();
+  await expect(gift).toBeChecked();
+  await gift.click();
+  await ask.getByLabel("Reason (required)").fill("Entered twice");
+  await ask.getByRole("button", { name: "Exclude line" }).click();
+  await expect(gift).not.toBeChecked();
+  await expect(incTotal).toHaveText(`$${((inc0 - 20000) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+  const diff = inc0 - 20000 - exp0;
+  await expect(page.getByTestId(`flow-diff-${acct.id}`)).toContainText(diff >= 0 ? "+" : "\u2212");
+  await page.getByRole("textbox", { name: /Note for .* \$80\.00/ }).first().fill("Paid by check");
+  await page.screenshot({ path: "e2e-screenshots/light-flow-review.png" });
+  const resp = page.waitForResponse((r) => r.url().endsWith("/api/reports/financial-flow") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Generate PDF" }).click();
+  const r = await resp;
+  expect(r.status()).toBe(200);
+  expect(r.headers()["content-type"]).toBe("application/pdf");
+  const sent = r.request().postDataJSON();
+  expect(sent.exclusions).toHaveLength(1);
+  expect(sent.exclusions[0].reason).toBe("Entered twice");
+  expect(sent.line_notes.map((n: any) => n.note)).toEqual(["Paid by check"]);
+  await expect(page.getByRole("link", { name: "Download PDF" })).toBeVisible();
+  // checking the line again discards its reason
+  await gift.check();
+  await expect(incTotal).toHaveText(`$${(inc0 / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
+});

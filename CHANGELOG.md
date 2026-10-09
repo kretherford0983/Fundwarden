@@ -5,6 +5,15 @@ Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 ## 1.8.0 — unreleased
 Database migration `0021` (one column added; no existing data changes). Rolling back to 1.7.3 needs the data
 snapshot the installer takes before the upgrade (docs/upgrade.md).
+- **Financial Flow Report (#106).** A new report on the Reports page for the treasurer's periodic update: the money
+  that came in and went out of the chosen accounts between a From Date and a Through Date (empty: "Current"), one
+  section per account with its income, expenses, totals and the **Difference** (green with + or red with −), and an
+  overall summary when several accounts are chosen. Expenses are one line per withdrawal, income one line per part of
+  a deposit; transfers between accounts and VOID transactions are not listed, uncleared ones are. Before the PDF is
+  made you **review the lines**: uncheck a line to leave it out (a reason is required; it goes to the audit log, never
+  onto the report) and type a note on a line to print it with the line. Optionally the report lists the Current
+  balance of every account on the Through Date in Checking, Savings and Investments with Total Assets, and with a
+  Compare Date the balance then and the change. Producing the report is recorded in the audit log.
 - **Budgets linked across Fiscal Years (#89).** A budget can record which budget of an earlier Fiscal Year it
   continues, even when its ID or name changed, in a new **Continues** list in the budget's create and edit dialogs
   (grouped by Fiscal Year, e.g. `FY2027 - 1000 - Operations`). The link is one to one, between budgets of the same

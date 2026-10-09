@@ -14,7 +14,8 @@ from starlette.background import BackgroundTask
 from .. import audit
 from ..deps import Ctx, get_db, require
 from ..models import FiscalYear, Workspace
-from ..schemas import SignatureTemplateIn
+from ..schemas import FlowReportIn, FlowReportPdfIn, SignatureTemplateIn
+from ..services import flow_report as flow
 from ..services import reports as svc
 from ..services import signatures as sig
 from ..services.common import get_scoped
@@ -134,3 +135,24 @@ def entity_activity(bank_account_id: int | None = None, fiscal_year_id: int | No
         return Response(svc.entity_activity_csv(report), media_type="text/csv; charset=utf-8",
                         headers={"Content-Disposition": _disposition("attachment", name)})
     return report
+
+
+# ------------------------------------------------------------------ 1.8.0 (#106) Financial Flow Report
+@router.post("/financial-flow/review")
+def flow_review(body: FlowReportIn, db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
+    """The lines the report would list, for the review form (read-only; not audited - nothing is produced)."""
+    return flow.preview(db, ctx, body)
+
+
+@router.post("/financial-flow")
+def flow_pdf(body: FlowReportPdfIn, db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
+    """The PDF from the reviewed lines. The audit entry records the parameters, the line notes and every excluded
+    line with its reason; neither the exclusions nor the reasons are printed."""
+    path, fname, summary = flow.build_pdf(db, ctx, body)
+    audit.record(db, ctx, "REPORT_GENERATED", "workspace", ctx.workspace_id, None, summary)
+    db.commit()
+    headers = {"Content-Disposition": _disposition("attachment" if body.download else "inline", fname),
+               "Cache-Control": "private, no-store", "X-Frame-Options": "SAMEORIGIN",
+               "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'"}
+    return FileResponse(path, media_type="application/pdf", headers=headers,
+                        background=BackgroundTask(lambda: os.path.exists(path) and os.unlink(path)))
