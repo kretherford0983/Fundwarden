@@ -2,7 +2,7 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.10.0 — unreleased
+## 1.10.0 — 2026-10-09
 Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot
 the installer takes before the upgrade (docs/upgrade.md).
 - **Server on Windows, documented.** A step-by-step guide for running PennyWarden for several people on a Windows
