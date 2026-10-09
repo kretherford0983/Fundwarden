@@ -4,7 +4,7 @@
 organizations and similar bodies that keep a checkbook, a budget and an annual audit. PennyWarden runs on your own
 Windows PC, Mac or Linux server; your data stays in one folder you control. No subscription, no cloud account.
 
-Current release: **1.7.3** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
+Current release: **1.8.0** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
 [Install](#install) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
 <p align="center">
@@ -122,7 +122,8 @@ tax or legal advice.
 [1.2](docs/user-guide-v1.2.md) (reports, transfers) · [1.3](docs/user-guide-v1.3.md) (Fiscal Year documents, close
 report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verification, charts, backup) ·
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
-reminders) · [1.7](docs/user-guide-v1.7.md) (the new name).
+reminders) · [1.7](docs/user-guide-v1.7.md) (the new name) · [1.8](docs/user-guide-v1.8.md) (budget history, Financial
+Flow Report, forgotten passwords).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability

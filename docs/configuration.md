@@ -10,12 +10,21 @@ Separate from the replaceable binaries (BR-086). Set with `--data-dir` or `FM_DA
 | OS | Default |
 |---|---|
 | Windows | `%LOCALAPPDATA%\PennyWarden` |
+| Mac | `~/Library/Application Support/PennyWarden` |
 | Linux | `$XDG_DATA_HOME/pennywarden` or `~/.local/share/pennywarden` (a server install uses `/var/lib/pennywarden`) |
 
-Before 1.6.6 the default folders were `%LOCALAPPDATA%\FinancialManagementPOC` and
-`~/.local/share/financial-management-poc`. If the new folder does not exist yet and the old one does, 1.6.6 renames
-the old folder at its first start (or uses it in place if it cannot be renamed). A folder chosen with `--data-dir`
-or `FM_DATA_DIR` is never renamed.
+**Earlier names.** The application was called *Fundwarden* in 1.6.6 – 1.6.8 and *Financial Management POC* before
+that. At its first start under the current name, if the PennyWarden folder does not exist yet, PennyWarden takes over
+the folder of the most recent earlier name it finds — renaming it, or using it in place if it cannot be renamed:
+
+| OS | Fundwarden (1.6.6 – 1.6.8) | before 1.6.6 |
+|---|---|---|
+| Windows | `%LOCALAPPDATA%\Fundwarden` | `%LOCALAPPDATA%\FinancialManagementPOC` |
+| Mac | `~/Library/Application Support/Fundwarden` | — (the Mac app arrived in 1.6.7) |
+| Linux | `~/.local/share/fundwarden` | `~/.local/share/financial-management-poc` |
+
+A folder chosen with `--data-dir` or `FM_DATA_DIR` is never renamed. (A Linux *server* install is moved by the
+installer instead; see docs/upgrade.md.)
 
 ```
 APP_DATA_DIR/
@@ -63,3 +72,29 @@ Command line: `pennywarden --mode server --host 0.0.0.0 --port 8765 --data-dir /
 (`python -m fmpoc` from source, `pennywarden` / `PennyWarden.exe` or `PennyWarden.cmd` when packaged).
 
 Debug mode, interactive API docs (`/docs`, `/openapi.json`) and verbose exception pages are never enabled.
+
+## On a Mac
+
+PennyWarden.app (Apple Silicon, since 1.6.7; installation: [install-macos.md](install-macos.md)) uses the same
+settings as Windows and Linux. What is different:
+
+- **Data folder:** `~/Library/Application Support/PennyWarden` — the database, attachments, `secrets/`, `logs/` and
+  `config.toml` (see *Application data directory* above). Replacing the app with a newer one never touches it.
+- **Opening the folder:** the `Library` folder is hidden in Finder. Use **Finder → Go → Go to Folder…** (⇧⌘G) and
+  type `~/Library/Application Support/PennyWarden`. In Terminal: `open ~/Library/Application\ Support/PennyWarden`.
+- **Log file:** `~/Library/Application Support/PennyWarden/logs/fmpoc.log`.
+- **Settings for the app opened from Finder:** put them in `config.toml` in the data folder (create it with any text
+  editor). An app opened from Finder or the Dock does **not** see `FM_*` environment variables set in a Terminal
+  profile, so `config.toml` is the way to change settings permanently.
+- **Starting with options:** run the app's program from Terminal, with the same options as on the other systems:
+  ```
+  /Applications/PennyWarden.app/Contents/MacOS/PennyWarden --port 8800
+  /Applications/PennyWarden.app/Contents/MacOS/PennyWarden --data-dir ~/Documents/PennyWarden-data
+  /Applications/PennyWarden.app/Contents/MacOS/PennyWarden --mode server     # server mode, no status window
+  ```
+  Started this way, `FM_*` environment variables of that Terminal do apply. In local mode the small PennyWarden
+  window opens as usual (set `FM_NO_WINDOW=1` to run in the Terminal instead); closing it stops PennyWarden.
+- **Host commands** work the same way, e.g. after a lost authenticator:
+  `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden reset-mfa --user NAME`.
+- More about the Mac app (upgrading, the first start): [deployment.md](deployment.md) and
+  [install-macos.md](install-macos.md).

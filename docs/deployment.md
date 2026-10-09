@@ -22,7 +22,8 @@ Native packages need no separately installed Python, Node.js, SQLite, Docker or 
   **Open** also works.) Step by step with pictures: [install-macos.md](install-macos.md). To check the download first: `shasum -a 256 PennyWarden-<version>-macos-arm64.dmg` against
   `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/PennyWarden`, never inside
   the app, so replacing the app with a newer one keeps it. To upgrade: quit PennyWarden, drag the new app onto
-  Applications and choose *Replace*. Server mode from Terminal:
+  Applications and choose *Replace*. Data folder, log, `config.toml` and options on a Mac:
+  [configuration.md](configuration.md#on-a-mac). Server mode from Terminal:
   `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden --mode server`.
 - **Windows (portable folder)**: unzip `PennyWarden-windows-x64.zip` anywhere (e.g.
   `%LOCALAPPDATA%\Programs`), double-click `PennyWarden.cmd`.

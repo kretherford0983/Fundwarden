@@ -2,6 +2,13 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.8.0 — unreleased
+- **Configuration documentation for the Mac (#112).** docs/configuration.md now covers the Mac like Windows and
+  Linux: the data folder (`~/Library/Application Support/PennyWarden`) and how to open it in Finder, the log file,
+  `config.toml` (environment variables do not reach an app opened from Finder), and starting the app with options
+  from Terminal. The paragraph on earlier folder names now covers both renames (1.6.6 and 1.7.0) on all three
+  systems. install-macos.md and deployment.md link to it.
+
 ## 1.7.3 — 2026-10-08
 Database migrations `0019` (two roles and three columns added) and `0020` (balance history, rebuilt from the audit
 log); no existing balance changes. Rolling back to 1.7.2 needs the data snapshot the installer takes before the
