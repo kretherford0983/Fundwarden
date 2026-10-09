@@ -1962,7 +1962,14 @@ test("#58: a newer release shows the gold arrow, the What's new dialog with ever
     await page.getByRole("link", { name: "System/About" }).click();
     const sec = page.locator("section", { has: page.getByRole("heading", { name: "Update check" }) });
     await expect(sec.getByLabel("Check for new versions of PennyWarden")).toBeChecked();
+    // A failed "Check now" request is reported, not swallowed (Copilot review of #149).
+    await page.route("**/api/updates/check", (r) => r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Server error" }) }));
     await sec.getByRole("button", { name: "Check now" }).click();
+    await expect(sec.getByRole("alert")).toBeVisible();
+    await expect(sec.getByRole("button", { name: "Check now" })).toBeEnabled();
+    await page.unroute("**/api/updates/check");
+    await sec.getByRole("button", { name: "Check now" }).click();
+    await expect(sec.getByRole("alert")).toHaveCount(0);
     await expect(sec).toContainText(`${next2} is available`);
     await page.reload();
     const dot = page.getByTestId("update-indicator");
