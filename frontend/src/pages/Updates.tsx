@@ -3,7 +3,7 @@
 // on/off setting. The release information is fetched by the backend; the browser only talks to PennyWarden.
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
-import { Modal } from "../components";
+import { ErrorBox, Modal } from "../components";
 
 export type UpdateStatus = {
   enabled: boolean; channel: string | null; mode: string; available: boolean; checked_at: string | null; error: boolean;
@@ -126,18 +126,24 @@ export function UpdateBanner({ s }: { s: UpdateStatus | null }) {
 export function UpdateSettings() {
   const [s, setS] = useState<UpdateStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
   useEffect(() => { api.get("/api/updates").then(setS, () => setS(null)); }, []);
   if (!s) return null;
   const toggle = async (enabled: boolean) => {
     const before = s;
     setS({ ...s, enabled }); // shown at once; put back if saving fails
-    setBusy(true);
-    try { setS(await api.put("/api/updates/settings", { enabled })); } catch { setS(before); } finally { setBusy(false); }
+    setBusy(true); setErr(null);
+    try { setS(await api.put("/api/updates/settings", { enabled })); } catch (x) { setS(before); setErr(x); } finally { setBusy(false); }
   };
-  const now = async () => { setBusy(true); try { setS(await api.post("/api/updates/check")); } finally { setBusy(false); } };
+  // A failed request (session expired, server error) is shown; the last known status stays on screen.
+  const now = async () => {
+    setBusy(true); setErr(null);
+    try { setS(await api.post("/api/updates/check")); } catch (x) { setErr(x); } finally { setBusy(false); }
+  };
   return (
     <section className="card" aria-labelledby="upd-h">
       <h2 id="upd-h">Update check</h2>
+      <ErrorBox error={err} />
       <label className="check"><input type="checkbox" checked={s.enabled} disabled={busy} onChange={(e) => toggle(e.target.checked)} /> Check for new versions of PennyWarden</label>
       <p className="hint">About once a day PennyWarden asks pennywarden.org for the list of releases and shows a gold arrow next to each user's name when a newer one is available. Nothing about your organization is sent. Turned off, no request is made.</p>
       {!s.channel ? <p className="hint">This build ({s.current.version}) was not built for release, so it does not check.</p> : (
