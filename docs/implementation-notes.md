@@ -54,6 +54,33 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.9.0 Scheduled Automatic Backups (issue #62).** Migration `0023`: `backup_schedule` (one row per workspace) and
+`backup_run`. `services/backup.py` gains the key-pair format (`kdf: "keypair"` in the existing `FMBAK1` header:
+`public_key`, `private_key` = scrypt/AES-GCM-locked X25519 key, `epk`, `wrapped_dek`; `decrypt_file` handles both
+kinds, so Restore is unchanged) - `new_keypair`, `create_backup(..., keypair=)`. `services/scheduled_backup.py`:
+settings (`save`, `check_destination`, `test_folder`, `out`, `alert`), `run_backup` (work folder → copy to
+`<folder>/.<name>.partial` → rename; one run at a time), `apply_retention`/`keep_set`, `due`/`tick` and the
+`Scheduler` thread (started by the app's lifespan, so only under the real web server; first tick after 60 s, then
+every 30 s; skipped during a restore or a manual backup). Schedule times are server local time, stored as UTC
+(`next_run`). A scheduled run sets the next time and clears any retry first; a failure sets `retry_at` = 60 min, a
+failed retry doubles up to 1440; a run more than 15 minutes late counts as MISSED. Endpoints (`users.manage`):
+`GET/PUT /api/system/backup-schedule` (PUT with `passphrase` needs `password`), `POST …/test`, `POST …/run` (202,
+background thread), `GET …/alert` (banner). Setting `backup_folders` (TOML list or path-separator list). Frontend:
+`pages/ScheduledBackups.tsx` (tab *Scheduled* in Backup / Restore, banner in the shell). Tests:
+`tests/test_v190_scheduled_backups.py` (drive `tick`/`run_backup` with explicit times), E2E "#62".
+
+**1.9.0 Single User Local Install (issue #54).** No migration: `app_user.security_domain` gains the value
+`COMBINED` (`permissions.domain_of`). `permissions.validate_role_set(domain, roles, mode)` accepts roles of several
+domains only when `mode == "local"`, and the domain must equal `domain_of(roles)`. `bootstrap.initialize` gives the
+first user `LOCAL_FIRST_USER_ROLES` in local mode (`SYSTEM_INITIALIZED` records `admin_roles` and `mode`).
+`services/users.create/update` receive the mode from the router; an update with unchanged roles is not re-validated
+(a COMBINED user stays editable on a server). Dashboard: a COMBINED user with the Auditor role gets the Auditor
+dashboard (financial + review summary), otherwise the financial one. Frontend: `navFor` builds a COMBINED user's
+menu from the permissions; the user form on a local install lists every role grouped by domain and derives the
+domain (`domainOf`). Test fixtures keep the test Administrator to the Administrator role (`initialize(app,
+single_domain=True)`); the E2E suite does the same through the user form after checking the combined first user.
+Tests: `tests/test_v190_single_user.py`, E2E "AC-INIT-001..007".
+
 **1.8.0 Dependabot and the third-party notices (issue #98, option 2 decided 2026-10-08).** `tests.yml` takes an
 input `notices` (`check` by default). `ci.yml` passes `regenerate` for pull requests from `dependabot/*` branches,
 `build.yml` for develop builds; pull requests into test and main and the test/main builds stay `check`.

@@ -2,6 +2,27 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 1.9.0 — 2026-10-09
+Database migration `0023` (two tables added; no existing data changes). Rolling back to 1.8.0 needs the data
+snapshot the installer takes before the upgrade (docs/upgrade.md).
+- **Scheduled automatic backups (#62).** System/About → Backup / Restore → **Scheduled**: an Administrator chooses
+  Daily or Weekly and a time, one folder (on a server, one of the folders the server owner lists as
+  `backup_folders` in `config.toml`; locally, any folder), a backup passphrase, and how many daily, weekly and monthly
+  backups to keep. Backups are written without anyone signed in, encrypted with a key pair so the application can
+  lock them but only the passphrase opens them; they restore through the normal Restore tab. A failed backup is
+  retried after 1, 2, 4 … hours (at most 24) and Administrators see a banner until one succeeds; a backup missed
+  while PennyWarden was off runs at the next start. **Test**, **Run now** and a history of recent runs; everything is
+  in the audit log. Old backups are deleted by the keep rules — only files PennyWarden wrote. The download backup is
+  unchanged (docs/backup-restore.md).
+- **One person can run a local install (#54).** On a local install (Windows, Mac, or Linux local mode) the first
+  user now holds every role: Administrator, Budget Manager, Budget Admin, Register User, Register Admin and Auditor
+  (security domain *COMBINED*), so one account can manage users, keep the books and read the audit log. On a local
+  install the Users page offers the roles of all three domains together for any user, and an Administrator can
+  change their own roles — on an existing local install, edit your own user to add the roles you need. Servers are
+  unchanged: one security domain per user, and Administrators cannot change their own roles. A user with combined
+  roles whose data is later run as a server keeps them and can still be edited, but changing the roles there needs
+  one domain; the Users page marks such users.
+
 ## 1.8.0 — 2026-10-09
 Database migrations `0021` and `0022` (columns and tables added; no existing data changes). Rolling back to 1.7.3
 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). **Every user chooses three

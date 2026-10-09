@@ -93,7 +93,7 @@ class PreferencesIn(In):
     reset_dashboard_layout: bool | None = None
 
 
-Domain = Literal["ADMINISTRATOR", "FINANCIAL", "AUDITOR"]
+Domain = Literal["ADMINISTRATOR", "FINANCIAL", "AUDITOR", "COMBINED"]  # 1.9.0 (#54): COMBINED on local installs
 RoleCode = Literal["ADMINISTRATOR", "BUDGET_MANAGER", "BUDGET_USER", "REGISTER_USER", "AUDITOR",
                    "BUDGET_ADMIN", "REGISTER_ADMIN"]  # 1.7.3 (#52, #53)
 
@@ -104,7 +104,7 @@ class UserCreateIn(In):
     display_name: OptStr(120) = None
     password: Annotated[str, StringConstraints(max_length=256)]
     security_domain: Domain
-    roles: Annotated[list[RoleCode], Field(min_length=1, max_length=5)]
+    roles: Annotated[list[RoleCode], Field(min_length=1, max_length=7)]
 
     @field_validator("username")
     @classmethod
@@ -126,7 +126,7 @@ class UserUpdateIn(In):
     display_name: OptStr(120) = None
     active: bool | None = None
     security_domain: Domain | None = None
-    roles: Annotated[list[RoleCode] | None, Field(max_length=5)] = None
+    roles: Annotated[list[RoleCode] | None, Field(max_length=7)] = None
 
 
 class PasswordResetIn(In):
@@ -538,3 +538,23 @@ class ForgotCompleteIn(In):
     code: Annotated[str | None, StringConstraints(max_length=40)] = None
     new_password: Annotated[str, StringConstraints(max_length=256)]
     new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]
+
+
+# ------------------------------------------------------------------ 1.9.0 (#62) scheduled automatic backups
+class BackupScheduleIn(In):
+    enabled: bool = False
+    frequency: Literal["DAILY", "WEEKLY"] = "DAILY"
+    weekday: int | None = Field(default=0, ge=0, le=6)          # 0 = Monday
+    time_of_day: Annotated[str, StringConstraints(max_length=5)] = "02:00"
+    destination: OptStr(1000) = None
+    keep_daily: int | None = Field(default=None, ge=0, le=366)
+    keep_weekly: int | None = Field(default=None, ge=0, le=366)
+    keep_monthly: int | None = Field(default=None, ge=0, le=366)
+    # setting or changing the backup passphrase (needs the Administrator's own password)
+    passphrase: Annotated[str | None, StringConstraints(max_length=500)] = None
+    passphrase_confirmation: Annotated[str | None, StringConstraints(max_length=500)] = None
+    password: Annotated[str | None, StringConstraints(max_length=200)] = None
+
+
+class BackupFolderTestIn(In):
+    destination: OptStr(1000) = None

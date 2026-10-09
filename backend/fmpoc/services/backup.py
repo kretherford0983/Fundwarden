@@ -38,7 +38,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from .. import VERSION, config
@@ -93,6 +96,71 @@ class _EncryptWriter:
         self.buf = bytearray()
 
 
+# ------------------------------------------------------------------ 1.9.0 (#62): key pair for scheduled backups
+# The backup passphrase protects an X25519 private key (scrypt + AES-256-GCM). The application keeps the public key and
+# the wrapped private key. Each scheduled backup gets a random 256-bit file key, wrapped for the public key (ephemeral
+# X25519 + HKDF-SHA256 + AES-256-GCM); the header carries the wrapped private key too, so the file restores anywhere
+# with the passphrase alone - but the running application, without the passphrase, cannot open its own backups.
+_PRIV_AAD = b"pennywarden-backup-private-key:v1"
+_DEK_INFO = b"pennywarden-backup-file-key:v1"
+
+
+def _b64(b: bytes) -> str:
+    return base64.b64encode(b).decode()
+
+
+def new_keypair(passphrase: str) -> dict:
+    priv = X25519PrivateKey.generate()
+    raw = priv.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+                             serialization.NoEncryption())
+    pub = priv.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    salt, nonce = secrets.token_bytes(16), secrets.token_bytes(12)
+    ct = AESGCM(_derive(passphrase, salt, **SCRYPT)).encrypt(nonce, raw, _PRIV_AAD + pub)
+    wrapped = {"kdf": "scrypt", **SCRYPT, "salt": _b64(salt), "nonce": _b64(nonce), "ct": _b64(ct)}
+    return {"public_key": _b64(pub), "wrapped_private_key": json.dumps(wrapped, separators=(",", ":")),
+            "fingerprint": hashlib.sha256(pub).hexdigest()[:16]}
+
+
+def unwrap_private_key(wrapped: dict, public_key_b64: str, passphrase: str) -> X25519PrivateKey:
+    try:
+        n, r, p = int(wrapped["n"]), int(wrapped["r"]), int(wrapped["p"])
+        salt, nonce, ct = (base64.b64decode(wrapped[k]) for k in ("salt", "nonce", "ct"))
+        pub = base64.b64decode(public_key_b64)
+    except (KeyError, ValueError, TypeError):
+        raise BackupError("The backup file header is damaged.") from None
+    if n > 2 ** 20 or r > 16 or p > 4:
+        raise BackupError("Unsupported backup format.")
+    try:
+        raw = AESGCM(_derive(passphrase, salt, n, r, p)).decrypt(nonce, ct, _PRIV_AAD + pub)
+    except InvalidTag:
+        raise BackupError("Wrong passphrase, or the file is not a valid backup.") from None
+    return X25519PrivateKey.from_private_bytes(raw)
+
+
+def _file_key_for(public_key_b64: str) -> tuple[bytes, dict]:
+    pub = base64.b64decode(public_key_b64)
+    eph = X25519PrivateKey.generate()
+    epk = eph.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    wk = HKDF(hashes.SHA256(), 32, None, _DEK_INFO + epk + pub).derive(eph.exchange(X25519PublicKey.from_public_bytes(pub)))
+    dek, nonce = secrets.token_bytes(32), secrets.token_bytes(12)
+    return dek, {"epk": _b64(epk), "dek_nonce": _b64(nonce), "wrapped_dek": _b64(AESGCM(wk).encrypt(nonce, dek, epk))}
+
+
+def _file_key_from(h: dict, passphrase: str) -> bytes:
+    try:
+        wrapped = h["private_key"] if isinstance(h["private_key"], dict) else json.loads(h["private_key"])
+        epk, nonce, wdek = (base64.b64decode(h[k]) for k in ("epk", "dek_nonce", "wrapped_dek"))
+        pub = base64.b64decode(h["public_key"])
+    except (KeyError, ValueError, TypeError):
+        raise BackupError("The backup file header is damaged.") from None
+    priv = unwrap_private_key(wrapped, h["public_key"], passphrase)
+    wk = HKDF(hashes.SHA256(), 32, None, _DEK_INFO + epk + pub).derive(priv.exchange(X25519PublicKey.from_public_bytes(epk)))
+    try:
+        return AESGCM(wk).decrypt(nonce, wdek, epk)
+    except InvalidTag:
+        raise BackupError("The backup file is damaged (integrity check failed).") from None
+
+
 def _read_exact(f, n: int) -> bytes:
     b = f.read(n)
     if len(b) != n:
@@ -109,7 +177,7 @@ def read_header(f) -> tuple[bytes, dict]:
         h = json.loads(raw)
     except ValueError:
         raise BackupError("The backup file header is damaged.") from None
-    if h.get("format") != FORMAT or h.get("kdf") != "scrypt":
+    if h.get("format") != FORMAT or h.get("kdf") not in ("scrypt", "keypair"):
         raise BackupError("Unsupported backup format.")
     return MAGIC + hl.to_bytes(2, "big") + raw, h
 
@@ -118,14 +186,21 @@ def decrypt_file(src: Path, passphrase: str, dst: Path) -> dict:
     """Decrypts src into dst (tar.gz). Wrong passphrase / tampering / truncation raise BackupError."""
     with open(src, "rb") as f, open(dst, "wb") as out:
         header, h = read_header(f)
-        try:
-            salt, prefix = base64.b64decode(h["salt"]), base64.b64decode(h["nonce_prefix"])
-            n, r, p = int(h["n"]), int(h["r"]), int(h["p"])
-        except (KeyError, ValueError):
-            raise BackupError("The backup file header is damaged.") from None
-        if n > 2 ** 20 or r > 16 or p > 4:  # refuse absurd KDF cost from a crafted file
-            raise BackupError("Unsupported backup format.")
-        aead = AESGCM(_derive(passphrase, salt, n, r, p))
+        if h["kdf"] == "keypair":   # 1.9.0 (#62): scheduled backup
+            try:
+                prefix = base64.b64decode(h["nonce_prefix"])
+            except (KeyError, ValueError):
+                raise BackupError("The backup file header is damaged.") from None
+            aead = AESGCM(_file_key_from(h, passphrase))
+        else:
+            try:
+                salt, prefix = base64.b64decode(h["salt"]), base64.b64decode(h["nonce_prefix"])
+                n, r, p = int(h["n"]), int(h["r"]), int(h["p"])
+            except (KeyError, ValueError):
+                raise BackupError("The backup file header is damaged.") from None
+            if n > 2 ** 20 or r > 16 or p > 4:  # refuse absurd KDF cost from a crafted file
+                raise BackupError("Unsupported backup format.")
+            aead = AESGCM(_derive(passphrase, salt, n, r, p))
         i, final = 0, False
         while not final:
             ln = f.read(4)
@@ -271,8 +346,10 @@ def _db_facts(db_path: Path) -> dict:
         con.close()
 
 
-def create_backup(settings, passphrase: str, job: Job | None = None) -> tuple[Path, str, dict]:
-    """Writes an encrypted backup into the work folder. Returns (path, download name, manifest)."""
+def create_backup(settings, passphrase: str | None, job: Job | None = None,
+                  keypair: dict | None = None) -> tuple[Path, str, dict]:
+    """Writes an encrypted backup into the work folder. Returns (path, download name, manifest).
+    keypair (1.9.0, #62): {"public_key", "wrapped_private_key"} of the scheduled backups instead of a passphrase."""
     wd = work_dir(settings)
     stamp = dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     snap = wd / f"snapshot-{secrets.token_hex(6)}.sqlite3"
@@ -294,11 +371,17 @@ def create_backup(settings, passphrase: str, job: Job | None = None) -> tuple[Pa
         if job:
             job.advance("Encrypting and writing the backup file")
         salt, prefix = secrets.token_bytes(16), secrets.token_bytes(8)
-        hdr = json.dumps({"format": FORMAT, "kdf": "scrypt", **SCRYPT, "salt": base64.b64encode(salt).decode(),
+        if keypair:
+            key, wrap = _file_key_for(keypair["public_key"])
+            fields = {"kdf": "keypair", "public_key": keypair["public_key"],
+                      "private_key": json.loads(keypair["wrapped_private_key"]), **wrap, "scheduled": True}
+        else:
+            key = _derive(passphrase, salt, **SCRYPT)
+            fields = {"kdf": "scrypt", **SCRYPT, "salt": base64.b64encode(salt).decode()}
+        hdr = json.dumps({"format": FORMAT, **fields,
                           "nonce_prefix": base64.b64encode(prefix).decode(), "cipher": "AES-256-GCM",
                           "chunk": CHUNK, "app_version": VERSION}, separators=(",", ":")).encode()
         header = MAGIC + len(hdr).to_bytes(2, "big") + hdr
-        key = _derive(passphrase, salt, **SCRYPT)
         out_path = wd / f"{secrets.token_hex(12)}.fmbak"
         manifest_files = []
         with open(out_path, "wb") as out:

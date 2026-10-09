@@ -51,8 +51,11 @@ permanent copy), so Actions artifact storage stays well within the GitHub Pro al
 
 **Versioning (from 1.6.0): `Breaking.Major.Minor`** (same three numbers as before, so tags, pre-releases and the
 pipeline are unchanged):
-- **Breaking** (1.x → 2.0) — very large changes that may break the app, e.g. moving the data to a different database
-  server. Users decide deliberately whether to upgrade.
+- **Breaking** (1.x → 2.0) — a line in the sand: a change that may break the app (e.g. moving the data to a
+  different database server — users decide deliberately whether to upgrade), **or** the start of something new: a
+  big new area of functionality rather than support for existing features, or the app becoming publicly available
+  through its product page. Planned: 2.0.0 with the check printing module (#60), developed over several test builds
+  (product owner, 2026-10-08).
 - **Major** (1.5 → 1.6) — one or more large new features within the current Breaking line.
 - **Minor** (1.6.0 → 1.6.1) — fixes, polish and performance; occasionally one planned feature of a Major line is
   released on its own so beta feedback can come in before the next one.

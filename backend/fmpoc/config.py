@@ -17,7 +17,7 @@ APP_NAME = "PennyWarden"
 PREVIOUS_APP_NAMES = (("Fundwarden", "fundwarden"),                            # 1.6.6 - 1.6.8
                       ("FinancialManagementPOC", "financial-management-poc"))  # before 1.6.6
 LEGACY_APP_NAME = PREVIOUS_APP_NAMES[-1][0]
-VERSION = "1.8.0"
+VERSION = "1.9.0"
 
 
 BUILD_INFO_FILE = Path(__file__).with_name("build_info.json")
@@ -107,6 +107,9 @@ class Settings:
     lockout_3_minutes: int = 1440
     lockout_disable_failures: int = 20
     restore_max_mb: int = 20480  # v1.4.1 CR-024/025: largest backup file accepted for a restore
+    # 1.9.0 (#62): server mode - the folders an Administrator may choose for scheduled backups (config.toml: a list;
+    # FM_BACKUP_FOLDERS: separated by the system's path separator, ';' on Windows, ':' elsewhere)
+    backup_folders: str = ""
     log_level: str = "INFO"
     debug: bool = False  # never enabled in packaged builds
     frontend_dir: Path | None = None
@@ -152,6 +155,8 @@ def _coerce(name: str, value, current):
     target = type(current) if current is not None else str
     if name == "data_dir" or name == "frontend_dir":
         return Path(str(value)) if value not in (None, "") else None
+    if name == "backup_folders" and isinstance(value, (list, tuple)):
+        return "\n".join(str(v) for v in value)
     if target is bool:
         return value if isinstance(value, bool) else str(value).strip().lower() in _BOOL_TRUE
     if target is int:
@@ -193,3 +198,10 @@ def load_settings(overrides: dict | None = None) -> Settings:
 
 def is_loopback(host: str) -> bool:
     return host in ("127.0.0.1", "::1", "localhost") or host.startswith("127.")
+
+
+def backup_folders(settings: Settings) -> list[str]:
+    """1.9.0 (#62): the allowed scheduled-backup folders listed by the server owner."""
+    raw = settings.backup_folders or ""
+    parts = raw.split("\n") if "\n" in raw else raw.split(os.pathsep)
+    return [p.strip() for p in parts if p.strip()]

@@ -633,3 +633,50 @@ class SecurityNotice(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
     dismissed_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     dismissed_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class BackupSchedule(Base):
+    """1.9.0 (#62): scheduled automatic backups - one row per workspace. Only the public key and the private key
+    wrapped with the backup passphrase are stored: the server can lock a backup but not open one."""
+    __tablename__ = "backup_schedule"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)
+    frequency: Mapped[str] = mapped_column(String(10), default="DAILY")  # DAILY | WEEKLY
+    weekday: Mapped[int] = mapped_column(Integer, default=0)            # 0 = Monday (WEEKLY)
+    time_of_day: Mapped[str] = mapped_column(String(5), default="02:00")  # HH:MM, server local time
+    destination: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    keep_daily: Mapped[int] = mapped_column(Integer, default=7)
+    keep_weekly: Mapped[int] = mapped_column(Integer, default=4)
+    keep_monthly: Mapped[int] = mapped_column(Integer, default=6)
+    public_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    wrapped_private_key: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON (scrypt + AES-GCM)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    passphrase_set_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    next_run_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)   # UTC
+    retry_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    retry_wait_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_success_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    last_failure_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class BackupRun(Base):
+    """1.9.0 (#62): one scheduled-style backup run (scheduled, retry, missed at start, or Run now). The file names of
+    successful runs are what retention may delete - never any other file in the folder."""
+    __tablename__ = "backup_run"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    trigger: Mapped[str] = mapped_column(String(12))   # SCHEDULED | RETRY | MISSED | RUN_NOW
+    started_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    result: Mapped[str] = mapped_column(String(10), default="RUNNING")   # RUNNING | SUCCESS | FAILED
+    destination: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    key_fingerprint: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    deleted_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)   # removed by retention
+    deleted_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)

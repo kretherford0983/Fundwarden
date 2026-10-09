@@ -39,7 +39,7 @@ export default function Users() {
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td>{u.username}</td><td>{u.display_name}</td><td>{u.email}</td><td>{u.security_domain}</td><td>{u.roles.join(", ")}</td>
+              <td>{u.username}</td><td>{u.display_name}</td><td>{u.email}</td><td>{u.security_domain}{u.security_domain === "COMBINED" && mode === "server" ? <div className="badge red" title="Combined roles are for local installs. Choose roles of one security domain.">Local-only roles</div> : null}</td><td>{u.roles.join(", ")}</td>
               <td>
                 {u.active ? "Active" : "Disabled"}
                 {u.locked_until ? <div className="badge red" title="Too many failed attempts">Locked until {new Date(u.locked_until).toLocaleString()}</div> : null}
@@ -59,7 +59,7 @@ export default function Users() {
           ))}
         </tbody>
       </table>
-      {edit ? <UserForm user={edit} ownRolesLocked={mode === "server" && edit.id === me.id} isSelf={edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
+      {edit ? <UserForm user={edit} local={mode === "local"} ownRolesLocked={mode === "server" && edit.id === me.id} isSelf={edit.id === me.id} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} /> : null}
       {reset ? <ResetForm user={reset} onClose={() => setReset(null)} /> : null}
       {mfaReset ? <MfaResetForm user={mfaReset} onClose={() => { setMfaReset(null); load(); }} /> : null}
       {qReset ? <QuestionsResetForm user={qReset} onClose={() => { setQReset(null); load(); }} /> : null}
@@ -67,14 +67,24 @@ export default function Users() {
   );
 }
 
-function UserForm({ user, ownRolesLocked = false, isSelf = false, onClose, onSaved }: { user: any; ownRolesLocked?: boolean; isSelf?: boolean; onClose: () => void; onSaved: () => void }) {
+// 1.9.0 (#54): on a local install roles of every domain can be combined; the domain follows from the roles
+const ROLE_DOMAIN: Record<string, string> = Object.fromEntries(Object.entries(ROLES).flatMap(([d, rs]) => rs.map(([c]) => [c, d])));
+export function domainOf(roles: string[]): string {
+  const ds = Array.from(new Set(roles.map((r) => ROLE_DOMAIN[r]).filter(Boolean)));
+  return ds.length === 1 ? ds[0] : ds.length ? "COMBINED" : "FINANCIAL";
+}
+
+function UserForm({ user, ownRolesLocked = false, isSelf = false, local = false, onClose, onSaved }: { user: any; ownRolesLocked?: boolean; isSelf?: boolean; local?: boolean; onClose: () => void; onSaved: () => void }) {
   const isNew = !user.id;
   const [f, setF] = useState({
     username: user.username || "", email: user.email || "", display_name: user.display_name || "", password: "",
     security_domain: user.security_domain || "FINANCIAL", roles: (user.roles || []) as string[], active: user.active ?? true,
   });
   const [err, setErr] = useState<unknown>(null);
-  const toggle = (r: string) => setF({ ...f, roles: f.roles.includes(r) ? f.roles.filter((x) => x !== r) : [...f.roles, r] });
+  const toggle = (r: string) => {
+    const roles = f.roles.includes(r) ? f.roles.filter((x) => x !== r) : [...f.roles, r];
+    setF({ ...f, roles, security_domain: local ? domainOf(roles) : f.security_domain });
+  };
   const setDomain = (d: string) => setF({ ...f, security_domain: d, roles: d === "FINANCIAL" ? [] : [ROLES[d][0][0]] });
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -102,6 +112,20 @@ function UserForm({ user, ownRolesLocked = false, isSelf = false, onClose, onSav
         {isNew ? <Field label="Initial password" hint="At least 12 characters including a letter and a digit."><input required type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field> : null}
         {/* 1.7.2 (#55): in server mode an Administrator cannot change their own roles (also refused by the server) */}
         {ownRolesLocked ? <p className="hint" id="own-roles-hint">You cannot change your own security domain or roles. Another Administrator can change them for you.</p> : null}
+        {local ? (
+          <fieldset aria-describedby="local-roles-hint">
+            <legend>Roles</legend>
+            <p className="hint" id="local-roles-hint">On a local install one person can hold roles of every security domain.</p>
+            {Object.entries(ROLES).map(([d, rs]) => (
+              <div key={d} className="role-group">
+                <b>{d === "ADMINISTRATOR" ? "Administration" : d === "FINANCIAL" ? "Financial" : "Audit"}</b>
+                {rs.map(([code, name]) => (
+                  <label key={code} className="check"><input type="checkbox" checked={f.roles.includes(code)} onChange={() => toggle(code)} /> {name}</label>
+                ))}
+              </div>
+            ))}
+          </fieldset>
+        ) : <>
         <fieldset disabled={ownRolesLocked} aria-describedby={ownRolesLocked ? "own-roles-hint" : undefined}>
           <legend>Security domain (exactly one)</legend>
           {Object.keys(ROLES).map((d) => (
@@ -116,6 +140,7 @@ function UserForm({ user, ownRolesLocked = false, isSelf = false, onClose, onSav
             ))}
           </fieldset>
         ) : null}
+        </>}
         {!isNew ? (
           <>
             {/* 1.7.2 (#55 follow-up): your own account cannot be disabled by you (also refused by the server) */}
