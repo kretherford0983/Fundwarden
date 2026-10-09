@@ -33,7 +33,7 @@ export interface Me {
   username: string;
   display_name?: string | null; // 1.7.1 (#47): always set; shown in the top bar (#46)
   email: string;
-  security_domain: "ADMINISTRATOR" | "FINANCIAL" | "AUDITOR";
+  security_domain: "ADMINISTRATOR" | "FINANCIAL" | "AUDITOR" | "COMBINED"; // 1.9.0 (#54): COMBINED on local installs
   roles: string[];
   permissions: string[];
   theme: "light" | "dark";
@@ -142,6 +142,11 @@ function navFor(me: Me) {
   if (me.modules?.fundraisers) fin.splice(6, 0, ["/fundraisers", "Fundraisers"]); // v1.6.0 CR-033 (optional module)
   if (me.security_domain === "ADMINISTRATOR") return [["/", "Dashboard"], ["/users", "Users"], ["/audit-log", "Audit Log"], ["/about", "System/About"]];
   if (me.security_domain === "AUDITOR") return [...fin, ["/users", "Users"], ["/audit-log", "Audit Log"]];
+  if (me.security_domain === "COMBINED") { // 1.9.0 (#54): one person, roles of several domains (local installs)
+    const has = (p: string) => me.permissions.includes(p);
+    return [...(has("financial.view") ? fin : [["/", "Dashboard"]]), ...(has("users.view") ? [["/users", "Users"]] : []),
+      ...(has("audit.view") ? [["/audit-log", "Audit Log"]] : []), ...(has("users.manage") ? [["/about", "System/About"]] : [])];
+  }
   return fin;
 }
 

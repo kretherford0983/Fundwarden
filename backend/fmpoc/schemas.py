@@ -93,7 +93,7 @@ class PreferencesIn(In):
     reset_dashboard_layout: bool | None = None
 
 
-Domain = Literal["ADMINISTRATOR", "FINANCIAL", "AUDITOR"]
+Domain = Literal["ADMINISTRATOR", "FINANCIAL", "AUDITOR", "COMBINED"]  # 1.9.0 (#54): COMBINED on local installs
 RoleCode = Literal["ADMINISTRATOR", "BUDGET_MANAGER", "BUDGET_USER", "REGISTER_USER", "AUDITOR",
                    "BUDGET_ADMIN", "REGISTER_ADMIN"]  # 1.7.3 (#52, #53)
 
@@ -104,7 +104,7 @@ class UserCreateIn(In):
     display_name: OptStr(120) = None
     password: Annotated[str, StringConstraints(max_length=256)]
     security_domain: Domain
-    roles: Annotated[list[RoleCode], Field(min_length=1, max_length=5)]
+    roles: Annotated[list[RoleCode], Field(min_length=1, max_length=7)]
 
     @field_validator("username")
     @classmethod
@@ -126,7 +126,7 @@ class UserUpdateIn(In):
     display_name: OptStr(120) = None
     active: bool | None = None
     security_domain: Domain | None = None
-    roles: Annotated[list[RoleCode] | None, Field(max_length=5)] = None
+    roles: Annotated[list[RoleCode] | None, Field(max_length=7)] = None
 
 
 class PasswordResetIn(In):

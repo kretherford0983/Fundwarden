@@ -382,3 +382,6 @@ tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }
 .small-text { font-size: 0.85em; }
 .banner ul { margin: 4px 0 0; }
 .banner p { margin: 2px 0; }
+
+/* 1.9.0 (#54): roles of every domain on a local install */
+.role-group { display: flex; flex-direction: column; margin: 4px 0 8px; }

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..errors import AppError
 from ..models import Entity, Role, User, UserRole, Workspace, utcnow
-from ..permissions import ADMINISTRATOR, ROLE_DEFS
+from ..permissions import ADMINISTRATOR, COMBINED, LOCAL_FIRST_USER_ROLES, ROLE_DEFS
 from ..security import crypto
 from ..security.passwords import hash_password
 
@@ -57,6 +57,9 @@ def initialize(db: Session, settings, ctx, *, workspace_name: str, username: str
     ws.next_entity_number = 1
     db.flush()
     roles = seed_roles(db)
+    # 1.9.0 (#54): on a local install the first user holds every role (one person runs the organization's books);
+    # a server keeps the Administrator alone in the Administrator domain
+    first_roles = LOCAL_FIRST_USER_ROLES if settings.mode == "local" else [ADMINISTRATOR]
     admin = User(
         workspace_id=ws.id,
         username=username,
@@ -65,13 +68,14 @@ def initialize(db: Session, settings, ctx, *, workspace_name: str, username: str
         display_name=username,   # 1.7.1 (#47): required; the Administrator changes it under Users
         password_hash=hash_password(password),
         active=True,
-        security_domain="ADMINISTRATOR",
+        security_domain=COMBINED if len(first_roles) > 1 else "ADMINISTRATOR",
         theme="light",
         password_changed_at=utcnow(),
     )
     db.add(admin)
     db.flush()
-    db.add(UserRole(user_id=admin.id, role_id=roles[ADMINISTRATOR].id))
+    for code in first_roles:
+        db.add(UserRole(user_id=admin.id, role_id=roles[code].id))
     if not db.scalar(select(Entity).where(Entity.workspace_id == ws.id, Entity.is_system.is_(True))):
         db.add(Entity(
             workspace_id=ws.id, entity_number=MULTIPLE_ENTITY_NUMBER, entity_type="SYSTEM",
@@ -82,6 +86,7 @@ def initialize(db: Session, settings, ctx, *, workspace_name: str, username: str
     db.refresh(admin)
     ctx.workspace_id, ctx.user = ws.id, admin
     audit.record(db, ctx, "SYSTEM_INITIALIZED", "workspace", ws.id, None,
-                 {"workspace_name": ws.name, "admin_username": admin.username, "admin_email": admin.email},
+                 {"workspace_name": ws.name, "admin_username": admin.username, "admin_email": admin.email,
+                  "admin_roles": first_roles, "mode": settings.mode},
                  category="SECURITY")
     return admin

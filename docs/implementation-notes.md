@@ -54,6 +54,18 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.9.0 Single User Local Install (issue #54).** No migration: `app_user.security_domain` gains the value
+`COMBINED` (`permissions.domain_of`). `permissions.validate_role_set(domain, roles, mode)` accepts roles of several
+domains only when `mode == "local"`, and the domain must equal `domain_of(roles)`. `bootstrap.initialize` gives the
+first user `LOCAL_FIRST_USER_ROLES` in local mode (`SYSTEM_INITIALIZED` records `admin_roles` and `mode`).
+`services/users.create/update` receive the mode from the router; an update with unchanged roles is not re-validated
+(a COMBINED user stays editable on a server). Dashboard: a COMBINED user with the Auditor role gets the Auditor
+dashboard (financial + review summary), otherwise the financial one. Frontend: `navFor` builds a COMBINED user's
+menu from the permissions; the user form on a local install lists every role grouped by domain and derives the
+domain (`domainOf`). Test fixtures keep the test Administrator to the Administrator role (`initialize(app,
+single_domain=True)`); the E2E suite does the same through the user form after checking the combined first user.
+Tests: `tests/test_v190_single_user.py`, E2E "AC-INIT-001..007".
+
 **1.8.0 Dependabot and the third-party notices (issue #98, option 2 decided 2026-10-08).** `tests.yml` takes an
 input `notices` (`check` by default). `ci.yml` passes `regenerate` for pull requests from `dependabot/*` branches,
 `build.yml` for develop builds; pull requests into test and main and the test/main builds stay `check`.
