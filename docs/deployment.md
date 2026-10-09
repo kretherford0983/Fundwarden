@@ -41,6 +41,10 @@ default browser when a desktop session is available. Plain HTTP is acceptable be
 
 ## Server installation (multiple users)
 
+On **Windows** (Windows 10/11 or Windows Server): step by step in [install-windows-server.md](install-windows-server.md)
+— the portable zip, a fixed data folder, HTTPS through Cloudflare Tunnel or Caddy, and Task Scheduler to start it
+with Windows.
+
 ### Linux: one command (since 1.5.0)
 
 ```bash

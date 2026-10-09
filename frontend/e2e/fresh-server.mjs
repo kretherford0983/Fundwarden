@@ -13,7 +13,9 @@ const bundle = process.env.FM_BUNDLE;
 const cmd = bundle || py;
 const args = bundle ? ["--no-browser", "--port", port, "--data-dir", dataDir] : ["-m", "fmpoc", "--no-browser", "--port", port, "--data-dir", dataDir];
 const child = spawn(cmd, args, {
-  cwd: backend, stdio: "inherit", env: { ...process.env, FM_LOGIN_MAX_FAILURES: "50" },
+  cwd: backend, stdio: "inherit", env: { ...process.env, FM_LOGIN_MAX_FAILURES: "50",
+    // 1.10.0 (#58): the update check reads a stand-in for pennywarden.org that the "#58" test serves on this port
+    FM_UPDATE_CHANNEL: "stable", FM_UPDATE_BASE_URL: "http://127.0.0.1:8796" },
 });
 const stop = () => child.kill();
 process.on("SIGTERM", stop);

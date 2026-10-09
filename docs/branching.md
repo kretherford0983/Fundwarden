@@ -22,6 +22,10 @@ runner) before it is published. To try the packages of a feature branch without 
 Workflow-run copies of the packages are kept 7 days (develop) or 1 day (test/main — the GitHub release keeps the
 permanent copy), so Actions artifact storage stays well within the GitHub Pro allowance (1 GB).
 
+**pennywarden.org** (since 1.10.0): after a GitHub release or test pre-release is published, the build starts the
+`pages` workflow, which rebuilds the product page from `main` and the release data files from the releases
+(production releases in `releases.json`, test builds only in `releases-test.json`) — docs/product-site.md.
+
 ## Rules enforced by the pipeline (`scripts/check_promotion.sh`)
 - Pull requests into **develop** come from `feature/*`, `hotfix/*` or `dependabot/*` (or a back-merge from
   `test`/`main`). `dependabot/*` branches are accepted into develop only.
