@@ -52,6 +52,36 @@ log as `SYSTEM_RESTORED`.
 If any step fails the current data stays in place (or is put back from the safety copy) and the page says which step
 failed. The largest accepted file is set by `restore_max_mb` in `config.toml` (default 20480).
 
+## Scheduled backups (since 1.9.0)
+
+System/About → Backup / Restore → **Scheduled** writes backups on its own, without anyone signed in:
+
+- **Schedule:** Daily at a time, or Weekly on a day at a time — the computer's (server's) local time.
+- **Folder:** one folder the operating system running PennyWarden can already see: a local folder, an external drive
+  or a mounted network share. On a **server** the server owner lists the allowed folders in `config.toml`
+  (`backup_folders = ["/mnt/nas/pennywarden"]`, docs/configuration.md) and the Administrator picks one; the service
+  account (`pennywarden` on Linux) must be able to write there. On a **local install** any folder can be entered.
+  **Test** writes and removes a small file to check the folder. Copying backups offsite is done outside PennyWarden.
+- **Passphrase and key pair:** the Administrator sets a backup passphrase once (at least 12 characters; their own
+  password confirms it). PennyWarden turns it into a key pair and keeps only the public key and the private key
+  locked with the passphrase — it can **lock** each backup but cannot open one. Each file is encrypted like a manual
+  backup (AES-256-GCM records) with its own random key, which is locked for the public key (X25519 + HKDF-SHA256);
+  the locked private key travels in the file header, so the **passphrase alone restores it anywhere** through the
+  normal **Restore** tab. Changing the passphrase makes a new key pair: backups made before still need the earlier
+  passphrase. A forgotten passphrase cannot be recovered.
+- **Keep:** Daily schedule — how many daily, weekly (the first backup of each week) and monthly (the first backup of
+  each month) backups to keep, e.g. 3 / 2 / 2; Weekly schedule — weekly and monthly only. The newest backup is always
+  kept. Older ones are deleted after each successful backup — **only files PennyWarden wrote and recorded in its
+  history, never anything else in the folder**.
+- **Failures:** a failed backup is tried again after 1 hour, then 2, 4, 8 … hours (at most 24) so failing hardware
+  is not hammered; the next scheduled backup runs at its normal time regardless and starts the sequence again.
+  Administrators see a red banner on every page until the next backup succeeds.
+- **Missed:** if PennyWarden was not running at the scheduled time, the backup runs about a minute after the next
+  start.
+- **Run now** writes a backup immediately; the page lists the recent runs with their result, file and size. Settings
+  changes, runs, failures and deletions are in the audit log (`BACKUP_SCHEDULE_UPDATED`, `BACKUP_PASSPHRASE_SET`,
+  `SCHEDULED_BACKUP_CREATED/FAILED/DELETED`).
+
 ## Moving to another server
 
 On the new server install the same or a newer version, open it in the browser and choose **Restore from a backup

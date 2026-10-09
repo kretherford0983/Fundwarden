@@ -538,3 +538,23 @@ class ForgotCompleteIn(In):
     code: Annotated[str | None, StringConstraints(max_length=40)] = None
     new_password: Annotated[str, StringConstraints(max_length=256)]
     new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]
+
+
+# ------------------------------------------------------------------ 1.9.0 (#62) scheduled automatic backups
+class BackupScheduleIn(In):
+    enabled: bool = False
+    frequency: Literal["DAILY", "WEEKLY"] = "DAILY"
+    weekday: int | None = Field(default=0, ge=0, le=6)          # 0 = Monday
+    time_of_day: Annotated[str, StringConstraints(max_length=5)] = "02:00"
+    destination: OptStr(1000) = None
+    keep_daily: int | None = Field(default=None, ge=0, le=366)
+    keep_weekly: int | None = Field(default=None, ge=0, le=366)
+    keep_monthly: int | None = Field(default=None, ge=0, le=366)
+    # setting or changing the backup passphrase (needs the Administrator's own password)
+    passphrase: Annotated[str | None, StringConstraints(max_length=500)] = None
+    passphrase_confirmation: Annotated[str | None, StringConstraints(max_length=500)] = None
+    password: Annotated[str | None, StringConstraints(max_length=200)] = None
+
+
+class BackupFolderTestIn(In):
+    destination: OptStr(1000) = None

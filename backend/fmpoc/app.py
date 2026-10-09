@@ -1,6 +1,8 @@
 """FastAPI application factory."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import logging
 import logging.handlers
 import re
@@ -127,9 +129,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     engine = make_engine(settings.database_url)
     session_factory = make_session_factory(engine)
 
+    @asynccontextmanager
+    async def lifespan(app):
+        # 1.9.0 (#62): the scheduled-backup thread runs while the web server runs (not in tests' TestClient,
+        # which does not start the lifespan unless used as a context manager)
+        from .services.scheduled_backup import Scheduler
+        sched = Scheduler(app)
+        sched.start()
+        try:
+            yield
+        finally:
+            sched.stop()
+
     app = FastAPI(title="PennyWarden", version=VERSION, debug=False,
                   docs_url=None, redoc_url=None, openapi_url=None,  # no dev consoles in production (BR-107)
-                  dependencies=[Depends(enforce_csrf)])
+                  dependencies=[Depends(enforce_csrf)], lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = session_factory

@@ -19,11 +19,12 @@ from ..db import alembic_config, make_engine, make_session_factory, upgrade_data
 from ..deps import Ctx, get_ctx, get_db, require
 from ..errors import AppError, validation
 from ..models import AuthSession, TrustedDevice, utcnow
-from ..schemas import BackupCreateIn, RestoreStartIn, RestoreUploadIn
+from ..schemas import BackupCreateIn, BackupFolderTestIn, BackupScheduleIn, RestoreStartIn, RestoreUploadIn
 from ..security import crypto
 from ..security.passwords import verify_password
 from ..services import backup as bk
 from ..services import bootstrap
+from ..services import scheduled_backup as sched
 from ..services.auth import LoginRateLimiter
 
 log = logging.getLogger("fmpoc")
@@ -113,6 +114,40 @@ def backup_download(job_id: str, request: Request, ctx: Ctx = Depends(require("u
         raise AppError(404, "NOT_FOUND", "The backup file is no longer available. Create a new backup.")
     return FileResponse(path, media_type="application/octet-stream", filename=job.result["filename"],
                         headers={"Cache-Control": "private, no-store"})
+
+
+# ------------------------------------------------------------------ 1.9.0 (#62) scheduled automatic backups
+@router.get("/backup-schedule")
+def schedule_get(request: Request, db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
+    return sched.out(db, request.app.state.settings, ctx.workspace_id)
+
+
+@router.put("/backup-schedule")
+def schedule_put(body: BackupScheduleIn, request: Request, db: Session = Depends(get_db),
+                 ctx: Ctx = Depends(require("users.manage"))):
+    if body.passphrase:   # setting or changing the passphrase needs the Administrator's own password
+        _check_password(request, db, ctx, body.password or "", "BACKUP_PASSPHRASE")
+    sched.save(db, request.app.state.settings, ctx, body)
+    db.commit()
+    return sched.out(db, request.app.state.settings, ctx.workspace_id)
+
+
+@router.post("/backup-schedule/test")
+def schedule_test(body: BackupFolderTestIn, request: Request, ctx: Ctx = Depends(require("users.manage"))):
+    """Writes and removes a small file in the folder."""
+    return sched.test_folder(request.app.state.settings, body.destination)
+
+
+@router.post("/backup-schedule/run", status_code=202)
+def schedule_run_now(request: Request, db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
+    sched.run_now_async(request.app, ctx)
+    return {"started": True}
+
+
+@router.get("/backup-schedule/alert")
+def schedule_alert(db: Session = Depends(get_db), ctx: Ctx = Depends(require("users.manage"))):
+    """The banner shown to Administrators while the last scheduled backup has failed."""
+    return sched.alert(db, ctx.workspace_id)
 
 
 # ------------------------------------------------------------------ restore (CR-024 wizard / CR-025 System/About)

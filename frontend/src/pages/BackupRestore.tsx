@@ -2,6 +2,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { api, getCsrf } from "../api";
 import { ErrorBox, Field, GuardedForm } from "../components";
+import ScheduledBackups from "./ScheduledBackups";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const mb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`);
@@ -179,15 +180,16 @@ export function RestorePanel({ wizard = false, maxMb }: { wizard?: boolean; maxM
 }
 
 export function BackupRestore({ maxMb }: { maxMb?: number | null }) {
-  const [tab, setTab] = useState<"backup" | "restore">("backup");
+  const [tab, setTab] = useState<"backup" | "scheduled" | "restore">("backup");
   return (
     <div className="backup-restore">
       <h2>Backup / Restore</h2>
       <div role="tablist" className="row">
         <button role="tab" aria-selected={tab === "backup"} className={tab === "backup" ? "primary" : ""} onClick={() => setTab("backup")}>Backup</button>
+        <button role="tab" aria-selected={tab === "scheduled"} className={tab === "scheduled" ? "primary" : ""} onClick={() => setTab("scheduled")}>Scheduled</button>
         <button role="tab" aria-selected={tab === "restore"} className={tab === "restore" ? "primary" : ""} onClick={() => setTab("restore")}>Restore</button>
       </div>
-      {tab === "backup" ? <BackupPanel /> : <RestorePanel maxMb={maxMb} />}
+      {tab === "backup" ? <BackupPanel /> : tab === "scheduled" ? <ScheduledBackups /> : <RestorePanel maxMb={maxMb} />}
     </div>
   );
 }
