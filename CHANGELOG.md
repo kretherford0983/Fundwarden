@@ -2,7 +2,52 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
-## 1.7.3 — unreleased
+## 1.8.0 — 2026-10-09
+Database migrations `0021` and `0022` (columns and tables added; no existing data changes). Rolling back to 1.7.3
+needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). **Every user chooses three
+security questions at the next sign-in.**
+- **Forgot password (#113).** Each user chooses three security questions from a list (at the first sign-in; existing
+  users at their next one) and can change them in **My account**. **Forgot password?** on the sign-in page asks one
+  of them at random; on a server — and on a local install with two-step verification — an authenticator or recovery
+  code is needed as well. Then the user sets a new password and is signed out everywhere. The page never reveals
+  whether a username exists. The user is told about the reset at the next sign-in and Administrators see a notice.
+  Administrators can *Reset security questions* on the Users page.
+- **Failed attempts lock the account (#113).** Wrong passwords and wrong *Forgot password* answers now add up per
+  account and are kept across restarts: 5 in a row lock the account for 15 minutes, 10 for an hour (Administrators
+  get a notice), 15 for 24 hours, and at 20 the account is disabled until an Administrator enables it again. The
+  numbers can be changed in `config.toml` (docs/configuration.md). The user is told at the next sign-in.
+- **Dependabot's Python updates run the tests (#98).** On Dependabot pull requests and develop builds, an
+  out-of-date `THIRD-PARTY-NOTICES.txt` is regenerated for the run and reported (warning and run summary) instead of
+  stopping the tests; a new package that is not pinned in `backend/requirements.txt` is named. Pull requests into
+  test and main and their builds stay strict, and now also fail when a shipped package is not pinned
+  (docs/branching.md).
+- **Host command `reset-password` (#113)** for the only Administrator who forgot both the password and the answers:
+  it prints a temporary password that must be changed at the next sign-in. `reset-password` and `reset-mfa` also
+  enable a disabled account again.
+- **Financial Flow Report (#106).** A new report on the Reports page for the treasurer's periodic update: the money
+  that came in and went out of the chosen accounts between a From Date and a Through Date (empty: "Current"), one
+  section per account with its income, expenses, totals and the **Difference** (green with + or red with −), and an
+  overall summary when several accounts are chosen. Expenses are one line per withdrawal, income one line per part of
+  a deposit; transfers between accounts and VOID transactions are not listed, uncleared ones are. Before the PDF is
+  made you **review the lines**: uncheck a line to leave it out (a reason is required; it goes to the audit log, never
+  onto the report) and type a note on a line to print it with the line. Optionally the report lists the Current
+  balance of every account on the Through Date in Checking, Savings and Investments with Total Assets, and with a
+  Compare Date the balance then and the change. Producing the report is recorded in the audit log.
+- **Budgets linked across Fiscal Years (#89).** A budget can record which budget of an earlier Fiscal Year it
+  continues, even when its ID or name changed, in a new **Continues** list in the budget's create and edit dialogs
+  (grouped by Fiscal Year, e.g. `FY2027 - 1000 - Operations`). The link is one to one, between budgets of the same
+  type (Income or Expense) and level (budget or sub-budget); Budget 0 and Other are never linked. Budgets copied into
+  a new Fiscal Year are linked to their source automatically; budgets created before 1.8.0 are not linked until you
+  choose. Budgets with a link have a **History** link on the Budgets page that shows every year of the budget with its
+  ID, name, amount and actual. Changing the link follows the usual budget rules (unlock a locked budget first; not
+  in a Closed Fiscal Year) and is recorded in the audit log.
+- **Configuration documentation for the Mac (#112).** docs/configuration.md now covers the Mac like Windows and
+  Linux: the data folder (`~/Library/Application Support/PennyWarden`) and how to open it in Finder, the log file,
+  `config.toml` (environment variables do not reach an app opened from Finder), and starting the app with options
+  from Terminal. The paragraph on earlier folder names now covers both renames (1.6.6 and 1.7.0) on all three
+  systems. install-macos.md and deployment.md link to it.
+
+## 1.7.3 — 2026-10-08
 Database migrations `0019` (two roles and three columns added) and `0020` (balance history, rebuilt from the audit
 log); no existing balance changes. Rolling back to 1.7.2 needs the data snapshot the installer takes before the
 upgrade (docs/upgrade.md).

@@ -25,6 +25,10 @@ concurrency:
 jobs:
   tests:
     uses: ./.github/workflows/tests.yml
+    with:
+      # 1.8.0 (#98): develop may carry a merged Dependabot update until the notices are regenerated there;
+      # test and main stay strict
+      notices: ${{ github.ref_name == 'develop' && 'regenerate' || 'check' }}
 
   package:
     needs: tests

@@ -18,7 +18,8 @@ SESSION_COOKIE = "fm_session"
 PRE_CSRF_COOKIE = "fm_precsrf"
 CSRF_HEADER = "x-csrf-token"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-ANON_MUTATING_PATHS = {"/api/auth/login", "/api/system/initialize"}
+ANON_MUTATING_PATHS = {"/api/auth/login", "/api/system/initialize",
+                       "/api/auth/forgot/start", "/api/auth/forgot/complete"}  # 1.8.0 (#113)
 ANON_MUTATING_PREFIXES = ("/api/system/restore/",)  # v1.4.1 CR-024: restore from the initialization wizard
 
 
@@ -47,7 +48,9 @@ class Ctx:
     perms: set[str] = field(default_factory=set)
     correlation_id: str | None = None
     ip: str | None = None
-    mfa_pending: str | None = None  # v1.4.1 CR-018: VERIFY / ENROLL while the MFA step is outstanding
+    # v1.4.1 CR-018: VERIFY / ENROLL while the MFA step is outstanding; 1.8.0 (#113): PASSWORD / QUESTIONS while a
+    # setup step after the sign-in is outstanding
+    mfa_pending: str | None = None
 
     def has(self, perm: str) -> bool:
         return perm in self.perms

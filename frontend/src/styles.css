@@ -352,3 +352,33 @@ td.ua { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space
 /* 1.7.3 (#52, #53): the Delete button sits on the far left, away from Save / Cancel */
 .actions .delete-apart { margin-right: auto; }
 .register tr.deleted td { text-decoration: line-through; color: var(--muted); }
+
+/* 1.8.0 (#89): budget history */
+.history-link { margin-left: 0.5em; font-size: 0.85em; }
+tr.current-row td { background: var(--row-highlight, rgba(37, 99, 235, 0.08)); }
+
+/* 1.8.0 (#106): Financial Flow Report */
+.row.space-between { justify-content: space-between; align-items: center; }
+.amount-up { color: var(--green-fg); }
+.amount-down { color: var(--red-fg); }
+.flow-review tr.excluded td { opacity: 0.55; text-decoration: line-through; }
+.flow-review tr.excluded td:first-child, .flow-review tr.excluded td:last-child { text-decoration: none; }
+.flow-review tr.excluded td:last-child { opacity: 1; }
+.flow-review td input:not([type="checkbox"]) { width: 100%; min-width: 12em; }
+.flow-section { margin-bottom: 1.5em; }
+.flow-diff { font-size: 1.05em; }
+.account-picks { border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 6px 12px; margin: 8px 0; }
+.account-picks label.check { display: block; margin: 4px 0; }
+.flow-review table { table-layout: fixed; }
+.flow-review th:nth-child(1) { width: 4.5em; }
+.flow-review th:nth-child(2), .flow-review th:nth-child(3) { width: 7.5em; }
+.flow-review th:nth-child(5) { width: 35%; }
+
+/* 1.8.0 (#113): security questions and Forgot password */
+.question-row { border: 1px solid var(--border, #d0d7de); border-radius: 6px; padding: 4px 12px 8px; margin: 0 0 10px; }
+.question-row select { max-width: 100%; }
+.forgot-link { margin-top: 10px; display: block; }
+.security-question { font-size: 1.05em; }
+.small-text { font-size: 0.85em; }
+.banner ul { margin: 4px 0 0; }
+.banner p { margin: 2px 0; }

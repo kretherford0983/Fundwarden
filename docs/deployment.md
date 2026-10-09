@@ -22,7 +22,8 @@ Native packages need no separately installed Python, Node.js, SQLite, Docker or 
   **Open** also works.) Step by step with pictures: [install-macos.md](install-macos.md). To check the download first: `shasum -a 256 PennyWarden-<version>-macos-arm64.dmg` against
   `SHA256SUMS.txt` from the same release. Data is kept in `~/Library/Application Support/PennyWarden`, never inside
   the app, so replacing the app with a newer one keeps it. To upgrade: quit PennyWarden, drag the new app onto
-  Applications and choose *Replace*. Server mode from Terminal:
+  Applications and choose *Replace*. Data folder, log, `config.toml` and options on a Mac:
+  [configuration.md](configuration.md#on-a-mac). Server mode from Terminal:
   `/Applications/PennyWarden.app/Contents/MacOS/PennyWarden --mode server`.
 - **Windows (portable folder)**: unzip `PennyWarden-windows-x64.zip` anywhere (e.g.
   `%LOCALAPPDATA%\Programs`), double-click `PennyWarden.cmd`.
@@ -111,7 +112,12 @@ server {
 Run as a service: systemd unit (`ExecStart=/opt/pennywarden/current/pennywarden --mode server --no-browser`,
 `Environment=FM_DATA_DIR=/var/lib/pennywarden`, dedicated user) or on Windows with Task Scheduler/NSSM running
 `PennyWarden-Server.cmd`. Run a single application process per data directory (SQLite + in-process
-login rate limiter).
+login rate limiter; the per-account count of failed attempts is in the database).
+
+Host commands for a locked-out user, run on the server as the account that owns the data directory:
+`pennywarden reset-mfa --user NAME` (two-step verification set up again) and, from 1.8.0,
+`pennywarden reset-password --user NAME` (prints a temporary password that must be changed at the next sign-in).
+Both also enable an account that was disabled after too many failed attempts.
 
 ## Docker (optional)
 

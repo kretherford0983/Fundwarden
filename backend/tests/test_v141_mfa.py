@@ -34,6 +34,8 @@ def _enroll(a: Api) -> tuple[pyotp.TOTP, list[str]]:
     assert r.status_code == 200, r.text
     body = r.json()
     a.csrf = body["me"]["csrf_token"]
+    if body["me"]["mfa_pending"] == "QUESTIONS":   # 1.8.0 (#113): the first sign-in continues with the questions
+        a.setup_questions()
     return totp, body["recovery_codes"]
 
 

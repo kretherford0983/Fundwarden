@@ -185,12 +185,14 @@ class BudgetCreateIn(In):
     budget_type: Literal["INCOME", "EXPENSE"] | None = None
     amount: Amount
     notes: OptStr(4000) = None
+    continues_budget_id: int | None = None  # 1.8.0 (#89)
 
 
 class BudgetUpdateIn(In):
     name: Str(120) | None = None
     amount: Amount | None = None
     notes: OptStr(4000) = None
+    continues_budget_id: int | None = None  # 1.8.0 (#89): send null to remove the link
 
 
 class ReasonIn(In):
@@ -478,3 +480,61 @@ class ReminderIn(In):
 class ReminderResolveIn(In):
     note: OptStr(500) = None
     stop_repeating: bool = False
+
+
+# ------------------------------------------------------------------ 1.8.0 (#106) Financial Flow Report
+class FlowReportIn(In):
+    title: Str(120)
+    date_from: Date
+    date_to: OptDate = None                     # empty = today, printed as "Current"
+    bank_account_ids: list[int] = Field(min_length=1, max_length=50)
+    include_balances: bool = False
+    compare_date: OptDate = None                # only with include_balances; earlier than the Through Date
+    notes: OptStr(4000) = None
+
+
+class FlowExclusionIn(In):
+    key: str = Field(min_length=2, max_length=24)
+    reason: str = Field(max_length=1000)        # required (checked by the service so the message names the line)
+
+
+class FlowLineNoteIn(In):
+    key: str = Field(min_length=2, max_length=24)
+    note: OptStr(1000) = None
+
+
+class FlowReportPdfIn(FlowReportIn):
+    exclusions: list[FlowExclusionIn] = Field(default_factory=list, max_length=5000)
+    line_notes: list[FlowLineNoteIn] = Field(default_factory=list, max_length=5000)
+    download: bool = False
+
+
+# ------------------------------------------------------------------ 1.8.0 (#113) forgotten password
+class SecurityAnswerIn(In):
+    question: Annotated[str, StringConstraints(max_length=40)]
+    answer: Annotated[str, StringConstraints(max_length=200)]
+
+
+class SecurityQuestionsIn(In):
+    questions: list[SecurityAnswerIn] = Field(max_length=10)
+
+
+class SecurityQuestionsChangeIn(SecurityQuestionsIn):
+    current_password: Annotated[str, StringConstraints(max_length=256)]
+
+
+class SetupPasswordIn(In):
+    new_password: Annotated[str, StringConstraints(max_length=256)]
+    new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]
+
+
+class ForgotStartIn(In):
+    username: Annotated[str, StringConstraints(max_length=64)]
+
+
+class ForgotCompleteIn(In):
+    username: Annotated[str, StringConstraints(max_length=64)]
+    answer: Annotated[str, StringConstraints(max_length=200)]
+    code: Annotated[str | None, StringConstraints(max_length=40)] = None
+    new_password: Annotated[str, StringConstraints(max_length=256)]
+    new_password_confirmation: Annotated[str, StringConstraints(max_length=256)]

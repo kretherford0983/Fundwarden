@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, setCsrf } from "../api";
 import { ErrorBox, Field, GuardedForm, Loading } from "../components";
 import type { Me } from "../App";
+import { NewPasswordStep, QuestionsStep } from "./Recovery";
 
 /** Full-screen step shown after the password was accepted and before the application opens. */
 export function MfaGate({ me, workspace, onDone, onLogout }: { me: Me; workspace: string; onDone: () => void; onLogout: () => void }) {
@@ -15,7 +16,9 @@ export function MfaGate({ me, workspace, onDone, onLogout }: { me: Me; workspace
     <div className="center">
       <div className="card auth-card mfa-card">
         <p className="muted">{workspace}</p>
-        {me.mfa_pending === "ENROLL" ? (
+        {me.mfa_pending === "QUESTIONS" ? <QuestionsStep onDone={onDone} /> /* 1.8.0 (#113) */
+        : me.mfa_pending === "PASSWORD" ? <NewPasswordStep onDone={onDone} />
+        : me.mfa_pending === "ENROLL" ? (
           <>
             <h1>Set up two-step verification</h1>
             <p>This server requires a second step at sign-in. Set up an authenticator app (for example Microsoft Authenticator, Google Authenticator, 1Password or Authy) to continue.</p>

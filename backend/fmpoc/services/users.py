@@ -114,6 +114,8 @@ def update(db: Session, ctx, u: User, data, mode: str = "local") -> User:
         u.active = data.active
         if not u.active:
             revoke_user_sessions(db, u.id)  # disabled users lose authorization immediately
+        else:   # 1.8.0 (#113): re-enabling also ends a lock and clears the count of failed attempts
+            u.failed_attempts, u.locked_until = 0, None
     db.flush()
     if _active_admin_count(db, ctx.workspace_id) < 1:
         raise conflict("LAST_ADMINISTRATOR", "At least one active Administrator must remain.")
