@@ -3,6 +3,11 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.10.0 — unreleased
+- **pennywarden.org (#83).** A product page on GitHub Pages at <https://pennywarden.org>: what PennyWarden is, for
+  whom, screenshots, and direct download buttons for Windows, Mac and Linux (the visitor's own system highlighted)
+  with the current version, its date and the checksums, plus help with the "unverified app" warnings. It is rebuilt
+  after every release from the GitHub releases, together with the release data files the update notification reads
+  (docs/product-site.md).
 - **Fix: typing in the "Exclude this line" dialog of the Financial Flow Report (#139).** The reason box lost the focus
   after every letter, so a reason could hardly be entered. Dialogs now take the focus once, when they open.
 
