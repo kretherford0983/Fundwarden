@@ -36,6 +36,23 @@ def filter_options(fiscal_year_id: int | None = None, db: Session = Depends(get_
     return svc.filter_options(db, ctx.workspace_id, fy)
 
 
+@router.get("/continue-options")
+def continue_options(fiscal_year_id: int = Query(...), budget_type: Literal["INCOME", "EXPENSE"] = Query(...),
+                     level: Literal["budget", "sub-budget"] = "budget", budget_id: int | None = None,
+                     db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
+    """1.8.0 (#89): budgets of earlier Fiscal Years that a budget can continue, grouped by Fiscal Year."""
+    fy = get_scoped(db, FiscalYear, fiscal_year_id, ctx, "Fiscal Year")
+    if budget_id is not None:
+        get_scoped(db, Budget, budget_id, ctx, "Budget")
+    return svc.continue_options(db, ctx.workspace_id, fy, budget_type, level == "sub-budget", budget_id)
+
+
+@router.get("/{budget_id}/history")
+def history(budget_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
+    """1.8.0 (#89): the budget's lineage across Fiscal Years, oldest first."""
+    return svc.lineage(db, get_scoped(db, Budget, budget_id, ctx, "Budget"))
+
+
 @router.get("/{budget_id}")
 def get_budget(budget_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(require("financial.view"))):
     b = get_scoped(db, Budget, budget_id, ctx, "Budget")

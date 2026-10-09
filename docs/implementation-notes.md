@@ -54,6 +54,25 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.8.0 Historic Budget Traceability (issue #89; decisions recorded in the issue).** Migration `0021` adds the
+nullable, indexed `budget.continues_budget_id` (no foreign key, like other soft references; existing budgets are not
+linked). One link per budget, 1:1: a budget continues at most one earlier budget and is continued by at most one
+(non-deleted) budget. `services/budgets._set_continues` checks: same workspace, a Fiscal Year that starts earlier,
+same type, same level (budget/sub-budget), neither is Budget 0 or Other, the target is not Deleted and not continued
+by another non-deleted budget (409 `ALREADY_CONTINUED`). Set on create (`continues_budget_id` in `BudgetCreateIn`) or
+changed/removed by `PATCH` (applied when the field is sent; `null` removes it) - the normal edit rules apply (not in
+a Closed Fiscal Year, a locked budget is unlocked first) and the link is part of the BUDGET_CREATED / BUDGET_UPDATED
+snapshots. Deleting a budget clears its link so the earlier budget can be continued again.
+`fiscal_years.copy_budgets` links each copy (parents and sub-budgets) to its source when the source year starts
+earlier and the source is not continued yet. `GET /api/budgets/continue-options?fiscal_year_id=&budget_type=&level=
+[&budget_id=]` lists the choices grouped by Fiscal Year (newest first), Budget ID descending, label `<FY> - <ID> -
+<Name>`; a budget already continued is offered only to the budget that continues it, so a later year sees the most
+recent budget of each lineage. `GET /api/budgets/{id}/history` walks the chain both ways (cycle-safe) and returns it
+oldest first with amount and actual (a parent's actual includes its sub-budgets, as on the Budgets page). The budget
+tree marks `has_history`; the Budgets page shows **History** next to such budgets (all Financial viewers) and the
+create/edit dialogs a **Continues** selector (hidden when no earlier year has a candidate). Tests:
+`tests/test_v180_budget_traceability.py`, E2E "#89".
+
 **1.7.3 Balance history for non-register accounts (issue #88; open questions answered with recommendations on
 2026-10-08 while the product owner was away, recorded in the issue for review).** Table `bank_account_balance`
 (migration `0020`): account, `as_of_date`, `balance_cents`, reason, `source` (OPENING / UPDATE / UPGRADE), entered

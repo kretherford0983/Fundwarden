@@ -3,6 +3,16 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 1.8.0 — unreleased
+Database migration `0021` (one column added; no existing data changes). Rolling back to 1.7.3 needs the data
+snapshot the installer takes before the upgrade (docs/upgrade.md).
+- **Budgets linked across Fiscal Years (#89).** A budget can record which budget of an earlier Fiscal Year it
+  continues, even when its ID or name changed, in a new **Continues** list in the budget's create and edit dialogs
+  (grouped by Fiscal Year, e.g. `FY2027 - 1000 - Operations`). The link is one to one, between budgets of the same
+  type (Income or Expense) and level (budget or sub-budget); Budget 0 and Other are never linked. Budgets copied into
+  a new Fiscal Year are linked to their source automatically; budgets created before 1.8.0 are not linked until you
+  choose. Budgets with a link have a **History** link on the Budgets page that shows every year of the budget with its
+  ID, name, amount and actual. Changing the link follows the usual budget rules (unlock a locked budget first; not
+  in a Closed Fiscal Year) and is recorded in the audit log.
 - **Configuration documentation for the Mac (#112).** docs/configuration.md now covers the Mac like Windows and
   Linux: the data folder (`~/Library/Application Support/PennyWarden`) and how to open it in Finder, the log file,
   `config.toml` (environment variables do not reach an app opened from Finder), and starting the app with options
