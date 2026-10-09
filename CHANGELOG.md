@@ -16,6 +16,11 @@ security questions at the next sign-in.**
   account and are kept across restarts: 5 in a row lock the account for 15 minutes, 10 for an hour (Administrators
   get a notice), 15 for 24 hours, and at 20 the account is disabled until an Administrator enables it again. The
   numbers can be changed in `config.toml` (docs/configuration.md). The user is told at the next sign-in.
+- **Dependabot's Python updates run the tests (#98).** On Dependabot pull requests and develop builds, an
+  out-of-date `THIRD-PARTY-NOTICES.txt` is regenerated for the run and reported (warning and run summary) instead of
+  stopping the tests; a new package that is not pinned in `backend/requirements.txt` is named. Pull requests into
+  test and main and their builds stay strict, and now also fail when a shipped package is not pinned
+  (docs/branching.md).
 - **Host command `reset-password` (#113)** for the only Administrator who forgot both the password and the answers:
   it prints a temporary password that must be changed at the next sign-in. `reset-password` and `reset-mfa` also
   enable a disabled account again.

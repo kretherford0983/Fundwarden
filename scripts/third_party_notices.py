@@ -9,7 +9,11 @@ license text.
 
 Usage (repo root, with backend/requirements.txt installed and `npm --prefix frontend ci` done):
   python scripts/third_party_notices.py            # rewrite THIRD-PARTY-NOTICES.txt
-  python scripts/third_party_notices.py --check    # CI: fail when the inventory differs from the committed file
+  python scripts/third_party_notices.py --check    # CI: fail when the inventory differs from the committed file,
+                                                   # or a shipped Python package is not pinned in requirements.txt
+  python scripts/third_party_notices.py --regenerate   # CI on Dependabot pull requests and develop (1.8.0, #98):
+                                                   # rewrite the file when it is out of date and report what changed
+                                                   # (GitHub warnings + job summary) instead of failing
 """
 from __future__ import annotations
 
@@ -35,12 +39,25 @@ def _norm(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def python_components() -> list[dict]:
+def _pins() -> dict[str, bool]:
     pins = {}
     for line in (ROOT / "backend" / "requirements.txt").read_text().splitlines():
         m = re.match(r"^([A-Za-z0-9_.-]+)==", line.strip())
         if m:
             pins[_norm(m.group(1))] = True
+    return pins
+
+
+def unpinned(components: list[dict]) -> list[str]:
+    """1.8.0 (#98): shipped Python packages that requirements.txt does not pin (it pins the whole tree, so a package
+    that an update brings in has to be added by hand)."""
+    pins = _pins()
+    return sorted(f"{c['name']}=={c['version']}" for c in components
+                  if _norm(c["name"]) not in pins and _norm(c["name"]) not in EXTRA_PY)
+
+
+def python_components() -> list[dict]:
+    pins = _pins()
     todo, seen = list(pins), {}
     while todo:
         name = todo.pop()
@@ -173,22 +190,65 @@ def render(groups) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+def _diff(groups) -> list[str]:
+    committed = OUT.read_text() if OUT.exists() else ""
+    want = inventory(groups)
+    have = committed.split("INVENTORY\n", 1)[1].split("\n\n", 1)[0].splitlines() if "INVENTORY\n" in committed else []
+    return [("missing: " if line in want else "stale:   ") + line for line in sorted(set(want) ^ set(have))]
+
+
+def _summary(lines: list[str]) -> None:
+    import os
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+
+
 def main() -> int:
     groups = [("Python runtime", [runtime_component()]), ("Python packages (server)", python_components()),
               ("JavaScript packages (web interface)", npm_components())]
+    loose = unpinned(groups[1][1])
+    n = sum(len(c) for _, c in groups)
     if "--check" in sys.argv:
-        committed = OUT.read_text() if OUT.exists() else ""
-        want = inventory(groups)
-        have = committed.split("INVENTORY\n", 1)[1].split("\n\n", 1)[0].splitlines() if "INVENTORY\n" in committed else []
-        if have != want:
+        diff = _diff(groups)
+        if diff:
             print("THIRD-PARTY-NOTICES.txt is out of date - run: python scripts/third_party_notices.py", file=sys.stderr)
-            for line in sorted(set(want) ^ set(have)):
-                print(("  missing: " if line in want else "  stale:   ") + line, file=sys.stderr)
+            for line in diff:
+                print("  " + line, file=sys.stderr)
+        for p in loose:
+            print(f"::error::{p} is shipped but not pinned in backend/requirements.txt - add '{p}'", file=sys.stderr)
+        if diff or loose:
             return 1
-        print(f"THIRD-PARTY-NOTICES.txt up to date ({sum(len(c) for _, c in groups)} components)")
+        print(f"THIRD-PARTY-NOTICES.txt up to date ({n} components)")
+        return 0
+    if "--regenerate" in sys.argv:
+        diff = _diff(groups)
+        report = ["### Third-party notices"]
+        if diff:
+            OUT.write_text(render(groups))
+            print("::warning::THIRD-PARTY-NOTICES.txt was out of date and was regenerated for this run. Before "
+                  "promoting to test, run 'python scripts/third_party_notices.py' on develop, review the new "
+                  "licenses and commit the file (the check on test and main is strict).")
+            for line in diff:
+                print("  " + line)
+            report += ["THIRD-PARTY-NOTICES.txt was **out of date** and was regenerated for this run (not committed). "
+                       "Regenerate it on develop and review the licenses before promoting to test:", "",
+                       "```", *diff, "```"]
+        else:
+            print(f"THIRD-PARTY-NOTICES.txt up to date ({n} components)")
+            report.append(f"Up to date ({n} components).")
+        for p in loose:
+            print(f"::warning::{p} is shipped but not pinned in backend/requirements.txt - add '{p}'")
+        if loose:
+            report += ["", "**Not pinned in backend/requirements.txt** (add these):", "",
+                       *[f"- `{p}`" for p in loose]]
+        _summary(report)
         return 0
     OUT.write_text(render(groups))
-    print(f"wrote {OUT.relative_to(ROOT)} ({sum(len(c) for _, c in groups)} components)")
+    print(f"wrote {OUT.relative_to(ROOT)} ({n} components)")
+    for p in loose:
+        print(f"warning: {p} is shipped but not pinned in backend/requirements.txt - add '{p}'", file=sys.stderr)
     return 0
 
 

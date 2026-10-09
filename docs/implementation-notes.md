@@ -54,6 +54,15 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.8.0 Dependabot and the third-party notices (issue #98, option 2 decided 2026-10-08).** `tests.yml` takes an
+input `notices` (`check` by default). `ci.yml` passes `regenerate` for pull requests from `dependabot/*` branches,
+`build.yml` for develop builds; pull requests into test and main and the test/main builds stay `check`.
+`scripts/third_party_notices.py --regenerate` rewrites the file for the run only (it is uploaded with the run's
+artifacts, never committed - no write token is involved) and reports the difference as a GitHub warning and in the
+job summary; `--check` now also fails when a shipped Python package is not pinned in `backend/requirements.txt`
+(`unpinned()`), which `--regenerate` reports as a warning. The file is regenerated and reviewed on develop before a
+promotion to test (docs/branching.md). Tests: `tests/test_v180_dependabot_notices.py`.
+
 **1.8.0 Forgotten password (issue #113; decisions recorded in the issue: one random question, fixed list).**
 `services/recovery.py`; migration `0022` (`app_user.failed_attempts`, `locked_until`, `must_change_password`,
 `reset_question_slot`/`_at`, `notice_failed_attempts_at`, `notice_password_reset_at`/`_method`; tables
