@@ -246,3 +246,17 @@ jobs:
             gh release create "$TAG" release/* --target "$GITHUB_SHA" --latest \
               --title "PennyWarden $VERSION" --notes-file notes.md
           fi
+
+  # 1.10.0 (#83 / #58): refresh pennywarden.org - the release data files list the new release (production) or test
+  # build (test channel). Started on main, so the live page is always the released one.
+  site:
+    needs: publish
+    if: github.ref_name == 'test' || github.ref_name == 'main'
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+    steps:
+      - name: Start the pages workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main

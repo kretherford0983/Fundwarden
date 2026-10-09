@@ -4,7 +4,7 @@
 organizations and similar bodies that keep a checkbook, a budget and an annual audit. PennyWarden runs on your own
 Windows PC, Mac or Linux server; your data stays in one folder you control. No subscription, no cloud account.
 
-Current release: **1.10.0** (called *Fundwarden* from 1.6.6 to 1.6.8) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
+Current release: **1.10.0** (called *Fundwarden* from 1.6.6 to 1.6.8) · [pennywarden.org](https://pennywarden.org) · [Download](https://github.com/kretherford0983/PennyWarden/releases/latest) ·
 [Install](#install) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
 <p align="center">
@@ -135,6 +135,7 @@ Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person 
 
 **Developing PennyWarden**
 - [docs/branching.md](docs/branching.md) — branches, builds, releases and versioning (`Breaking.Major.Minor`)
+- [docs/product-site.md](docs/product-site.md) — the product page at pennywarden.org and the release data files
 - [docs/implementation-notes.md](docs/implementation-notes.md) — design decisions, including every change request (§1a)
 - [CHANGELOG.md](CHANGELOG.md) — what changed in each version
 - `scripts/demo_data.py` and `scripts/readme_screenshots.mjs` — fill a new, empty installation with a made-up

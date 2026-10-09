@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PennyWarden — free bookkeeping for small organizations</title>
+  <meta name="description" content="PennyWarden is a free, self-hosted ledger for the treasurers of clubs, booster groups and associations: budgets, bank registers and audit-ready reports, on your own computer.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site.css">
+  <meta property="og:title" content="PennyWarden">
+  <meta property="og:description" content="Free, self-hosted bookkeeping for the treasurers of small organizations.">
+  <meta property="og:image" content="https://pennywarden.org/screenshots/dashboard.png">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#"><img src="favicon.svg" alt="" width="28" height="28"> PennyWarden</a>
+    <nav aria-label="Page">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/kretherford0983/PennyWarden#documentation">Documentation</a>
+      <a href="https://github.com/kretherford0983/PennyWarden">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-text">
+        <h1>The treasurer's books, kept properly — and kept by you.</h1>
+        <p class="lead">PennyWarden is free bookkeeping for <b>clubs, booster groups, associations and other small
+          organizations</b> that keep a checkbook, a budget and an annual audit. It runs on your own Windows PC, Mac or
+          Linux server. Your data stays in one folder you control — no subscription, no cloud account.</p>
+        <p class="cta"><a class="button primary" href="#download">Download PennyWarden</a>
+          <span class="muted" id="hero-version"></span></p>
+      </div>
+      <img class="shot" src="screenshots/dashboard.png" width="1280" height="800"
+           alt="The PennyWarden dashboard: due reminders, the current Fiscal Year, budget totals, bank balances and charts">
+    </section>
+
+    <section class="three">
+      <div><h2>What did we plan?</h2><p>Income and expense budgets for each Fiscal Year, with sub-budgets where you need detail, approved and locked with the year.</p></div>
+      <div><h2>What actually happened?</h2><p>One register per bank account. Split a check across budgets, record transfers once, and see the bank's balance next to everything you have written.</p></div>
+      <div><h2>Can we prove it?</h2><p>Attach the receipt to each transaction. One printable audit report holds the budgets and every transaction followed by its documents.</p></div>
+    </section>
+
+    <section id="features" class="features">
+      <h2>Made for the way volunteer treasurers work</h2>
+      <div class="feature">
+        <img src="screenshots/budgets.png" alt="Income and expense budgets with quarterly actuals and remaining amounts" loading="lazy">
+        <div><h3>Budgets by Fiscal Year</h3><p>Every budget shows the plan, the actual amounts per quarter and what remains. Changing an approved budget means unlocking it with a reason, which is recorded. Budgets keep their history from one year to the next.</p></div>
+      </div>
+      <div class="feature">
+        <img src="screenshots/register.png" alt="The register of a checking account with cleared dates, check numbers and a running balance" loading="lazy">
+        <div><h3>Bank registers</h3><p>Checks and deposits, split across budgets, with cleared dates and the bank reconciliation. Duplicate entries and check numbers are caught; a mistake is voided, never silently deleted.</p></div>
+      </div>
+      <div class="feature">
+        <img src="screenshots/audit-report-transaction.png" alt="An audit report page: a transaction with its receipt reproduced beneath it" loading="lazy">
+        <div><h3>Audit-ready reports</h3><p>The End of Year Audit report, the Fiscal Year Close report and the Financial Flow Report for your board: printable PDFs, built from what is already in the books.</p></div>
+      </div>
+      <div class="feature">
+        <img src="screenshots/fundraiser.png" alt="A fundraiser with income, expenses, the net result and charts" loading="lazy">
+        <div><h3>Fundraisers and reminders</h3><p>Follow an event from the first poster to the last deposit, with a printable cash count sheet. Reminders — once or repeating — keep the treasurer's duties from being forgotten when the treasurer changes.</p></div>
+      </div>
+      <ul class="facts">
+        <li><b>Your data, your computer.</b> One folder, encrypted backups you can schedule, moves between Windows, Mac and Linux.</li>
+        <li><b>Safe by default.</b> Encrypted bank account numbers, two-step sign-in, and an audit log of every change.</li>
+        <li><b>One person or a committee.</b> Run it alone on a laptop, or for several people on a server with separate roles.</li>
+        <li><b>Free and open.</b> Licensed under the AGPL-3.0; the source code is on GitHub.</li>
+      </ul>
+    </section>
+
+    <section id="download" class="download">
+      <h2>Download</h2>
+      <p id="release-line" class="muted">Loading the current release…</p>
+      <div class="cards" id="download-cards">
+        <article class="card" data-os="windows">
+          <h3>Windows</h3>
+          <p>For one person on a Windows 10 or 11 PC.</p>
+          <a class="button" data-dl="windows-installer" href="https://github.com/kretherford0983/PennyWarden/releases/latest">Download for Windows</a>
+          <p class="small"><a data-dl="windows-portable" href="https://github.com/kretherford0983/PennyWarden/releases/latest">Portable .zip</a></p>
+          <details><summary>“Windows protected your PC”?</summary>
+            <p>PennyWarden is not signed with a paid code-signing certificate, so Windows SmartScreen may warn you the first time. Click <b>More info</b>, then <b>Run anyway</b>. Check the download against the checksum below if you want to be sure it is the original file.</p></details>
+        </article>
+        <article class="card" data-os="mac">
+          <h3>Mac</h3>
+          <p>For one person on a Mac with Apple Silicon (M1 or later).</p>
+          <a class="button" data-dl="mac-installer" href="https://github.com/kretherford0983/PennyWarden/releases/latest">Download for Mac</a>
+          <details><summary>“PennyWarden” Not Opened?</summary>
+            <p>The app is not notarized by Apple, so macOS refuses it the first time. Click <b>Done</b>, open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>. <a href="https://github.com/kretherford0983/PennyWarden/blob/main/docs/install-macos.md">Step by step with pictures</a>.</p></details>
+        </article>
+        <article class="card" data-os="linux">
+          <h3>Linux server</h3>
+          <p>For several people, as a service behind HTTPS.</p>
+          <pre><code id="linux-cmd">curl -fsSL https://github.com/kretherford0983/PennyWarden/releases/latest/download/install.sh | sudo bash</code></pre>
+          <p class="small"><a data-dl="linux-portable" href="https://github.com/kretherford0983/PennyWarden/releases/latest">Portable .tar.gz</a> · <a href="https://github.com/kretherford0983/PennyWarden/blob/main/docs/deployment.md">Server guide</a></p>
+        </article>
+      </div>
+      <details class="sums" id="sums"><summary>Checksums (SHA-256)</summary><table><tbody id="sums-body"></tbody></table></details>
+      <p class="small">The first start shows a short setup wizard for your organization and the first account. There are no default passwords. Upgrades keep your data. <a href="https://github.com/kretherford0983/PennyWarden/releases">All releases and release notes</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p><img src="favicon.svg" alt="" width="18" height="18"> PennyWarden · free software under the
+      <a href="https://github.com/kretherford0983/PennyWarden/blob/main/LICENSE">AGPL-3.0</a> ·
+      <a href="https://github.com/kretherford0983/PennyWarden">Source code</a></p>
+    <p class="small">PennyWarden is a record-keeping tool, not accounting, tax or legal advice. It is provided without warranty.
+      The screenshots show a made-up organization.</p>
+  </footer>
+  <script src="site.js"></script>
+</body>
+</html>

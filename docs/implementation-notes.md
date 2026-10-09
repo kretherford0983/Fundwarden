@@ -54,6 +54,17 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**1.10.0 pennywarden.org (issue #83; settled 2026-10-09: in this repository, a hand-written page, one domain).**
+`site/` (static HTML/CSS/JS, CSP `default-src 'self'`, no third-party resources; `site.js` fills the download
+buttons from `releases.json` with `textContent`/attributes only and accepts only `https://github.com/` URLs),
+`scripts/release_data.py` (GitHub releases → `releases.json` / `releases-test.json`: tags `vX.Y.Z` non-prerelease =
+stable, `vX.Y.Z-test.N` prerelease = test; numeric version order; notes cut at the install footer the build adds;
+downloads classified by file name with SHA-256 from each release's `SHA256SUMS.txt`), `scripts/build_site.sh`,
+`.github/workflows/pages.yml` (always checks out `main`; `upload-pages-artifact` + `deploy-pages`). `build.yml` gains
+a `site` job after `publish` that runs `gh workflow run pages.yml --ref main` (a release created with the workflow
+token does not trigger other workflows; `workflow_dispatch` is the documented exception, and running on `main`
+satisfies the `github-pages` environment's branch rule). Tests: `tests/test_v1_10_release_data.py`.
+
 **1.9.0 Scheduled Automatic Backups (issue #62).** Migration `0023`: `backup_schedule` (one row per workspace) and
 `backup_run`. `services/backup.py` gains the key-pair format (`kdf: "keypair"` in the existing `FMBAK1` header:
 `public_key`, `private_key` = scrypt/AES-GCM-locked X25519 key, `epk`, `wrapped_dek`; `decrypt_file` handles both
