@@ -3,6 +3,13 @@
 name: tests
 on:
   workflow_call:
+    inputs:
+      notices:
+        # 1.8.0 (#98): "check" fails when THIRD-PARTY-NOTICES.txt is out of date (pull requests into test and main,
+        # test and main builds); "regenerate" rewrites it for the run and reports the difference, so Dependabot pull
+        # requests and develop builds still run the tests. The file is then regenerated on develop by hand.
+        type: string
+        default: check
 
 permissions:
   contents: read
@@ -30,8 +37,15 @@ jobs:
           npm --prefix frontend ci
       - name: Version consistency (backend config.py = frontend package.json)
         run: bash scripts/version.sh --check
-      - name: Third-party notices up to date (v1.5.0 - every shipped dependency listed with its license)
-        run: python scripts/third_party_notices.py --check
+      - name: Third-party notices (v1.5.0 - every shipped dependency listed with its license; 1.8.0 #98)
+        env:
+          NOTICES: ${{ inputs.notices }}
+        run: |
+          if [ "$NOTICES" = "regenerate" ]; then
+            python scripts/third_party_notices.py --regenerate
+          else
+            python scripts/third_party_notices.py --check
+          fi
       - name: Backend tests (AC-mapped, incl. security negative tests)
         run: cd backend && python -m pytest -p no:warnings
       - name: Frontend typecheck + production build
@@ -51,5 +65,6 @@ jobs:
             build/security
             frontend/e2e-screenshots
             frontend/test-results
+            THIRD-PARTY-NOTICES.txt
           if-no-files-found: ignore
           retention-days: 7
