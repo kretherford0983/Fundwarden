@@ -1,6 +1,7 @@
 /** 2.0.0 (#157, #160, #162): pieces shared by the check setup screen and the print screen - the check preview drawn
  * to scale with the built-in fonts, the pattern input with variable autocomplete, and browser print instructions. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
 
 export type FontInfo = { key: string; label: string; descent: number; descent_bold: number; cap_height: number };
 export type Variable = { name: string; description: string };
@@ -255,3 +256,21 @@ export function usePdf() {
 }
 
 export function inches(v: number) { return `${v.toFixed(3)}"`; }
+
+/** 2.0.0 (#164): the check amount in numbers and words while a payment is entered, as the account's check style prints
+ * them (calculated by the server, never typed). */
+export function AmountPreview({ accountId, total }: { accountId: number; total: string }) {
+  const [p, setP] = useState<{ number: string | null; words: string | null } | null>(null);
+  useEffect(() => {
+    const h = setTimeout(() => {
+      api.post("/api/checks/payments/amount-preview", { bank_account_id: accountId, amount: total }).then(setP, () => setP(null));
+    }, 250);
+    return () => clearTimeout(h);
+  }, [accountId, total]);
+  if (!p?.words) return null;
+  return (
+    <div className="amount-preview" data-testid="amount-preview" aria-live="polite">
+      <span className="hint">On the check:</span> <code>{p.number}</code> <span className="words">{p.words}</span>
+    </div>
+  );
+}

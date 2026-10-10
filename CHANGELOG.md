@@ -3,7 +3,7 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 2.0.0 — unreleased
-Database migration `0025` (one column and four tables added; no existing data changes). Rolling back to 1.10.0
+Database migrations `0025` and `0026` (two columns and four tables added; no existing data changes). Rolling back to 1.10.0
 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). 2.0.0 is built and tested in
 several test builds; the notes below grow with each one.
 
@@ -42,6 +42,17 @@ several test builds; the notes below grow with each one.
   to 1/4 inch) without changing the Administrator's layout.
 - Fix: in server mode a scheduled backup's folder is always taken from the server's configured `backup_folders`
   (CodeQL alerts; #168).
+
+**Test build 2 — payments (#164)**
+- **Payments.** A *Payments* item in the menu for Register Users (Check Printing on), and *New payment* on the
+  register: enter a bill once — pay from (the last account is remembered), check date, payee (search, or add a new
+  vendor without leaving), one line per invoice with its budget, invoice number, description, amount and documents —
+  and see the check amount in numbers and words as it will print. *Save and print check* records the withdrawal in the
+  register as usual (a split for several invoices) and opens the print screen; closing it is fine, the check can be
+  printed later. The Payments page lists the checks printed from the account.
+- **Create payment…** on a withdrawal in the register opens its payment page with the transaction's details locked
+  (change them in the register); the check is printed from there.
+- Fix: the cursor stays after a variable picked from the memo autocomplete, also when typing fast.
 
 ## 1.10.0 — 2026-10-09
 Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot

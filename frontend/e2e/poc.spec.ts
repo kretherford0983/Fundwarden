@@ -2119,3 +2119,53 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await expect(page.locator('tr[id^="txn-"]').filter({ hasText: "8101" }).filter({ hasText: "VOID" })).toHaveCount(1);
   await expect(page.locator(`#txn-${t.id}`)).toContainText("8102");
 });
+
+// ---------------------------------------------------------------- 2.0.0 build 2: payments (#164)
+test("#164: a Register User enters a two-invoice payment, sees the check amount in words, prints it; Create payment shows a transaction locked", async ({ page }) => {
+  await login(page, "ru1", "Brand-New-Pass-99");
+  await page.getByRole("link", { name: "Payments" }).click();
+  await expect(page.getByRole("heading", { name: "Payments", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "New payment" }).click();
+  const f = page.getByRole("dialog", { name: /^New payment – / });
+  await expect(f.getByLabel("Transaction type")).toHaveCount(0);           // always a withdrawal
+  await f.getByLabel("Check date").fill("2026-11-25");
+  await f.getByRole("combobox", { name: "Payee (entity)" }).fill("Sample Supply");
+  await page.getByRole("option", { name: /Sample Supply Company, Inc/ }).click();
+  await f.getByRole("button", { name: "More than one invoice" }).click();
+  const travel = await f.getByLabel("Allocation 1 Budget").locator("option", { hasText: "1000-01 Travel" }).first().getAttribute("value");
+  for (const [i, inv, desc, amt] of [[1, "INV-81", "Chairs", "100.00"], [2, "INV-82", "Tables", "250.50"]] as const) {
+    await f.getByLabel(`Allocation ${i} Budget`).selectOption(travel!);
+    await f.getByLabel(`Allocation ${i} Amount`).fill(amt);
+    await f.locator(".alloc").nth(i - 1).getByLabel("Invoice #").fill(inv);
+    await f.locator(".alloc").nth(i - 1).getByLabel("Description").fill(desc);
+  }
+  await expect(f.getByTestId("amount-preview")).toContainText("**350.50");
+  await expect(f.getByTestId("amount-preview")).toContainText("THREE HUNDRED FIFTY AND 50/100");
+  await f.getByLabel("Check #").fill("8201");
+  await f.getByRole("button", { name: "Save and print check" }).click();
+  // saved through the register; the print screen opens at once with the new transaction
+  const dlg = page.getByRole("dialog", { name: /^Print check – transaction #\d+$/ });
+  const preview = dlg.getByRole("img", { name: "Check preview drawn to scale" });
+  await expect(preview).toContainText("SAMPLE SUPPLY COMPANY, INC");
+  await expect(preview).toContainText("THREE HUNDRED FIFTY AND");
+  await expect(preview).toContainText("1000-01, INVOICE INV-81 AND OTHERS");   // split: the first invoice + "and others"
+  await dlg.getByLabel("Type the number printed on the check that is in the printer").fill("8201");
+  await dlg.getByRole("button", { name: "Print check" }).click();
+  await expect(dlg.getByText("Check #8201 is ready.")).toBeVisible();
+  await dlg.getByRole("button", { name: "Yes – done" }).click();
+  const recent = page.locator("section", { has: page.getByRole("heading", { name: /Recently printed checks/ }) });
+  await expect(recent.getByRole("row", { name: /8201/ })).toContainText("$350.50");
+  await page.screenshot({ path: "e2e-screenshots/light-payments.png", fullPage: true });
+  // the bank account is remembered for the next payment
+  await page.reload();
+  await expect(page.getByLabel("Pay from bank account")).toHaveValue("1");
+  // Create payment from the register: the transaction's details are locked
+  await recent.getByRole("link", { name: "Open in register" }).first().click();
+  await page.getByRole("link", { name: "Create payment…" }).click();
+  await expect(page.getByRole("heading", { name: /^Payment for transaction #\d+$/ })).toBeVisible();
+  const locked = page.getByRole("region", { name: "Transaction details (locked)" });
+  await expect(locked.getByLabel("Payee")).toBeDisabled();
+  await expect(locked.getByLabel("Payee")).toHaveValue("Sample Supply Company, Inc");
+  await expect(locked).toContainText("INV-82");
+  await expect(locked.getByRole("button", { name: "Print check again…" })).toBeVisible();
+});

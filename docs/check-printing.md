@@ -10,6 +10,7 @@ printed transaction).
 
 - [For Administrators: setting up](#for-administrators-setting-up)
 - [For Register Users: printing a check](#for-register-users-printing-a-check)
+- [For Register Users: payments](#for-register-users-payments)
 - [When something goes wrong](#when-something-goes-wrong)
 - [Example: 3-per-page laser checks on an HP LaserJet](#example-3-per-page-laser-checks-on-an-hp-laserjet)
 
@@ -146,6 +147,24 @@ If the printing is shifted on your printer, run the **Printer setup assistant** 
 
 These settings are yours only (for that check style and feed mode), up to 1/4 inch, and never change the
 Administrator's layout.
+
+## For Register Users: payments
+
+**Payments** (in the menu) — or **New payment** on the register — enters a bill and prints its check in one go:
+
+1. Choose the account to **pay from** (the one you used last time is selected) and click **New payment**.
+2. Enter the **check date**, the **payee** (type to search; **+ New entity** adds a vendor without leaving the
+   payment) and the **invoice**: budget, invoice number, description and amount. For several invoices click **More
+   than one invoice** and add a line for each. Attach the invoices (one per line, or for the whole payment).
+3. Under the lines you see the check amount as it will print, in numbers and words.
+4. Optional: the check number of the check you will use (it can also be entered when printing).
+5. **Save and print check**: the payment is recorded in the register as a withdrawal (a split when there are several
+   invoices) and the print screen opens. If you close it, print the check later from the register.
+
+The Payments page lists the checks printed from the account; **Open in register** shows the transaction.
+
+**Create payment…** on a withdrawal that is already in the register opens its payment page. The transaction's details
+are shown but locked — to change them, edit the transaction in the register — and the check is printed from there.
 
 ## When something goes wrong
 

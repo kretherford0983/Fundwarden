@@ -36,7 +36,7 @@ from .. import checks as checknum
 from .. import register as reg
 from ..common import budget_display_code, get_scoped
 from . import config as cfgmod
-from . import fonts, patterns, presets, render
+from . import amounts, fonts, patterns, presets, render
 
 SIGNATURE_AAD = b"fmpoc:check_signature:v1"
 MAX_SIGNATURE_BYTES = 1024 * 1024
@@ -804,3 +804,59 @@ def sample_out(cfg: cfgmod.StyleConfig, sample: str) -> dict:
     lay = sample_layout(cfg, sample)
     return {name: {"text": f.text, "size": f.size, "fits": f.fits, "shrunk": f.shrunk, "suggestion": f.suggestion}
             for name, f in lay.fields.items()}
+
+
+# ------------------------------------------------------------------ payments (#164)
+def last_payment_account(db: Session, ctx) -> int | None:
+    """The user's last payment bank account, if it is still an active register account of the workspace."""
+    acct_id = ctx.user.last_payment_account_id
+    acct = db.get(BankAccount, acct_id) if acct_id else None
+    if acct is None or acct.workspace_id != ctx.workspace_id or not acct.register_enabled or acct.status != "ACTIVE":
+        return None
+    return acct.id
+
+
+def set_last_payment_account(db: Session, ctx, acct: BankAccount) -> None:
+    if ctx.user.last_payment_account_id != acct.id:
+        ctx.user.last_payment_account_id = acct.id
+        db.flush()
+
+
+def amount_preview(db: Session, ctx, acct: BankAccount | None, cents: int) -> dict:
+    """The amount in numbers and in words as the account's check style would print them (preset defaults when the
+    account has no style yet) - for the live preview while a payment is entered. Nothing is stored."""
+    cfg = None
+    row = account_row(db, ctx, acct.id) if acct else None
+    if row is not None:
+        style = db.get(CheckStyle, row.check_style_id)
+        if style is not None and style.active:
+            cfg = style_config(style)
+    if cfg is None:
+        cfg = cfgmod.parse(presets.config_for("STANDARD_3UP"))
+    if cents <= 0 or cents > amounts.MAX_CENTS:
+        return {"number": None, "words": None}
+    parts = amounts.words_parts(cents, cfg.amount_words.model_dump())
+    words = f"{parts.words} {parts.cents}" + (f" {parts.trailing}" if parts.trailing else "")
+    return {"number": amounts.number_text(cents, cfg.amount_number.model_dump()), "words": words}
+
+
+def recent_checks(db: Session, ctx, acct: BankAccount, limit: int = 20) -> list[dict]:
+    """Checks printed from this account, newest first (from the record copies - the module keeps no payment list)."""
+    q = (select(Attachment, RegisterTransaction)
+         .join(RegisterTransaction, Attachment.transaction_id == RegisterTransaction.id)
+         .where(Attachment.workspace_id == ctx.workspace_id, Attachment.document_type == CHECK_COPY,
+                Attachment.system_generated.is_(True), RegisterTransaction.bank_account_id == acct.id)
+         .order_by(Attachment.id.desc()))
+    seen: set[int] = set()
+    out = []
+    for att, t in db.execute(q):
+        if t.id in seen:
+            continue
+        seen.add(t.id)
+        out.append({"transaction_id": t.id, "check_number": t.check_number, "status": t.status,
+                    "payee": t.parent_entity.display_name if t.parent_entity else None,
+                    "amount": fmt(t.total_cents), "transaction_date": t.transaction_date.isoformat(),
+                    "printed_at": att.uploaded_at.isoformat(), "record_copy_id": att.id})
+        if len(out) >= limit:
+            break
+    return out
