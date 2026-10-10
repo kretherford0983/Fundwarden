@@ -11,6 +11,7 @@ PKG = os.path.join(ROOT, "backend", "fmpoc")
 datas = [
     (os.path.join(PKG, "static"), "fmpoc/static"),
     (os.path.join(PKG, "migrations"), "fmpoc/migrations"),
+    (os.path.join(PKG, "fonts"), "fmpoc/fonts"),  # 2.0.0 (#157): built-in check printing fonts
 ] + collect_data_files("reportlab")  # fonts used by the audit report
 if os.path.isfile(os.path.join(PKG, "build_info.json")):  # v1.4 CR-022 (written by CI)
     datas.append((os.path.join(PKG, "build_info.json"), "fmpoc"))
