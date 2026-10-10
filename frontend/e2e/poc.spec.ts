@@ -2064,7 +2064,9 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await page.goto(`/register?account=1&txn=${t.id}`);
   const row = page.locator(`#txn-${t.id}`);
   await expect(row).toBeVisible();
-  if (!(await page.getByRole("button", { name: /Print check/ }).isVisible())) await row.getByRole("button", { name: `Details for transaction ${t.id}` }).click();
+  // the linked transaction (?txn=) opens its details by itself once the register has loaded - wait for that
+  // rather than clicking "Details", which could close them again on a slow machine
+  await expect(row.getByRole("button", { name: `Details for transaction ${t.id}` })).toHaveAttribute("aria-expanded", "true");
   await page.getByRole("button", { name: "Print check…" }).click();
   const dlg = page.getByRole("dialog", { name: `Print check – transaction #${t.id}` });
   await dlg.getByRole("button", { name: "Continue" }).click();      // first print from this account: choose the check style
