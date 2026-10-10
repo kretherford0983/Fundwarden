@@ -27,7 +27,8 @@ from sqlalchemy.orm import Session
 
 from ... import audit
 from ...errors import AppError, Warning_, conflict, not_found, require_confirmations, validation
-from ...models import (Attachment, BankAccount, Budget, CheckAccount, CheckPrinterSetting, CheckSigner, CheckStyle,
+from ...models import (Attachment, BankAccount, Budget, CheckAccount, CheckDocument, CheckPrinterSetting, CheckSigner,
+                       CheckStyle,
                        RegisterTransaction, Workspace, utcnow)
 from ...money import fmt
 from ...security import crypto
@@ -36,7 +37,7 @@ from .. import checks as checknum
 from .. import register as reg
 from ..common import budget_display_code, get_scoped
 from . import config as cfgmod
-from . import amounts, fonts, patterns, presets, render
+from . import amounts, documents, fonts, patterns, presets, render
 
 SIGNATURE_AAD = b"fmpoc:check_signature:v1"
 MAX_SIGNATURE_BYTES = 1024 * 1024
@@ -499,7 +500,28 @@ def variable_values(db: Session, t: RegisterTransaction, cfg: cfgmod.StyleConfig
         "CHECK_NUMBER": t.check_number or "",
         "ORG": ws.name if ws else "",
         "ACCOUNT": acct.account_name if acct else "",
+        # 2.0.0 (#165, #166): letters and envelopes
+        "INVOICE_DATE": patterns.first_and_others([format_date(a.invoice_date, cfg.date_format) if a.invoice_date
+                                                   else None for a in allocs]),
+        "TODAY": format_date(dt.date.today(), cfg.date_format),
+        "PAYEE_ADDRESS": "\n".join(address_lines(t.parent_entity)),
+        "SIGNER": "", "SIGNER_TITLE": "",
     }
+
+
+def address_lines(e) -> list[str]:
+    """The entity's postal address as lines (street, street 2, "City, ST 12345", country unless the US)."""
+    if e is None:
+        return []
+    lines = [x.strip() for x in (e.address_line1, e.address_line2) if x and x.strip()]
+    city = ", ".join(x.strip() for x in (e.city, e.state_region) if x and x.strip())
+    last = " ".join(x for x in (city, (e.postal_code or "").strip()) if x)
+    if last:
+        lines.append(last)
+    country = (e.country or "").strip()
+    if country and country.upper() not in ("US", "USA", "UNITED STATES", "UNITED STATES OF AMERICA"):
+        lines.append(country)
+    return lines
 
 
 def get_printable(db: Session, ctx, txn_id: int) -> RegisterTransaction:
@@ -879,3 +901,306 @@ def recent_checks(db: Session, ctx, acct: BankAccount, limit: int = 20) -> list[
         if len(out) >= limit:
             break
     return out
+
+
+# ------------------------------------------------------------------ cover letters and envelopes (#165, #166)
+LETTER_COPY, ENVELOPE_COPY = "CHECK_LETTER", "CHECK_ENVELOPE"
+MAX_DOCUMENTS = 20
+
+
+def doc_config(d: CheckDocument):
+    return documents.parse(d.kind, json.loads(d.config_json))
+
+
+def doc_out(d: CheckDocument, full: bool = True) -> dict:
+    out = {"id": d.id, "kind": d.kind, "name": d.name, "active": d.active, "is_default": d.is_default}
+    if full:
+        out["config"] = doc_config(d).model_dump()
+    else:
+        cfg = doc_config(d)
+        out["include_by_default"] = getattr(cfg, "include_by_default", None)
+        out["return_address"] = getattr(cfg, "return_address", None)
+        out["note"] = getattr(cfg, "note", None)
+        out["page"] = getattr(cfg, "page", None)
+        out["guide"] = getattr(cfg, "guide", None)
+    return out
+
+
+def list_documents(db: Session, ctx, kind: str | None = None, include_inactive: bool = True) -> list[CheckDocument]:
+    q = select(CheckDocument).where(CheckDocument.workspace_id == ctx.workspace_id)
+    if kind:
+        q = q.where(CheckDocument.kind == kind)
+    if not include_inactive:
+        q = q.where(CheckDocument.active.is_(True))
+    return list(db.scalars(q.order_by(CheckDocument.kind, CheckDocument.name, CheckDocument.id)))
+
+
+def get_document(db: Session, ctx, doc_id: int, kind: str | None = None) -> CheckDocument:
+    d = get_scoped(db, CheckDocument, doc_id, ctx, "Template")
+    if kind and d.kind != kind:
+        raise not_found("Template")
+    return d
+
+
+def _doc_config_or_422(kind: str, data: dict):
+    try:
+        return documents.parse(kind, data)
+    except ValidationError as e:
+        raise _config_error(e) from None
+
+
+def _doc_snapshot(d: CheckDocument) -> dict:
+    return {"kind": d.kind, "name": d.name, "active": d.active, "is_default": d.is_default,
+            "config": json.loads(d.config_json)}
+
+
+def create_document(db: Session, ctx, kind: str, name: str | None) -> CheckDocument:
+    if kind not in ("LETTER", "ENVELOPE"):
+        raise validation("Unknown template kind.", "kind")
+    if len(list_documents(db, ctx)) >= MAX_DOCUMENTS:
+        raise conflict("TOO_MANY", f"At most {MAX_DOCUMENTS} letter and envelope templates can be kept.")
+    name = _name(name or ("Invoice payment letter" if kind == "LETTER" else "#10 envelope"))
+    existing = list_documents(db, ctx, kind)
+    if any(x.name.lower() == name.lower() for x in existing):
+        raise conflict("DUPLICATE_NAME", f"A template named \"{name}\" already exists.")
+    letterhead = None
+    if kind == "ENVELOPE":   # the return address starts as the default letter's letterhead
+        letter = next((x for x in list_documents(db, ctx, "LETTER", False) if x.is_default), None)
+        letterhead = doc_config(letter).letterhead if letter else None
+    d = CheckDocument(workspace_id=ctx.workspace_id, kind=kind, name=name, active=True,
+                      is_default=not any(x.active and x.is_default for x in existing),
+                      config_json=json.dumps(documents.default_config(kind, letterhead)),
+                      created_by_user_id=ctx.user.id, updated_by_user_id=ctx.user.id)
+    db.add(d)
+    db.flush()
+    audit.record(db, ctx, "CHECK_DOCUMENT_CREATED", "check_document", d.id, None, _doc_snapshot(d))
+    return d
+
+
+def update_document(db: Session, ctx, d: CheckDocument, name: str, config: dict) -> CheckDocument:
+    name = _name(name)
+    if any(x.id != d.id and x.name.lower() == name.lower() for x in list_documents(db, ctx, d.kind)):
+        raise conflict("DUPLICATE_NAME", f"A template named \"{name}\" already exists.")
+    cfg = _doc_config_or_422(d.kind, config)
+    before = _doc_snapshot(d)
+    d.name, d.config_json = name, json.dumps(cfg.model_dump())
+    d.updated_by_user_id, d.updated_at = ctx.user.id, utcnow()
+    db.flush()
+    if _doc_snapshot(d) != before:
+        audit.record(db, ctx, "CHECK_DOCUMENT_UPDATED", "check_document", d.id, before, _doc_snapshot(d))
+    return d
+
+
+def set_document_flags(db: Session, ctx, d: CheckDocument, active: bool | None, is_default: bool | None) -> CheckDocument:
+    before = _doc_snapshot(d)
+    if active is not None:
+        d.active = active
+        if not active:
+            d.is_default = False
+    if is_default:
+        if not d.active:
+            raise conflict("TEMPLATE_INACTIVE", "A deactivated template can't be the default.")
+        for x in list_documents(db, ctx, d.kind):
+            x.is_default = x.id == d.id
+    db.flush()
+    if _doc_snapshot(d) != before:
+        audit.record(db, ctx, "CHECK_DOCUMENT_UPDATED", "check_document", d.id,
+                     {"active": before["active"], "is_default": before["is_default"]},
+                     {"active": d.active, "is_default": d.is_default})
+    return d
+
+
+def _money(cents: int) -> str:
+    return f"${cents // 100:,}.{cents % 100:02d}"
+
+
+def letter_data(db: Session, ctx, t: RegisterTransaction, date_format: str, signer: CheckSigner | None
+                ) -> documents.LetterData:
+    vals = variable_values(db, t, SimpleNamespace(date_format=date_format))
+    rows = []
+    for a in t.live_allocations:
+        code, bname = _budget_parts(db, a.budget)
+        rows.append({"INVOICE": a.invoice_number or "",
+                     "INVOICE_DATE": format_date(a.invoice_date, date_format) if a.invoice_date else "",
+                     "DESCRIPTION": a.description or "", "BUDGET": f"{code} {bname}", "NOTES": a.notes or "",
+                     "AMOUNT": _money(a.amount_cents)})
+    payee = [t.parent_entity.display_name] + address_lines(t.parent_entity) if t.parent_entity else []
+    return documents.LetterData(values=vals, rows=rows, total=_money(t.total_cents), payee_lines=payee,
+                                signer_name=signer.name if signer else "", signer_title=(signer.title or "") if signer
+                                else "")
+
+
+def _date_format_for(db: Session, ctx, t: RegisterTransaction) -> str:
+    row = account_row(db, ctx, t.bank_account_id)
+    style = db.get(CheckStyle, row.check_style_id) if row else None
+    return style_config(style).date_format if style else "MM/DD/YYYY"
+
+
+def _letter_signer(db: Session, ctx, signer_id: int | None) -> CheckSigner | None:
+    if signer_id is None:
+        return None
+    s = get_signer(db, ctx, signer_id)
+    return s if s.active else None
+
+
+def _store_doc_copy(db: Session, ctx, settings, t: RegisterTransaction, kind_type: str, filename: str,
+                    pdf: bytes) -> tuple[bool, object]:
+    """Attaches a printed letter/envelope to the transaction unless the same PDF is already attached."""
+    sha = hashlib.sha256(pdf).hexdigest()
+    same = db.scalar(select(Attachment).where(Attachment.transaction_id == t.id, Attachment.document_type == kind_type,
+                                              Attachment.sha256 == sha))
+    if same is not None:
+        return False, None
+    key, path = att_svc._write_file(settings, pdf)
+    att = Attachment(workspace_id=ctx.workspace_id, original_filename=att_svc.sanitize_filename(filename),
+                     storage_key=key, mime_type="application/pdf", size_bytes=len(pdf), sha256=sha,
+                     uploaded_by_user_id=ctx.user.id, active=True, transaction_id=t.id, document_type=kind_type,
+                     system_generated=True)
+    db.add(att)
+    db.flush()
+    audit.record(db, ctx, "ATTACHMENT_ADDED", "attachment", att.id, None, att_svc.snapshot(att))
+    return True, path
+
+
+def print_letter(db: Session, ctx, settings, t: RegisterTransaction, d: CheckDocument, signer_id: int | None,
+                 confirmations: list[str]) -> bytes:
+    if d.kind != "LETTER" or not d.active:
+        raise conflict("TEMPLATE_INACTIVE", "Choose an active letter template.")
+    cfg = doc_config(d)
+    signer = _letter_signer(db, ctx, signer_id)
+    data = letter_data(db, ctx, t, _date_format_for(db, ctx, t), signer)
+    _texts, empty = documents.letter_texts(cfg, data)
+    warnings = []
+    if empty:
+        warnings.append(Warning_("EMPTY_VARIABLES", "These variables have no data for this transaction: " +
+                                 ", ".join("{" + v + "}" for v in empty) + ". Print the letter as it is?",
+                                 variables=empty))
+    if not data.payee_lines[1:]:
+        warnings.append(Warning_("NO_PAYEE_ADDRESS", "The payee has no address in the register. Print the letter "
+                                 "without it?"))
+    require_confirmations(warnings, confirmations)
+    pdf = documents.letter_pdf(cfg, data)
+    added, path = _store_doc_copy(db, ctx, settings, t, LETTER_COPY,
+                                  f"letter-{t.check_number or t.id}.pdf", pdf)
+    audit.record(db, ctx, "CHECK_LETTER_PRINTED", "register_transaction", t.id, None,
+                 {"transaction_id": t.id, "document_id": d.id, "signer_id": signer.id if signer else None,
+                  "check_number": t.check_number, "attached": added})
+    _commit_or_unlink(db, path)
+    return pdf
+
+
+def envelope_options(db: Session, ctx, d: CheckDocument, feed_override: dict | None = None) -> dict:
+    p = db.scalar(select(CheckPrinterSetting).where(CheckPrinterSetting.user_id == ctx.user.id,
+                                                    CheckPrinterSetting.document_id == d.id,
+                                                    CheckPrinterSetting.feed_key == "envelope"))
+    cfg = doc_config(d)
+    out = {"page": (p.page if p and p.page else cfg.page), "guide": (p.guide if p and p.guide else cfg.guide),
+           "dx": p.dx_mils / 1000.0 if p else 0.0, "dy": p.dy_mils / 1000.0 if p else 0.0, "customized": p is not None}
+    for k in ("page", "guide"):
+        if feed_override and feed_override.get(k):
+            out[k] = feed_override[k]
+    return out
+
+
+def save_envelope_printer(db: Session, ctx, d: CheckDocument, page: str | None, guide: str | None, dx: float,
+                          dy: float) -> dict:
+    for v, name in ((dx, "dx"), (dy, "dy")):
+        if not -cfgmod.PERSONAL_MAX - 1e-9 <= v <= cfgmod.PERSONAL_MAX + 1e-9:
+            raise validation("A personal adjustment may be at most 1/4 inch in each direction.", name)
+    if page not in (None, "LETTER", "ENVELOPE") or guide not in (None, "CENTER", "LEFT", "RIGHT"):
+        raise validation("Unknown page or guide option.", "page")
+    p = db.scalar(select(CheckPrinterSetting).where(CheckPrinterSetting.user_id == ctx.user.id,
+                                                    CheckPrinterSetting.document_id == d.id,
+                                                    CheckPrinterSetting.feed_key == "envelope"))
+    if p is None:
+        p = CheckPrinterSetting(workspace_id=ctx.workspace_id, user_id=ctx.user.id, document_id=d.id,
+                                feed_key="envelope")
+        db.add(p)
+    p.page, p.guide, p.dx_mils, p.dy_mils = page, guide, int(round(dx * 1000)), int(round(dy * 1000))
+    p.updated_at = utcnow()
+    db.flush()
+    audit.record(db, ctx, "CHECK_PRINTER_SETTINGS", "check_printer_setting", p.id, None,
+                 {"document_id": d.id, "feed_key": "envelope", "page": page, "guide": guide,
+                  "dx_mils": p.dx_mils, "dy_mils": p.dy_mils})
+    return envelope_options(db, ctx, d)
+
+
+def _envelope_content(db: Session, ctx, t: RegisterTransaction, cfg, return_address: bool):
+    vals = variable_values(db, t, SimpleNamespace(date_format=_date_format_for(db, ctx, t)))
+    payee = [t.parent_entity.display_name] + address_lines(t.parent_entity) if t.parent_entity else []
+    return documents.envelope_lines(cfg, vals, payee, return_address), payee
+
+
+def print_envelope(db: Session, ctx, settings, t: RegisterTransaction, d: CheckDocument, *,
+                   return_address: bool | None, page: str | None, guide: str | None, test: bool,
+                   confirmations: list[str]) -> bytes:
+    if d.kind != "ENVELOPE" or not d.active:
+        raise conflict("TEMPLATE_INACTIVE", "Choose an active envelope template.")
+    cfg = doc_config(d)
+    use_return = cfg.return_address if return_address is None else return_address
+    (ret, to, empty), payee = _envelope_content(db, ctx, t, cfg, use_return)
+    if not test:
+        warnings = []
+        if not payee[1:]:
+            warnings.append(Warning_("NO_PAYEE_ADDRESS", "The payee has no address in the register. Add it to the "
+                                     "payee's entity, or print the envelope with the name only?"))
+        if empty:
+            warnings.append(Warning_("EMPTY_VARIABLES", "These variables have no data: " +
+                                     ", ".join("{" + v + "}" for v in empty) + ". Print anyway?", variables=empty))
+        require_confirmations(warnings, confirmations)
+    opt = envelope_options(db, ctx, d, {"page": page, "guide": guide})
+    pdf = documents.envelope_pdf(cfg, ret, to, page=opt["page"], guide=opt["guide"], dx=opt["dx"], dy=opt["dy"],
+                                 test=test)
+    if test:
+        audit.record(db, ctx, "CHECK_ENVELOPE_TEST", "register_transaction", t.id, None,
+                     {"document_id": d.id, "page": opt["page"], "guide": opt["guide"]})
+        db.commit()
+        return pdf
+    # the attached copy is drawn without the feed offsets so that the same envelope is attached only once
+    copy_pdf = documents.envelope_pdf(cfg, ret, to, page="ENVELOPE")
+    added, path = _store_doc_copy(db, ctx, settings, t, ENVELOPE_COPY, f"envelope-{t.check_number or t.id}.pdf",
+                                  copy_pdf)
+    audit.record(db, ctx, "CHECK_ENVELOPE_PRINTED", "register_transaction", t.id, None,
+                 {"transaction_id": t.id, "document_id": d.id, "return_address": use_return,
+                  "page": opt["page"], "guide": opt["guide"], "attached": added})
+    _commit_or_unlink(db, path)
+    return pdf
+
+
+def _commit_or_unlink(db: Session, path) -> None:
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        if path is not None:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        raise
+
+
+def handwritten_check(db: Session, ctx, t: RegisterTransaction, number: str) -> None:
+    """A check written by hand (#165): only its number is recorded - no check is printed or counted."""
+    if is_reprint(db, t) and checknum.check_key(number) != checknum.check_key(t.check_number):
+        raise conflict("CHECK_NUMBER_LOCKED", "A check was already printed with this number. If it was damaged, "
+                       "mark it spoiled first.")
+    before = t.check_number
+    set_check_number(db, ctx, t, number)
+    audit.record(db, ctx, "CHECK_HANDWRITTEN", "register_transaction", t.id, {"check_number": before},
+                 {"check_number": t.check_number})
+
+
+def sample_letter_pdf(cfg) -> bytes:
+    values = {**SAMPLE_VALUES["NORMAL"], "PAYEE": documents.SAMPLE_PAYEE[0],
+              "TODAY": format_date(dt.date.today(), "MM/DD/YYYY"), "INVOICE_DATE": "08/29/2026 and others",
+              "PAYEE_ADDRESS": "\n".join(documents.SAMPLE_PAYEE[1:]), "DATE": format_date(dt.date.today(), "MM/DD/YYYY")}
+    data = documents.LetterData(values=values, rows=documents.SAMPLE_ROWS, total="$200.00",
+                                payee_lines=documents.SAMPLE_PAYEE, signer_name="SAMPLE SIGNER",
+                                signer_title="Treasurer")
+    return documents.letter_pdf(cfg, data, title="Letter test print")
+
+
+def sample_envelope_pdf(cfg) -> bytes:
+    ret, to, _e = documents.envelope_lines(cfg, {**SAMPLE_VALUES["NORMAL"]}, documents.SAMPLE_PAYEE, True)
+    return documents.envelope_pdf(cfg, ret, to, test=True)

@@ -285,6 +285,7 @@ class AllocationIn(In):
     fiscal_year_id: int | None = None
     entity_id: int | None = None
     invoice_number: OptStr(60) = None
+    invoice_date: dt.date | None = None   # 2.0.0 (#165)
     description: OptStr(500) = None
     amount: Amount
     notes: OptStr(4000) = None

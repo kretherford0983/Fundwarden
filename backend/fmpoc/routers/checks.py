@@ -18,7 +18,7 @@ from ..deps import Ctx, auth_ctx, get_db, require
 from ..errors import AppError, forbidden, validation
 from ..models import BankAccount
 from ..services.checkprint import config as cfgmod
-from ..services.checkprint import fonts, patterns, presets, render
+from ..services.checkprint import documents, fonts, patterns, presets, render
 from ..services.checkprint import service as svc
 from ..services.common import get_scoped
 
@@ -106,6 +106,10 @@ def setup(request: Request, db: Session = Depends(get_db), ctx: Ctx = Depends(se
             "fonts": fonts.options(), "font_sizes": {"min": fonts.MIN_SIZE, "max": fonts.MAX_SIZE},
             "variables": patterns.variable_options(patterns.CHECK),
             "signers": [svc.signer_out(s) for s in svc.list_signers(db, ctx)],
+            "documents": [svc.doc_out(d) for d in svc.list_documents(db, ctx)],
+            "letter_variables": patterns.variable_options(patterns.LETTER),
+            "envelope_variables": patterns.variable_options(patterns.ENVELOPE),
+            "letter_columns": [{"key": k, "heading": v} for k, v in documents.COLUMN_KEYS.items()],
             "limits": {"clear_zone": cfgmod.CLEAR_ZONE, "feed_offset_max": cfgmod.FEED_OFFSET_MAX,
                        "personal_max": cfgmod.PERSONAL_MAX},
             "date_formats": list(cfgmod.DATE_FORMATS)}
@@ -445,3 +449,142 @@ def amount_preview(body: AmountPreviewIn, db: Session = Depends(get_db), ctx: Ct
 def recent(bank_account_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
     acct = get_scoped(db, BankAccount, bank_account_id, ctx, "Bank Account")
     return svc.recent_checks(db, ctx, acct)
+
+
+# ------------------------------------------------------------------ cover letters and envelopes (#165, #166)
+class DocCreateIn(In):
+    kind: Literal["LETTER", "ENVELOPE"]
+    name: str | None = Field(default=None, max_length=80)
+
+
+class DocUpdateIn(In):
+    name: str = Field(max_length=80)
+    config: dict
+
+
+class DocFlagsIn(In):
+    active: bool | None = None
+    is_default: bool | None = None
+
+
+class DocTestIn(In):
+    config: dict | None = None
+
+
+class LetterIn(In):
+    document_id: int
+    signer_id: int | None = None
+    confirmations: list[str] = Field(default_factory=list, max_length=10)
+
+
+class EnvelopeIn(In):
+    document_id: int
+    return_address: bool | None = None
+    page: Literal["LETTER", "ENVELOPE"] | None = None
+    guide: Literal["CENTER", "LEFT", "RIGHT"] | None = None
+    confirmations: list[str] = Field(default_factory=list, max_length=10)
+
+
+class HandwrittenIn(In):
+    check_number: str = Field(max_length=20)
+    confirm_check_number: str = Field(max_length=20)
+
+
+class EnvelopePrinterIn(In):
+    document_id: int
+    page: Literal["LETTER", "ENVELOPE"] | None = None
+    guide: Literal["CENTER", "LEFT", "RIGHT"] | None = None
+    dx: float = Field(default=0, ge=-cfgmod.PERSONAL_MAX, le=cfgmod.PERSONAL_MAX)
+    dy: float = Field(default=0, ge=-cfgmod.PERSONAL_MAX, le=cfgmod.PERSONAL_MAX)
+
+
+@router.post("/documents", status_code=201)
+def create_document(body: DocCreateIn, db: Session = Depends(get_db), ctx: Ctx = Depends(setup_ctx)):
+    d = svc.create_document(db, ctx, body.kind, body.name)
+    db.commit()
+    return svc.doc_out(d)
+
+
+@router.put("/documents/{doc_id}")
+def update_document(doc_id: int, body: DocUpdateIn, db: Session = Depends(get_db), ctx: Ctx = Depends(setup_ctx)):
+    d = svc.update_document(db, ctx, svc.get_document(db, ctx, doc_id), body.name, body.config)
+    db.commit()
+    return svc.doc_out(d)
+
+
+@router.post("/documents/{doc_id}/flags")
+def document_flags(doc_id: int, body: DocFlagsIn, db: Session = Depends(get_db), ctx: Ctx = Depends(setup_ctx)):
+    d = svc.set_document_flags(db, ctx, svc.get_document(db, ctx, doc_id), body.active, body.is_default)
+    db.commit()
+    return svc.doc_out(d)
+
+
+@router.post("/documents/{doc_id}/test-print")
+def document_test(doc_id: int, body: DocTestIn, db: Session = Depends(get_db), ctx: Ctx = Depends(setup_ctx)):
+    d = svc.get_document(db, ctx, doc_id)
+    cfg = svc._doc_config_or_422(d.kind, body.config) if body.config is not None else svc.doc_config(d)
+    pdf = svc.sample_letter_pdf(cfg) if d.kind == "LETTER" else svc.sample_envelope_pdf(cfg)
+    audit.record(db, ctx, "CHECK_DOCUMENT_TEST_PRINT", "check_document", d.id, None,
+                 {"unsaved_settings": body.config is not None})
+    db.commit()
+    return _pdf(pdf, f"{d.kind.lower()}-test-print.pdf")
+
+
+@router.get("/transactions/{txn_id}/documents")
+def transaction_documents(txn_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    """Letter and envelope templates for the print screen, with the user's envelope printer settings."""
+    svc.get_printable(db, ctx, txn_id)
+    letters = [svc.doc_out(d, full=False) for d in svc.list_documents(db, ctx, "LETTER", False)]
+    envs = []
+    for d in svc.list_documents(db, ctx, "ENVELOPE", False):
+        envs.append({**svc.doc_out(d, full=False), "printer": svc.envelope_options(db, ctx, d)})
+    return {"letters": letters, "envelopes": envs}
+
+
+@router.post("/transactions/{txn_id}/letter")
+def print_letter(txn_id: int, body: LetterIn, request: Request, db: Session = Depends(get_db),
+                 ctx: Ctx = Depends(print_ctx)):
+    t = svc.get_printable(db, ctx, txn_id)
+    d = svc.get_document(db, ctx, body.document_id, "LETTER")
+    pdf = svc.print_letter(db, ctx, request.app.state.settings, t, d, body.signer_id, body.confirmations)
+    return _pdf(pdf, f"letter-{t.check_number or t.id}.pdf")
+
+
+@router.post("/transactions/{txn_id}/envelope")
+def print_envelope(txn_id: int, body: EnvelopeIn, request: Request, db: Session = Depends(get_db),
+                   ctx: Ctx = Depends(print_ctx)):
+    t = svc.get_printable(db, ctx, txn_id)
+    d = svc.get_document(db, ctx, body.document_id, "ENVELOPE")
+    pdf = svc.print_envelope(db, ctx, request.app.state.settings, t, d, return_address=body.return_address,
+                             page=body.page, guide=body.guide, test=False, confirmations=body.confirmations)
+    return _pdf(pdf, f"envelope-{t.check_number or t.id}.pdf")
+
+
+@router.post("/transactions/{txn_id}/envelope-test")
+def envelope_test(txn_id: int, body: EnvelopeIn, request: Request, db: Session = Depends(get_db),
+                  ctx: Ctx = Depends(print_ctx)):
+    t = svc.get_printable(db, ctx, txn_id)
+    d = svc.get_document(db, ctx, body.document_id, "ENVELOPE")
+    pdf = svc.print_envelope(db, ctx, request.app.state.settings, t, d, return_address=body.return_address,
+                             page=body.page, guide=body.guide, test=True, confirmations=[])
+    return _pdf(pdf, "envelope-test.pdf")
+
+
+@router.post("/transactions/{txn_id}/handwritten")
+def handwritten(txn_id: int, body: HandwrittenIn, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    """The check is written by hand: record its number (confirmed twice) without printing a check."""
+    from ..services import checks as checknum
+    if checknum.check_key(body.check_number) != checknum.check_key(body.confirm_check_number):
+        raise AppError(409, "CHECK_NUMBER_MISMATCH", "The two check numbers don't match.")
+    t = svc.get_printable(db, ctx, txn_id)
+    svc.handwritten_check(db, ctx, t, body.check_number)
+    db.commit()
+    return {"transaction_id": t.id, "check_number": t.check_number}
+
+
+@router.put("/my-printer/envelope")
+def save_envelope_printer(body: EnvelopePrinterIn, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    d = svc.get_document(db, ctx, body.document_id, "ENVELOPE")
+    out = svc.save_envelope_printer(db, ctx, d, body.page, body.guide, body.dx, body.dy)
+    db.commit()
+    return out
