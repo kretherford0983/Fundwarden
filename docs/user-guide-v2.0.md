@@ -1,0 +1,23 @@
+# What's new in 2.0 — quick guide
+
+*2.0.0: the Check Printing module. 2.0.0 is tested in several test builds; this guide grows with each one. The full
+guide is [check-printing.md](check-printing.md).*
+
+## Check printing (test build 1)
+PennyWarden can now print your checks on printable check stock that already carries the bank numbers.
+
+**Administrators** turn it on in **System/About → Optional modules**, then open **Check Printing** to:
+- create a **check style** from a preset (the first preset is a Letter sheet with three 3.5-inch checks) and adjust
+  where each field prints, with a preview drawn to scale;
+- choose fonts, how the amounts look, and a **default memo** such as `{BUDGET_CODE}, INVOICE {INVOICE}`;
+- add **signers** with a signature image, and optionally an amount above which no signature prints;
+- print a **test print** and a **calibration page** on plain paper.
+
+**Register Users** open a withdrawal in the **Register** and click **Print check…**:
+- check the preview, the feed mode (the last check on a sheet goes through the manual feed on its own) and the memo;
+- type the number printed on the check in the printer, then print at **actual size**;
+- afterwards choose **Yes – done**, **Reprint** (the check was not damaged) or **Mark spoiled** (its number becomes a
+  $0.00 VOID record and you print on the next check).
+
+A record copy of every printed check is attached to the transaction. If the printing is shifted on your printer, the
+**Printer setup assistant** on the print screen adjusts it for you without changing anyone else's settings.

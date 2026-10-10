@@ -1,4 +1,4 @@
-# Upgrading a Linux server install (current release: 1.10.0)
+# Upgrading a Linux server install (current release: 2.0.0)
 
 The upgrade replaces only the application binaries. It does **not** modify:
 
@@ -10,6 +10,7 @@ Before switching versions the installer stops the service and copies the whole d
 
 | Upgrade | Database change | Rollback |
 |---|---|---|
+| 1.10.0 → 2.0.0 | migration `0025` — adds `workspace.checks_enabled` (off) and creates the tables `check_style`, `check_signer`, `check_account` and `check_printer_setting` (the Check Printing module); no existing data changes | switch binaries **and** restore the pre-upgrade data backup (1.10.0 does not know revision 0025) |
 | 1.9.0 → 1.10.0 | migration `0024` — creates the table `update_check` (the update notification: on/off and the last result); no existing data changes | switch binaries **and** restore the pre-upgrade data backup (1.9.0 does not know revision 0024) |
 | 1.8.0 → 1.9.0 | migration `0023` — creates the tables `backup_schedule` and `backup_run` (scheduled backups); no existing data changes. On a local install new installations give the first user every role; existing users keep their roles | switch binaries **and** restore the pre-upgrade data backup (1.8.0 does not know revision 0023) |
 | 1.7.3 → 1.8.0 | migrations `0021` and `0022` — `0021`: adds the empty column `budget.continues_budget_id` and its index; no existing budget is linked; `0022`: adds eight columns to `app_user` (count of failed attempts, lock, temporary-password flag, the question offered by *Forgot password*, notices) and the tables `user_security_question` and `security_notice` — no existing data changes; every user chooses security questions at the next sign-in | switch binaries **and** restore the pre-upgrade data backup (1.7.3 does not know revisions 0021 and 0022) |
