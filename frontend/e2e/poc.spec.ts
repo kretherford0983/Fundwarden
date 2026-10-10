@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
+/** Escape every regular-expression metacharacter (backslash included) so text is matched literally. */
+const reEscape = (t: string) => t.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+
 const PW = "Correct-Horse-9-Battery";
 test.describe.configure({ mode: "serial" });
 
@@ -1977,7 +1980,7 @@ test("#58: a newer release shows the gold arrow, the What's new dialog with ever
     await dot.click();
     const dlg = page.getByRole("dialog", { name: `PennyWarden ${next2} is available` });
     const notes = dlg.getByTestId("whats-new");
-    await expect(notes.getByRole("heading")).toHaveText([new RegExp(`^${next2}`), new RegExp(`^${next.replace(/\./g, "\\.")} `)]);
+    await expect(notes.getByRole("heading")).toHaveText([new RegExp(`^${reEscape(next2)}`), new RegExp(`^${reEscape(next)} `)]);
     await expect(notes).toContainText("<script>window.pwned=1</script>");          // shown as text, never run
     await expect(notes.locator("b", { hasText: "Fix:" })).toHaveCount(1);
     expect(await page.evaluate(() => (window as any).pwned)).toBeUndefined();
