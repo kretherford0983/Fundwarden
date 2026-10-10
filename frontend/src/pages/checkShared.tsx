@@ -128,10 +128,11 @@ export function CheckPreview({ cfg, fonts, texts, highlight, showBoxes = true, s
 }
 
 /** Text with {VARIABLES}: autocomplete after "{" (case-insensitive), descriptions shown, Enter/Tab/click inserts. */
-export function PatternInput({ value, onChange, variables, label, id, placeholder, maxLength = 200 }: {
+export function PatternInput({ value, onChange, variables, label, id, placeholder, maxLength = 200, multiline = false, hint = true }: {
   value: string; onChange: (v: string) => void; variables: Variable[]; label: string; id: string; placeholder?: string; maxLength?: number;
+  multiline?: boolean; hint?: boolean;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<any>(null);
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [focus, setFocus] = useState(false);
@@ -172,12 +173,22 @@ export function PatternInput({ value, onChange, variables, label, id, placeholde
   return (
     <div className="field pattern-input">
       <label htmlFor={id}>{label}</label>
-      <input id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
-             role="combobox" aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
-             onChange={(e) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
-             onKeyUp={(e) => setCaret((e.target as HTMLInputElement).selectionStart || 0)}
-             onClick={(e) => setCaret((e.target as HTMLInputElement).selectionStart || 0)}
+      <div className="pi-wrap">
+      {multiline ? (
+        <textarea rows={4} id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
+             aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
+             onChange={(e: any) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
+             onKeyUp={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onClick={(e: any) => setCaret(e.target.selectionStart || 0)}
              onKeyDown={onKey} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
+      ) : (
+        <input id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
+             role="combobox" aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
+             onChange={(e: any) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
+             onKeyUp={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onClick={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onKeyDown={onKey} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
+      )}
       {open && focus ? (
         <ul className="autocomplete" id={`${id}-list`} role="listbox">
           {open.list.map((v, i) => (
@@ -188,7 +199,8 @@ export function PatternInput({ value, onChange, variables, label, id, placeholde
           ))}
         </ul>
       ) : null}
-      <span className="hint">Text prints as typed; <code>{"{VARIABLE}"}</code> fills in from the transaction (type <code>{"{"}</code> for the list). Use <code>{"{{"}</code> and <code>{"}}"}</code> to print a brace.</span>
+      </div>
+      {hint ? <span className="hint">Text prints as typed; <code>{"{VARIABLE}"}</code> fills in from the transaction (type <code>{"{"}</code> for the list). Use <code>{"{{"}</code> and <code>{"}}"}</code> to print a brace.</span> : null}
     </div>
   );
 }

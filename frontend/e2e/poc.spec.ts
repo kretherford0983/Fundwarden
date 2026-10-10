@@ -2187,3 +2187,77 @@ test("#164: a Register User enters a two-invoice payment, sees the check amount 
   await expect(locked).toContainText("INV-82");
   await expect(locked.getByRole("button", { name: "Print check again…" })).toBeVisible();
 });
+
+// ---------------------------------------------------------------- 2.0.0 build 3: cover letters, envelopes (#165, #166)
+test("#165-#166: Administrator sets up a cover letter and an envelope; a Register User records a handwritten check and prints both", async ({ page }) => {
+  await login(page, "admin");
+  await page.getByRole("link", { name: "Check Printing" }).click();
+  await page.getByRole("button", { name: "New cover letter" }).click();
+  await expect(page.getByRole("heading", { name: "Cover letter: Invoice payment letter" })).toBeVisible();
+  await page.getByRole("button", { name: "+ Add line" }).click();
+  await page.getByLabel("Letterhead line 2", { exact: true }).fill("100 Example Street, Sampletown");
+  await page.getByLabel("Name when there is no signer").fill("Pat Example");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await page.getByRole("button", { name: "Test print (sample data)" }).click();
+  const tp = page.getByRole("dialog", { name: "Test print" });
+  await expect(tp.getByRole("button", { name: "Print…" })).toBeVisible();
+  await tp.getByRole("button", { name: "Close" }).first().click();
+  await page.getByRole("button", { name: "Back to check printing" }).click();
+  await page.getByRole("button", { name: "New #10 envelope" }).click();
+  await expect(page.getByRole("heading", { name: "Envelope: #10 envelope" })).toBeVisible();
+  // the return address starts as the default letter's letterhead
+  await expect(page.getByLabel("Return address line 2", { exact: true })).toHaveValue("100 Example Street, Sampletown");
+  await page.getByRole("button", { name: "Back to check printing" }).click();
+  const docs = page.locator("section", { has: page.getByRole("heading", { name: "Cover letters and envelopes" }) });
+  await expect(docs.getByRole("row", { name: /Invoice payment letter/ })).toContainText("Default");
+  await expect(docs.getByRole("row", { name: /#10 envelope/ })).toContainText("Default");
+  await page.screenshot({ path: "e2e-screenshots/light-check-letters.png", fullPage: true });
+  await logout(page);
+
+  // Register User: a payment with invoice dates; the check is written by hand
+  await login(page, "ru1", "Brand-New-Pass-99");
+  const post = await apiAs(page);
+  const ents = await (await page.request.get("/api/entities?search=Sample%20Supply")).json();
+  const ent = (ents.items || ents).find((e: any) => e.display_name === "Sample Supply Company, Inc");
+  const opts = await (await page.request.get("/api/budgets/selectable?fiscal_year_id=1&transaction_type=WITHDRAWAL")).json();
+  const travel = opts.find((o: any) => o.label === "1000-01 Travel").id;
+  const tr = await post("/api/transactions", { bank_account_id: 1, transaction_type: "WITHDRAWAL", transaction_date: "2026-11-27", entity_id: ent.id,
+    allocations: [{ budget_id: travel, amount: "40.00", invoice_number: "INV-91", invoice_date: "2026-11-02", description: "Paper" },
+                  { budget_id: travel, amount: "60.25", invoice_number: "INV-92", invoice_date: "2026-11-09", description: "Toner" }] });
+  expect(tr.status()).toBe(201);
+  const t = await tr.json();
+  await page.goto(`/register?account=1&txn=${t.id}`);
+  const row = page.locator(`#txn-${t.id}`);
+  await expect(row.getByRole("button", { name: `Details for transaction ${t.id}` })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("2026-11-09")).toBeVisible();        // invoice date in the details
+  await page.getByRole("button", { name: "Print check…" }).click();
+  const dlg = page.getByRole("dialog", { name: `Print check – transaction #${t.id}` });
+  await dlg.getByLabel("I'm writing the check by hand").check();
+  await dlg.getByLabel("Check number you wrote").fill("8301");
+  await dlg.getByLabel("Type the check number again").fill("8310");
+  await expect(dlg.getByText("The two numbers don't match.")).toBeVisible();
+  await expect(dlg.getByRole("button", { name: "Record check number" })).toBeDisabled();
+  await dlg.getByLabel("Type the check number again").fill("8301");
+  await dlg.getByRole("button", { name: "Record check number" }).click();
+  await expect(dlg.getByText("Check number #8301 is recorded for this payment.")).toBeVisible();
+  // the payee has no address: printing asks first
+  await dlg.getByRole("button", { name: "Print cover letter" }).click();
+  const cf = page.getByRole("dialog", { name: "Confirmation required" });
+  await expect(cf).toContainText("The payee has no address");
+  await cf.getByLabel("I have reviewed these warnings and explicitly confirm.").check();
+  await cf.getByRole("button", { name: "Confirm and continue" }).click();
+  const lv = page.getByRole("dialog", { name: "Cover letter" });
+  await expect(lv.getByRole("button", { name: "Print…" })).toBeVisible();
+  await lv.getByRole("button", { name: "Close" }).first().click();
+  await expect(dlg.locator(".badge", { hasText: "Attached" })).toHaveCount(1);
+  await dlg.getByRole("button", { name: "Print envelope" }).click();
+  await cf.getByLabel("I have reviewed these warnings and explicitly confirm.").check();
+  await cf.getByRole("button", { name: "Confirm and continue" }).click();
+  await page.getByRole("dialog", { name: "Envelope" }).getByRole("button", { name: "Close" }).first().click();
+  await expect(dlg.locator(".badge", { hasText: "Attached" })).toHaveCount(2);
+  await page.screenshot({ path: "e2e-screenshots/light-handwritten-check.png" });
+  await dlg.getByRole("button", { name: "Close" }).first().click();
+  await page.reload();
+  await expect(page.locator(`#txn-${t.id}`)).toContainText("8301");
+});

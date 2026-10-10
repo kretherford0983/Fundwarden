@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, money } from "../api";
 import { ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
+import { EnclosuresPanel, HandwrittenPanel } from "./CheckEnclosures";
 import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfViewer, useCheckFonts, usePdf } from "./checkShared";
 
 type Opts = any;
@@ -16,10 +17,20 @@ export function PrintCheckDialog({ txn, onClose, onChanged }: { txn: any; onClos
   const [err, setErr] = useState<unknown>(null);
   const load = () => api.get(`/api/checks/transactions/${txn.id}/options`).then(setO, setErr);
   useEffect(() => { load(); }, [txn.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mode, setMode] = useState<"print" | "hand">("print");
+  const defaultSigner = o ? (o.signers.find((s: any) => s.id === o.default_signer_id) || o.signers[0])?.id ?? null : null;
   return (
     <Modal title={`Print check – transaction #${txn.id}`} onClose={onClose} wide>
       <ErrorBox error={err} />
-      {!o ? (err ? null : <Loading />) : !o.check_style_id ? (
+      {o && o.has_documents ? (
+        <div className="segmented" role="radiogroup" aria-label="How is the check made">
+          <label><input type="radio" name="mode" checked={mode === "print"} onChange={() => setMode("print")} /> Print the check</label>
+          <label><input type="radio" name="mode" checked={mode === "hand"} onChange={() => setMode("hand")} /> I'm writing the check by hand</label>
+        </div>
+      ) : null}
+      {o && mode === "hand" ? (
+        <HandwrittenPanel txn={o.transaction} nextNumber={o.next_check_number} signerId={defaultSigner} onChanged={() => { onChanged(); load(); }} />
+      ) : !o ? (err ? null : <Loading />) : !o.check_style_id ? (
         <ChooseStyle o={o} onDone={load} />
       ) : (
         <PrintForm o={o} reload={load} onClose={onClose} onChanged={onChanged} />
@@ -147,6 +158,8 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
         </div>
         <p className="hint">A misaligned print counts as spoiled: the check has ink on it. Reprint only when the check came out blank or undamaged and you
           put the same check back in the printer.</p>
+        <EnclosuresPanel txnId={t.id} signerId={signer ? Number(signer) : null} onChanged={onChanged}
+          intro="Optional. The letter is signed by name by the check's signer. Printed letters and envelopes are attached to the transaction." />
         {spoiling ? <SpoilDialog txn={t} number={number} next={o.next_check_number} onClose={() => setSpoiling(false)} onDone={() => { setSpoiling(false); setPrinted(false); setTyped(""); setPdf(null); onChanged(); reload(); }} /> : null}
       </div>
     );

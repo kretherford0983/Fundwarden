@@ -89,6 +89,7 @@ def test_letter_envelope_and_handwritten_check(env, base):
     tid = t["id"]
     docs = env.ru.get(f"/api/checks/transactions/{tid}/documents").json()
     assert [d["id"] for d in docs["letters"]] == [letter["id"]] and docs["envelopes"][0]["printer"]["page"] == "LETTER"
+    assert env.ru.get(f"/api/checks/transactions/{tid}/options").json()["has_documents"] is True
     # handwritten check: the number is recorded (confirmed twice, unique), nothing printed or counted
     r = env.ru.post(f"/api/checks/transactions/{tid}/handwritten", {"check_number": "3001", "confirm_check_number": "3002"})
     assert r.json()["error"]["code"] == "CHECK_NUMBER_MISMATCH"

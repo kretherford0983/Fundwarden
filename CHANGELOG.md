@@ -3,7 +3,7 @@
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
 ## 2.0.0 — unreleased
-Database migrations `0025` and `0026` (two columns and four tables added; no existing data changes). Rolling back to 1.10.0
+Database migrations `0025`, `0026` and `0027` (three columns and five tables added; no existing data changes). Rolling back to 1.10.0
 needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). 2.0.0 is built and tested in
 several test builds; the notes below grow with each one.
 
@@ -53,6 +53,28 @@ several test builds; the notes below grow with each one.
 - **Create payment…** on a withdrawal in the register opens its payment page with the transaction's details locked
   (change them in the register); the check is printed from there.
 - Fix: the cursor stays after a variable picked from the memo autocomplete, also when typing fast.
+
+**Test build 3 — cover letters, #10 envelopes, setup polish (#165, #166, #174)**
+- **Invoice date.** Each line of a withdrawal can carry an optional invoice date (register and payments); it is
+  available as `{INVOICE_DATE}` and in the cover letter's invoice table.
+- **Cover letters (#165).** Administrators keep letter templates in Check Printing: typed letterhead lines (the first in
+  bold), today's date, subject, salutation, opening, an invoice table (choose and order the columns: invoice number,
+  invoice date, description, budget, notes, amount; a total line), closing and sign-off — all with the same `{VARIABLES}`
+  as the memo plus `{TODAY}`, `{PAYEE_ADDRESS}`, `{SIGNER}` and `{SIGNER_TITLE}`. The letter is signed by name by the
+  check's signer (never the signature image), or by a name and role set in the template. Test print with sample data.
+- **#10 envelopes (#166).** Envelope templates with the payee's name and address from the entity, an optional return
+  address (starts as the default letter's letterhead; it can be switched off for envelopes with a printed return
+  address, also for one print), positions, and the manual feed (stamp end or the other end first, Letter page at the
+  guides or an envelope-sized page). Each user can save their own small adjustment and print a plain-paper test.
+- **Printing them.** After the check prints, the print screen offers the cover letter and the envelope; a payee
+  without an address, or a variable without data, is a warning to confirm. Printed letters and envelopes are attached
+  to the transaction.
+- **Checks written by hand.** *I'm writing the check by hand* on the print screen records the check number (typed
+  twice) without printing a check, then prints the cover letter and envelope.
+- **Setup polish from test build 1 (#174).** The preview and the test print show the style's default memo filled with
+  sample data, as it is typed; every setup section can be collapsed and the preview kept at the top; PDFs open in one
+  click in a viewer with *Print…*, a new-tab link and *Download*; Escape closes only the top dialog; setup fields line
+  up whether or not they have help text.
 
 ## 1.10.0 — 2026-10-09
 Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot

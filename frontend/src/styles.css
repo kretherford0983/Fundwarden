@@ -403,7 +403,9 @@ fieldset.keep { border: 1px solid var(--border, #d0d7de); border-radius: 6px; pa
 /* 2.0.0 (#156-#162): Check Printing */
 .check-preview { color: var(--text); border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; }
 .pattern-input { position: relative; }
-.pattern-input .autocomplete { position: absolute; z-index: 20; left: 0; right: 0; top: 62px; margin: 0; padding: 4px 0; list-style: none;
+.pi-wrap { position: relative; }
+.pi-wrap textarea { width: 100%; }
+.pattern-input .autocomplete { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin: 0; padding: 4px 0; list-style: none;
   background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.15); max-height: 240px; overflow-y: auto; }
 .pattern-input .autocomplete li { padding: 4px 10px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
 .pattern-input .autocomplete li.active, .pattern-input .autocomplete li:hover { background: var(--surface-2); }
@@ -440,3 +442,10 @@ label.button { display: inline-block; padding: 3px 10px; border-radius: 6px; bor
 /* inputs line up whether or not a field has help text below it; checkboxes sit on the input line */
 .form-row > .check { margin-top: 19px; min-height: 34px; }
 .form-row > button { margin-top: 19px; }
+
+/* 2.0.0 (#165, #166): letters, envelopes, handwritten checks */
+.segmented { display: flex; gap: 1rem; margin-bottom: 0.75rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border, #ccc); border-radius: 6px; }
+.segmented label { display: flex; align-items: center; gap: 0.35rem; }
+fieldset.lines { border: 1px solid var(--border, #ccc); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
+fieldset.lines .pi-wrap { flex: 1; }
+.enclosures .form-row { align-items: flex-end; }

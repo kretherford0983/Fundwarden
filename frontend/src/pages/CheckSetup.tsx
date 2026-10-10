@@ -2,6 +2,7 @@
  * with a live preview drawn to scale, fonts, amount styles, feed modes, the default memo, signers and their signature
  * images, the signature limit, test prints with dummy data and the calibration page. No financial data is shown here
  * (BR-003): test prints use built-in dummy data. */
+import { DocumentsSection } from "./CheckDocuments";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
@@ -72,6 +73,7 @@ export default function CheckSetup() {
         <p className="hint">{s.presets.find((p: any) => p.key === preset)?.description}</p>
       </section>
       <Signers setup={s} onChanged={load} />
+      <DocumentsSection setup={s} onChanged={load} />
       {copyOf ? <CopyStyle style={copyOf} onClose={() => setCopyOf(null)} onDone={() => { setCopyOf(null); load(); }} /> : null}
     </div>
   );

@@ -322,7 +322,9 @@ def print_options(txn_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends
            "variables": patterns.variable_options(patterns.CHECK),
            "next_check_number": svc.next_check_number(db, ctx, acct.id),
            "print_status": svc.print_status(db, t), "last_printed_number": svc.last_printed_number(db, t),
-           "is_reprint": svc.is_reprint(db, t)}
+           "is_reprint": svc.is_reprint(db, t),
+           # #165/#166: letters and envelopes can be printed on their own when the check is written by hand
+           "has_documents": bool(svc.list_documents(db, ctx, None, False))}
     if chosen:
         cfg = svc.style_config(chosen)
         left = svc.remaining(row, cfg)
