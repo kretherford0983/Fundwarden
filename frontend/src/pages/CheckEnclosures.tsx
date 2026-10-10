@@ -11,6 +11,7 @@ export function EnclosuresPanel({ txnId, signerId, onChanged, intro }: { txnId: 
   const [docs, setDocs] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
   const [letterId, setLetterId] = useState("");
+  const [include, setInclude] = useState(false);
   const [envId, setEnvId] = useState("");
   const [useReturn, setUseReturn] = useState(false);
   const [pdf, setPdf] = usePdf();
@@ -22,7 +23,7 @@ export function EnclosuresPanel({ txnId, signerId, onChanged, intro }: { txnId: 
     setDocs(d);
     const l = d.letters.find((x: any) => x.is_default) || d.letters[0];
     const e = d.envelopes.find((x: any) => x.is_default) || d.envelopes[0];
-    setLetterId((cur) => cur || (l ? String(l.id) : ""));
+    setLetterId((cur) => { if (!cur && l) setInclude(l.include_by_default !== false); return cur || (l ? String(l.id) : ""); });
     setEnvId((cur) => { const id = cur || (e ? String(e.id) : ""); const en = d.envelopes.find((x: any) => String(x.id) === id); if (en && !cur) setUseReturn(!!en.return_address); return id; });
   }, setErr);
   useEffect(() => { load(); }, [txnId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -52,6 +53,9 @@ export function EnclosuresPanel({ txnId, signerId, onChanged, intro }: { txnId: 
       {intro ? <p className="hint">{intro}</p> : null}
       <ErrorBox error={err} />
       {docs.letters.length ? (
+        <label className="check"><input type="checkbox" checked={include} onChange={(e) => setInclude(e.target.checked)} /> Include cover letter</label>
+      ) : null}
+      {docs.letters.length && include ? (
         <div className="row form-row">
           <Field label="Cover letter">
             <select value={letterId} onChange={(e) => setLetterId(e.target.value)}>{docs.letters.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select>

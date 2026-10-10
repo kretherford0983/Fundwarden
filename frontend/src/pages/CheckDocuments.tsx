@@ -127,6 +127,7 @@ function LetterEditor({ setup, doc, onClose, onSaved }: { setup: any; doc: any; 
           <Field label="Name"><input maxLength={80} value={e.name} onChange={(ev) => e.setName(ev.target.value)} /></Field>
           <Field label="Font"><select value={c.font} onChange={(ev) => e.change((x) => { x.font = ev.target.value; })}>{DOC_FONTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
           <Field label="Size (pt)"><input type="number" min={8} max={14} step={0.5} value={c.size} onChange={(ev) => e.change((x) => { x.size = Number(ev.target.value) || 11; })} /></Field>
+          <label className="check"><input type="checkbox" checked={c.include_by_default} onChange={(ev) => e.change((x) => { x.include_by_default = ev.target.checked; })} /> "Include cover letter" starts ticked on the print screen</label>
         </div>
       </section>
       <section className="card">

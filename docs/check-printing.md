@@ -186,6 +186,7 @@ A **cover letter** has:
 - **Signed by** — the letter is signed by name (never the signature image) by the check's signer: name, title and
   organization. When the check prints without a signer, or the check is written by hand without one, the **name and
   role** set here are used.
+- Whether **Include cover letter** starts ticked on the print screen.
 
 The payee's name and address under "To:" come from the payee's entity — keep the vendor's address in **Entities**.
 
@@ -196,8 +197,9 @@ still switch it on for one print), the positions of both, and how it feeds: **st
 offset and a printer note.
 
 ### Printing them (Register Users)
-After a check prints, the print screen shows **Cover letter and envelope**: choose the template and click **Print
-cover letter** or **Print envelope**. A payee without an address, or a variable without data, asks you to confirm
+After a check prints, the print screen shows **Cover letter and envelope**: with **Include cover letter** ticked,
+choose the letter template and click **Print cover letter**; choose the envelope template and click **Print
+envelope**. A payee without an address, or a variable without data, asks you to confirm
 first. Each printed letter and envelope is attached to the transaction (the same one only once).
 **Test on plain paper** prints the envelope without recording it; **My envelope printer settings** saves your own page,
 guide and an adjustment of up to 1/4 inch.
