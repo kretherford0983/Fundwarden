@@ -103,6 +103,19 @@ Register User and signers are typed names. Audit: `CHECK_STYLE_*`, `CHECK_SIGNER
 (SVG preview with the built-in fonts, `PatternInput` autocomplete, browser instructions). Tests:
 `tests/test_v200_checks.py` (positions read back with pypdf), E2E "#156-#162". Guide: `docs/check-printing.md`.
 
+**2.0.0 Payments, test build 2 (issue #164; decided in chat 2026-10-10).** Migration `0026`:
+`app_user.last_payment_account_id` (plain `add_column`; `app_user` has the 0017 triggers). The payment form is the
+register's `TxnForm` with `payment` set (withdrawal only, no clear date, "Invoice(s)" wording, `AmountPreview`, submit
+"Save and print check", `onSaved(saved)` receives the created transaction), so payments go through
+`POST /api/transactions` with all register rules, confirmations, the request key and the attachment uploads. Endpoints
+(`checks.print`): `GET /api/checks/payments/options`, `PUT /api/checks/payments/last-account`,
+`POST /api/checks/payments/amount-preview` (words and number as the account's style prints them; preset defaults
+before a style is chosen; nothing stored), `GET /api/checks/payments/recent` (from the `CHECK_COPY` record copies; the
+module keeps no payment list). Frontend `pages/Payments.tsx` (`/payments`, nav for `checks.print` with the module on;
+`/payments?txn=<id>` shows the transaction locked in a disabled fieldset). Register: *New payment* (toolbar) and
+*Create payment…* (detail). The memo autocomplete sets the cursor in a layout effect (was an animation frame - typing
+could land in front of the inserted variable). Tests: `tests/test_v200_payments.py`, E2E "#164".
+
 **1.10.0 Update notification (issue #58; channel decided 2026-10-09).** Migration `0024`: `update_check` (one row).
 `services/updates.py`: `channel(settings)` - setting `update_channel` (`auto` → from `build_info.json`: `main` →
 stable, `test` → test, anything else / no build info → none); `check(app, force)` - due after 24 h (6 h after an error),

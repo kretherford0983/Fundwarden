@@ -21,3 +21,9 @@ PennyWarden can now print your checks on printable check stock that already carr
 
 A record copy of every printed check is attached to the transaction. If the printing is shifted on your printer, the
 **Printer setup assistant** on the print screen adjusts it for you without changing anyone else's settings.
+
+## Payments (test build 2)
+**Payments** in the menu (Register Users) enters a bill and prints its check in one go: pay from (your last account is
+remembered), date, payee (or a new one), one line per invoice with its documents — the check amount is shown in words
+as you type. **Save and print check** records it in the register and opens the print screen. **Create payment…** on a
+withdrawal already in the register shows its details locked and prints its check.
