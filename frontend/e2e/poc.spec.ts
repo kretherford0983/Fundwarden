@@ -2037,8 +2037,22 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await expect(page.getByRole("heading", { name: /Check style: 3 per page/ })).toBeVisible();
   await expect(page.getByRole("img", { name: "Check preview drawn to scale" })).toContainText("SAMPLE PAYEE COMPANY INC");
   await expect(page.getByLabel("Pay to x")).toHaveValue("1.275");
+  // #174: the default memo shows in the preview as it is typed (sample data)
+  await page.getByLabel("Default memo").fill("FBA {BUDGET_CODE}, INVOICE {INVOICE}");
+  await expect(page.getByRole("img", { name: "Check preview drawn to scale" })).toContainText("FBA 51, INVOICE 12345");
+  await page.getByLabel("Default memo").fill("{BUDGET_CODE}, INVOICE {INVOICE}");
+  // one click shows the test print with Print
+  await page.getByRole("button", { name: "Test print", exact: true }).click();
+  const tp = page.getByRole("dialog", { name: "Test print" });
+  await expect(tp.getByRole("button", { name: "Print…" })).toBeVisible();
+  await tp.getByRole("button", { name: "Close" }).first().click();
+  // sections collapse
+  await page.getByRole("button", { name: "Field positions" }).click();
+  await expect(page.getByLabel("Pay to x")).toBeHidden();
+  await page.getByRole("button", { name: "Field positions" }).click();
   await page.getByLabel("Long text sample").check();
   await expect(page.getByText("Does not fit at the smallest size")).toBeVisible();
+  page.once("dialog", (d) => d.accept());   // "Leave without saving your changes?"
   await page.getByRole("button", { name: "Back to check styles" }).click();
   // a signer with a (synthetic) signature image; only a SAMPLE preview is ever shown
   await page.getByRole("button", { name: "Add signer…" }).click();
@@ -2095,9 +2109,12 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await confirm.fill("8101");
   await page.screenshot({ path: "e2e-screenshots/light-print-check.png" });
   await dlg.getByRole("button", { name: "Print check" }).click();
+  // #174: the check opens at once in a viewer with Print (one click), a new-tab link and the download
+  const viewer = page.getByRole("dialog", { name: "Check #8101" });
+  await expect(viewer.getByRole("button", { name: "Print…" })).toBeVisible();
+  expect(await viewer.getByRole("link", { name: "Open in a new tab" }).getAttribute("href")).toMatch(/^blob:/);
+  await viewer.getByRole("button", { name: "Close" }).first().click();
   await expect(dlg.getByText("Check #8101 is ready.")).toBeVisible();
-  const href = await dlg.getByRole("link", { name: "Open the check to print" }).getAttribute("href");
-  expect(href).toMatch(/^blob:/);
   await dlg.getByRole("button", { name: "Yes – done" }).click();
   await expect(row.getByText("Check printed")).toBeVisible();
   // printing again is a reprint: a reason is required
@@ -2151,6 +2168,7 @@ test("#164: a Register User enters a two-invoice payment, sees the check amount 
   await expect(preview).toContainText("1000-01, INVOICE INV-81 AND OTHERS");   // split: the first invoice + "and others"
   await dlg.getByLabel("Type the number printed on the check that is in the printer").fill("8201");
   await dlg.getByRole("button", { name: "Print check" }).click();
+  await page.getByRole("dialog", { name: "Check #8201" }).getByRole("button", { name: "Close" }).first().click();
   await expect(dlg.getByText("Check #8201 is ready.")).toBeVisible();
   await dlg.getByRole("button", { name: "Yes – done" }).click();
   const recent = page.locator("section", { has: page.getByRole("heading", { name: /Recently printed checks/ }) });

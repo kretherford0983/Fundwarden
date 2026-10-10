@@ -423,3 +423,20 @@ fieldset.choices { border: none; padding: 0; display: grid; gap: 4px; }
 label.button { display: inline-block; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13px; }
 .amount-preview { margin: 4px 0 8px; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 13px; }
 .amount-preview .words { font-weight: 600; letter-spacing: .02em; }
+.pdf-viewer .pdf-frame { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 6px; background: #525659; margin-top: 8px; }
+.pdf-viewer .row { align-items: center; }
+.browser-tips-wrap summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-top: 6px; }
+/* #174: setup editor - collapsible sections, pinned preview, aligned rows */
+.collapsible-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.collapsible-head h2 { margin: 0; }
+.collapse-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.collapse-btn .chev { width: 1em; display: inline-block; }
+.collapsible.open > .collapsible-head { margin-bottom: 8px; }
+.collapsible.pinned { position: sticky; top: 0; z-index: 6; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.collapsible.pinned { padding-top: 8px; padding-bottom: 8px; }
+.collapsible.pinned .check-preview { max-height: 30vh; width: auto !important; margin: 4px auto; }
+.collapsible.pinned .hint, .collapsible.pinned .alert { display: none; }
+.form-row { align-items: flex-start; }
+/* inputs line up whether or not a field has help text below it; checkboxes sit on the input line */
+.form-row > .check { margin-top: 19px; min-height: 34px; }
+.form-row > button { margin-top: 19px; }

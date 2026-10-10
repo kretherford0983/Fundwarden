@@ -784,19 +784,38 @@ def spoil(db: Session, ctx, t: RegisterTransaction, reason: str, new_check_numbe
 
 
 # ------------------------------------------------------------------ admin test prints (dummy data only)
-SAMPLES = {
-    "NORMAL": render.Content(319930, "", "SAMPLE PAYEE COMPANY INC", "51, INVOICE 12345"),
+# The sample transaction for the setup preview and test prints. #174: the memo is the style's own default memo filled
+# with these values, so a change to the default memo shows at once.
+SAMPLE_VALUES = {
+    "NORMAL": {"PAYEE": "SAMPLE PAYEE COMPANY INC", "AMOUNT": "3,199.30", "BUDGET": "Operations", "BUDGET_CODE": "51",
+               "INVOICE": "12345", "DESCRIPTION": "Supplies", "NOTES": "Sample notes", "ORG": "Sample Organization",
+               "ACCOUNT": "Checking", "CHECK_NUMBER": "1001"},
     # long enough to show shrinking, the fit warning and its suggestion on the default layout
-    "LONG": render.Content(98765432, "", "THE VERY LONG NAMED SAMPLE PAYEE ORGANIZATION OF EXAMPLE COUNTY "
-                           "INCORPORATED, ATTENTION ACCOUNTS PAYABLE DEPARTMENT",
-                           "BUDGET 51, INVOICES 12345, 12346, 12347, 12348 AND OTHERS FOR SUPPLIES AND SERVICES "
-                           "DELIVERED IN SEPTEMBER"),
+    "LONG": {"PAYEE": "THE VERY LONG NAMED SAMPLE PAYEE ORGANIZATION OF EXAMPLE COUNTY INCORPORATED, ATTENTION "
+                      "ACCOUNTS PAYABLE DEPARTMENT",
+             "AMOUNT": "987,654.32", "BUDGET": "Building Maintenance and Grounds Improvement and others",
+             "BUDGET_CODE": "51-02 and others", "INVOICE": "INV-2026-000123456 and others",
+             "DESCRIPTION": "Supplies and services delivered in September for the annual event and others",
+             "NOTES": "Sample notes", "ORG": "Sample Organization", "ACCOUNT": "Checking", "CHECK_NUMBER": "1001"},
 }
+SAMPLE_CENTS = {"NORMAL": 319930, "LONG": 98765432}
+# kept for tests that draw the long sample directly
+SAMPLES = {k: render.Content(SAMPLE_CENTS[k], "", SAMPLE_VALUES[k]["PAYEE"],
+                             "BUDGET 51, INVOICES 12345, 12346, 12347, 12348 AND OTHERS FOR SUPPLIES AND SERVICES "
+                             "DELIVERED IN SEPTEMBER" if k == "LONG" else "51, INVOICE 12345")
+           for k in SAMPLE_VALUES}
+
+
+def sample_memo(cfg: cfgmod.StyleConfig, sample: str) -> str:
+    values = {**SAMPLE_VALUES.get(sample, SAMPLE_VALUES["NORMAL"]),
+              "DATE": format_date(dt.date.today(), cfg.date_format)}
+    return patterns.resolve(cfg.memo_default, values, patterns.CHECK).text if cfg.memo_default else ""
 
 
 def sample_layout(cfg: cfgmod.StyleConfig, sample: str) -> render.Layout:
-    base = SAMPLES.get(sample, SAMPLES["NORMAL"])
-    content = render.Content(base.cents, format_date(dt.date.today(), cfg.date_format), base.payee, base.memo)
+    key = sample if sample in SAMPLE_VALUES else "NORMAL"
+    content = render.Content(SAMPLE_CENTS[key], format_date(dt.date.today(), cfg.date_format),
+                             SAMPLE_VALUES[key]["PAYEE"], sample_memo(cfg, key))
     return render.layout(cfg, content)
 
 

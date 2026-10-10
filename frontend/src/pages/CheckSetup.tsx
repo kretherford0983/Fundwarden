@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
-import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfLinks, TEXT_FIELDS, useCheckFonts, usePdf, type FieldText } from "./checkShared";
+import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfViewer, TEXT_FIELDS, useCheckFonts, usePdf, type FieldText } from "./checkShared";
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -96,6 +96,30 @@ function CopyStyle({ style, onClose, onDone }: { style: any; onClose: () => void
 }
 
 // ------------------------------------------------------------------ editor
+/** #174: a section of the editor that can be collapsed, remembered in this browser (best effort). */
+function Section({ id, title, children, extra, className = "" }: { id: string; title: string; children: React.ReactNode; extra?: React.ReactNode; className?: string }) {
+  const key = `pw-check-setup-${id}`;
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== "closed"; } catch { return true; } });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(key, next ? "open" : "closed"); } catch { /* storage unavailable: just not remembered */ }
+  };
+  return (
+    <section className={`card collapsible ${open ? "open" : "closed"} ${className}`} aria-labelledby={`${id}-h`}>
+      <div className="collapsible-head">
+        <h2 id={`${id}-h`}>
+          <button type="button" className="collapse-btn" aria-expanded={open} aria-controls={`${id}-body`} onClick={toggle}>
+            <span aria-hidden="true" className="chev">{open ? "▾" : "▸"}</span> {title}
+          </button>
+        </h2>
+        {extra}
+      </div>
+      <div id={`${id}-body`} hidden={!open}>{children}</div>
+    </section>
+  );
+}
+
 function num(v: string) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
 
 function NumIn({ label, value, onChange, step = 0.005, min, max, unit = "in" }: {
@@ -124,9 +148,12 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
   const [texts, setTexts] = useState<Record<string, FieldText> | null>(null);
   const [fitErr, setFitErr] = useState<unknown>(null);
   const [hl, setHl] = useState<string | null>(null);
+  const [pin, setPin] = useState(() => { try { return localStorage.getItem("pw-check-setup-pin") === "1"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem("pw-check-setup-pin", pin ? "1" : "0"); } catch { /* not remembered */ } }, [pin]);
   const [testFeed, setTestFeed] = useState(style.config.feed_modes[0]?.key);
   const [testSigner, setTestSigner] = useState("");
   const [pdf, setPdf] = usePdf();
+  const [viewing, setViewing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fonts = setup.fonts;
   useCheckFonts(fonts);
@@ -148,6 +175,7 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
       const body: any = { feed_key: testFeed, config: cfg };
       if (kind === "test-print") { body.sample = sample; body.signer_id = testSigner ? Number(testSigner) : null; }
       setPdf(await api.postBlob(`/api/checks/styles/${style.id}/${kind}`, body), `check-${kind}.pdf`);
+      setViewing(kind === "test-print" ? "Test print" : "Calibration page");   // #174: shown at once, Print is one click
     } catch (x) { setErr(x); } finally { setBusy(false); }
   };
   const setField = (n: string, k: string, v: any) => change((c) => { c.fields[n][k] = v; });
@@ -160,14 +188,13 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
         <button onClick={() => { if (!dirty || window.confirm("Leave without saving your changes?")) onClose(); }}>Back to check styles</button>
       </div>
       <ErrorBox error={err} />
-      <section className="card" aria-labelledby="pv-h">
-        <div className="row space-between">
-          <h2 id="pv-h">Preview (drawn to scale, sample data)</h2>
-          <div className="row">
-            <label className="check"><input type="radio" checked={sample === "NORMAL"} onChange={() => setSample("NORMAL")} /> Sample</label>
-            <label className="check"><input type="radio" checked={sample === "LONG"} onChange={() => setSample("LONG")} /> Long text sample</label>
-          </div>
+      <Section id="pv" title="Preview (drawn to scale, sample data)" className={pin ? "pinned" : ""} extra={
+        <div className="row form-row">
+          <label className="check"><input type="radio" checked={sample === "NORMAL"} onChange={() => setSample("NORMAL")} /> Sample</label>
+          <label className="check"><input type="radio" checked={sample === "LONG"} onChange={() => setSample("LONG")} /> Long text sample</label>
+          <label className="check"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} /> Keep at the top</label>
         </div>
+      }>
         <CheckPreview cfg={cfg} fonts={fonts} texts={texts} highlight={hl} />
         <ErrorBox error={fitErr} />
         {problems.length ? (
@@ -180,11 +207,10 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
         {texts && Object.values(texts).some((t) => t.shrunk) ? <p className="hint">Some text was printed smaller to fit (down to each field's smallest size).</p> : null}
         <p className="hint">The grey outline is what is pre-printed on the stock (for orientation only – it never prints). The shaded strip at the bottom is
           the bank number zone, which must stay clear.</p>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="gen-h">
-        <h2 id="gen-h">General</h2>
-        <div className="row">
+      <Section id="gen" title="General">
+        <div className="row form-row">
           <Field label="Name"><input maxLength={80} value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} /></Field>
           <Field label="How the sheet is used">
             <select value={cfg.stock.sheet_usage} onChange={(e) => change((c) => { c.stock.sheet_usage = e.target.value; })}>
@@ -200,7 +226,7 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
         </div>
         <p className="hint">Stock: {cfg.stock.check_tops.length} check(s) of {cfg.stock.check_width}" × {cfg.stock.check_height}" on a Letter sheet.
           {cfg.stock.stock_note ? ` ${cfg.stock.stock_note}` : ""}</p>
-        <div className="row">
+        <div className="row form-row">
           <Field label="Default font">
             <select value={cfg.defaults.font} onChange={(e) => change((c) => { c.defaults.font = e.target.value; })}>
               {fonts.map((f: any) => <option key={f.key} value={f.key}>{f.label}</option>)}
@@ -209,10 +235,9 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
           <Field label="Default size (pt)"><NumIn label="Default size" unit="pt" step={0.5} min={setup.font_sizes.min} max={setup.font_sizes.max} value={cfg.defaults.size} onChange={(v) => change((c) => { c.defaults.size = v; })} /></Field>
           <label className="check"><input type="checkbox" checked={cfg.defaults.upper} onChange={(e) => change((c) => { c.defaults.upper = e.target.checked; })} /> Print everything in capitals</label>
         </div>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="fields-h">
-        <h2 id="fields-h">Field positions</h2>
+      <Section id="fields" title="Field positions">
         <p className="hint">Inches from the top-left corner of the check. Text sits on the bottom of its box, so a box placed on a pre-printed line puts
           the writing on the line. Font and size left blank use the defaults above.</p>
         <div className="table-wrap">
@@ -248,12 +273,11 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
             </tbody>
           </table>
         </div>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="amt-h">
-        <h2 id="amt-h">Amounts</h2>
+      <Section id="amt" title="Amounts">
         <p className="hint">Both amounts are always generated from the transaction total; nobody types them.</p>
-        <div className="row">
+        <div className="row form-row">
           <Field label="'AND' in the amount in words">
             <select value={cfg.amount_words.and_mode} onChange={(e) => change((c) => { c.amount_words.and_mode = e.target.value; })}>
               <option value="CENTS">Only before the cents (bank convention)</option><option value="HUNDREDS">Also after hundreds ("ONE HUNDRED AND EIGHT")</option>
@@ -271,7 +295,7 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
             </select>
           </Field>
         </div>
-        <div className="row">
+        <div className="row form-row">
           <Field label="Protective fill">
             <select value={cfg.amount_words.fill} onChange={(e) => change((c) => { c.amount_words.fill = e.target.value; })}>
               <option value="DOTS">Centered dots</option><option value="DASHES">Centered dashes</option><option value="LINE">Solid centered line</option><option value="STARS">Asterisks</option>
@@ -284,7 +308,7 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
           </Field>
           <Field label="Word after the amount" hint="Leave blank when the stock pre-prints DOLLARS."><input maxLength={20} value={cfg.amount_words.trailing_word} onChange={(e) => change((c) => { c.amount_words.trailing_word = e.target.value; })} /></Field>
         </div>
-        <div className="row">
+        <div className="row form-row">
           <label className="check"><input type="checkbox" checked={cfg.amount_number.commas} onChange={(e) => change((c) => { c.amount_number.commas = e.target.checked; })} /> Thousands commas</label>
           <label className="check"><input type="checkbox" checked={cfg.amount_number.dollar_sign} onChange={(e) => change((c) => { c.amount_number.dollar_sign = e.target.checked; })} /> Print a $ (off when the stock pre-prints it)</label>
           <Field label="Leading fill">
@@ -293,12 +317,13 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
             </select>
           </Field>
         </div>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="memo-h">
-        <h2 id="memo-h">Memo and signature</h2>
+      <Section id="memo" title="Memo and signature">
         <PatternInput id="memo-default" label="Default memo" value={cfg.memo_default} variables={setup.variables} onChange={(v) => change((c) => { c.memo_default = v; })} placeholder="e.g. {BUDGET_CODE}, INVOICE {INVOICE}" />
-        <div className="row">
+        {(fitErr as any)?.code === "PATTERN_INVALID" ? <p className="error-text" role="alert">{(fitErr as any).message}</p> : null}
+        <p className="hint">The preview and the test print show this memo filled in with the sample transaction.</p>
+        <div className="row form-row">
           <Field label="Default signer">
             <select value={cfg.default_signer_id ?? ""} onChange={(e) => change((c) => { c.default_signer_id = e.target.value ? Number(e.target.value) : null; })}>
               <option value="">None</option>
@@ -310,10 +335,9 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
                    onChange={(e) => { const v = e.target.value.trim(); change((c) => { c.signature_limit_cents = v ? Math.round(num(v) * 100) || null : null; }); }} />
           </Field>
         </div>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="feed-h">
-        <h2 id="feed-h">Feed modes</h2>
+      <Section id="feed" title="Feed modes">
         <p className="hint">How the paper goes into the printer. The user picks one when printing (the sheet counter suggests it). The offset moves everything on the
           check (right / down positive) for this feed mode only; each user can also save a small adjustment for their own printer.</p>
         <table className="table compact">
@@ -358,13 +382,12 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
           <button className="small" onClick={() => change((c) => { c.feed_modes.push({ key: `single_${Date.now() % 100000}`, label: "Single check – envelope feed", kind: "SINGLE", position: 0, lead: "DATE_END", page: "LETTER", guide: "CENTER", dx: 0, dy: 0, note: null }); })}
                   disabled={cfg.feed_modes.length >= 6}>Add single-check feed mode</button>
         </div>
-      </section>
+      </Section>
 
-      <section className="card" aria-labelledby="tp-h">
-        <h2 id="tp-h">Test print and calibration</h2>
+      <Section id="tp" title="Test print and calibration">
         <p className="hint">Print on plain paper first and hold it over a blank check against a light. The calibration page shows rulers and where each field
           starts; the test print shows the sample check. Both use your unsaved changes.</p>
-        <div className="row">
+        <div className="row form-row">
           <Field label="Feed mode">
             <select value={testFeed} onChange={(e) => setTestFeed(e.target.value)}>
               {cfg.feed_modes.map((m: any) => <option key={m.key} value={m.key}>{m.label}</option>)}
@@ -378,11 +401,12 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
           </Field>
           <button disabled={busy} onClick={() => pdfReq("calibration")}>Calibration page</button>
           <button disabled={busy} onClick={() => pdfReq("test-print")}>Test print</button>
-          <PdfLinks pdf={pdf} />
+          {pdf && !viewing ? <button className="link" onClick={() => setViewing("Last test page")}>Show the last page again</button> : null}
         </div>
         {fm?.note ? <p className="hint">Printer note: {fm.note}</p> : null}
         <BrowserTips singleFeed={fm?.kind === "SINGLE"} />
-      </section>
+        {pdf && viewing ? <PdfViewer pdf={pdf} title={viewing} singleFeed={fm?.kind === "SINGLE"} onClose={() => setViewing(null)} /> : null}
+      </Section>
       <div className="actions sticky-actions">
         {saved ? <span className="hint" role="status">Saved.</span> : null}
         <button onClick={() => { setCfg(clone(style.config)); setName(style.name); setDirty(false); }} disabled={!dirty}>Undo changes</button>

@@ -2,6 +2,7 @@
  * to scale with the built-in fonts, the pattern input with variable autocomplete, and browser print instructions. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { Modal } from "../components";
 
 export type FontInfo = { key: string; label: string; descent: number; descent_bold: number; cap_height: number };
 export type Variable = { name: string; description: string };
@@ -232,14 +233,47 @@ export function BrowserTips({ singleFeed }: { singleFeed?: boolean }) {
   );
 }
 
-/** Opens a generated PDF: a link to open it in a new tab (to print) and one to download it. */
-export function PdfLinks({ pdf, label = "Open to print" }: { pdf: { url: string; name: string } | null; label?: string }) {
+/** Links to open a generated PDF in a new tab and to download it. */
+export function PdfLinks({ pdf, label = "Open in a new tab" }: { pdf: { url: string; name: string } | null; label?: string }) {
   if (!pdf) return null;
   return (
     <span className="pdf-links">
-      <a className="button primary" href={pdf.url} target="_blank" rel="noopener">{label}</a>
+      <a className="button" href={pdf.url} target="_blank" rel="noopener">{label}</a>
       <a className="button" href={pdf.url} download={pdf.name}>Download PDF</a>
     </span>
+  );
+}
+
+/** 2.0.0 (#174): a generated PDF shown in the page with a Print button that opens the browser's print dialog
+ * directly - one click to see it, one to print. Download and a new tab remain for browsers that can't print a PDF
+ * from the page. */
+export function PdfViewer({ pdf, title, onClose, singleFeed, children }: {
+  pdf: { url: string; name: string }; title: string; onClose: () => void; singleFeed?: boolean; children?: React.ReactNode;
+}) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [failed, setFailed] = useState(false);
+  const print = () => {
+    try {
+      const w = frame.current?.contentWindow;
+      if (!w) throw new Error("no frame");
+      w.focus();
+      w.print();
+    } catch { setFailed(true); }
+  };
+  return (
+    <Modal title={title} onClose={onClose} wide>
+      <div className="pdf-viewer">
+        <div className="row">
+          <button className="primary" onClick={print} autoFocus>Print…</button>
+          <PdfLinks pdf={pdf} />
+          <button onClick={onClose}>Close</button>
+        </div>
+        {failed ? <div className="alert warn">This browser can't print from here: use <b>Open in a new tab</b> and print from there.</div> : null}
+        {children}
+        <iframe ref={frame} className="pdf-frame" src={pdf.url} title={title} />
+        <details className="browser-tips-wrap"><summary>Print settings for this browser</summary><BrowserTips singleFeed={singleFeed} /></details>
+      </div>
+    </Modal>
   );
 }
 
