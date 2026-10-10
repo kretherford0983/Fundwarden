@@ -119,6 +119,7 @@ export const api = {
   patch: <T = any>(url: string, body?: unknown) => request<T>("PATCH", url, body ?? {}),
   put: <T = any>(url: string, body?: unknown) => request<T>("PUT", url, body ?? {}),
   delete: <T = any>(url: string) => request<T>("DELETE", url),
+  postForm: <T = any>(url: string, fd: FormData) => request<T>("POST", url, fd, true), // 2.0.0 (#159)
   upload: <T = any>(url: string, file: File) => {
     const fd = new FormData();
     fd.append("file", file);

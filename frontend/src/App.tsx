@@ -19,6 +19,7 @@ import Entities from "./pages/Entities";
 import Account from "./pages/Account";
 import Reports from "./pages/Reports";
 import Fundraisers, { FundraiserDetail } from "./pages/Fundraisers";
+import CheckSetup from "./pages/CheckSetup";
 import Notifications, { REMINDERS_CHANGED } from "./pages/Notifications";
 import { AdminSecurityNotices, SignInNotices } from "./pages/Recovery";
 import { BackupFailedBanner } from "./pages/ScheduledBackups";
@@ -43,7 +44,7 @@ export interface Me {
   dashboard_charts?: string[];
   dashboard_layout?: { key: string; visible: boolean }[]; // v1.5.0 CR-031
   dashboard_layout_customized?: boolean;
-  modules?: { fundraisers?: boolean }; // v1.6.0 CR-033
+  modules?: { fundraisers?: boolean; checks?: boolean }; // v1.6.0 CR-033; 2.0.0 (#156) Check Printing
   mfa_pending?: "VERIFY" | "ENROLL" | "PASSWORD" | "QUESTIONS" | null; // v1.4.1 CR-018; 1.8.0 (#113) setup steps
   sign_in_notices?: { kind: string; message: string }[]; // 1.8.0 (#113)
   csrf_token: string;
@@ -142,12 +143,14 @@ function navFor(me: Me) {
     ["/reports", "Reports"],
   ];
   if (me.modules?.fundraisers) fin.splice(6, 0, ["/fundraisers", "Fundraisers"]); // v1.6.0 CR-033 (optional module)
-  if (me.security_domain === "ADMINISTRATOR") return [["/", "Dashboard"], ["/users", "Users"], ["/audit-log", "Audit Log"], ["/about", "System/About"]];
+  // 2.0.0 (#156): Check Printing setup for Administrators when the module is on
+  const checkSetup = me.modules?.checks && me.permissions.includes("checks.setup") ? [["/check-setup", "Check Printing"]] : [];
+  if (me.security_domain === "ADMINISTRATOR") return [["/", "Dashboard"], ["/users", "Users"], ["/audit-log", "Audit Log"], ...checkSetup, ["/about", "System/About"]];
   if (me.security_domain === "AUDITOR") return [...fin, ["/users", "Users"], ["/audit-log", "Audit Log"]];
   if (me.security_domain === "COMBINED") { // 1.9.0 (#54): one person, roles of several domains (local installs)
     const has = (p: string) => me.permissions.includes(p);
     return [...(has("financial.view") ? fin : [["/", "Dashboard"]]), ...(has("users.view") ? [["/users", "Users"]] : []),
-      ...(has("audit.view") ? [["/audit-log", "Audit Log"]] : []), ...(has("users.manage") ? [["/about", "System/About"]] : [])];
+      ...(has("audit.view") ? [["/audit-log", "Audit Log"]] : []), ...checkSetup, ...(has("users.manage") ? [["/about", "System/About"]] : [])];
   }
   return fin;
 }
@@ -195,6 +198,7 @@ function Shell({ workspace, warning, mode, onLogout }: { workspace: string; warn
   else if (path === "/reports") page = guard("/reports", <Reports />);
   else if (path === "/notifications") page = can("reminder.view") ? <Notifications /> : <NotAuthorized />;
   else if (path === "/fundraisers") page = guard("/fundraisers", <Fundraisers />);
+  else if (path === "/check-setup") page = guard("/check-setup", <CheckSetup />);
   else if ((m = match("/fundraisers/:id", path))) page = guard("/fundraisers", <FundraiserDetail id={Number(m.id)} />);
   else page = <p>Page not found.</p>;
 
