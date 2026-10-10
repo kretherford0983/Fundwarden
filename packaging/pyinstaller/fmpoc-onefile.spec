@@ -15,6 +15,7 @@ ICON = os.path.join(ROOT, "packaging", "windows", "pennywarden.ico")  # 1.6.6: t
 datas = [
     (os.path.join(PKG, "static"), "fmpoc/static"),
     (os.path.join(PKG, "migrations"), "fmpoc/migrations"),
+    (os.path.join(PKG, "fonts"), "fmpoc/fonts"),  # 2.0.0 (#157): built-in check printing fonts
     (os.path.join(ROOT, "LICENSE"), "legal"),
     (os.path.join(ROOT, "THIRD-PARTY-NOTICES.txt"), "legal"),
 ] + collect_data_files("reportlab")  # fonts used by the audit report

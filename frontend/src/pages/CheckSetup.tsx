@@ -1,0 +1,470 @@
+/** 2.0.0 (#156, #158, #159): Check Printing setup for Administrators - check styles (from presets), the field layout
+ * with a live preview drawn to scale, fonts, amount styles, feed modes, the default memo, signers and their signature
+ * images, the signature limit, test prints with dummy data and the calibration page. No financial data is shown here
+ * (BR-003): test prints use built-in dummy data. */
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { api } from "../api";
+import { ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
+import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfLinks, TEXT_FIELDS, useCheckFonts, usePdf, type FieldText } from "./checkShared";
+
+const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
+
+export default function CheckSetup() {
+  const [s, setS] = useState<any>(null);
+  const [err, setErr] = useState<unknown>(null);
+  const [editing, setEditing] = useState<any>(null);
+  const [preset, setPreset] = useState("");
+  const [name, setName] = useState("");
+  const [copyOf, setCopyOf] = useState<any>(null);
+  const load = () => api.get("/api/checks/setup").then((x) => { setS(x); setPreset((p) => p || x.presets[0]?.key || ""); }, setErr);
+  useEffect(() => { load(); }, []);
+  useCheckFonts(s?.fonts);
+  if (err && !s) return <ErrorBox error={err} />;
+  if (!s) return <Loading />;
+  const create = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    try { const st = await api.post("/api/checks/styles", { preset_key: preset, name: name || null }); setName(""); await load(); setEditing(st); } catch (x) { setErr(x); }
+  };
+  const setActive = async (st: any, active: boolean) => {
+    setErr(null);
+    try { await api.post(`/api/checks/styles/${st.id}/active`, { active }); load(); } catch (x) { setErr(x); }
+  };
+  if (editing) {
+    return <StyleEditor setup={s} style={editing} onClose={() => { setEditing(null); load(); }} onSaved={(st) => { setEditing(st); load(); }} />;
+  }
+  return (
+    <div className="check-setup">
+      <h1>Check Printing</h1>
+      <p className="hint">Set up how checks print on your check stock. Register Users print checks from the register; they choose the
+        check style for each bank account the first time they print from it. Test prints here use sample data only.</p>
+      <ErrorBox error={err} />
+      <section className="card" aria-labelledby="styles-h">
+        <h2 id="styles-h">Check styles</h2>
+        {s.styles.length ? (
+          <table className="table compact">
+            <thead><tr><th>Name</th><th>Checks per sheet</th><th>Feed modes</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {s.styles.map((st: any) => (
+                <tr key={st.id}>
+                  <td>{st.name}</td><td>{st.checks_per_sheet}</td><td>{st.feed_modes.map((m: any) => m.label).join("; ")}</td>
+                  <td>{st.active ? "Active" : <span className="badge grey">Deactivated</span>}</td>
+                  <td className="actions-cell">
+                    <button className="small" onClick={() => setEditing(st)}>Edit</button>{" "}
+                    <button className="small" onClick={() => setCopyOf(st)}>Copy…</button>{" "}
+                    {st.active ? <button className="small" onClick={() => setActive(st, false)}>Deactivate</button>
+                      : <button className="small" onClick={() => setActive(st, true)}>Activate</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="muted">No check styles yet. Start from a preset below.</p>}
+        <GuardedForm onSubmit={create} className="row">
+          <Field label="New check style from preset">
+            <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+              {s.presets.map((p: any) => <option key={p.key} value={p.key}>{p.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Name (optional)"><input maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Preset name" /></Field>
+          <button type="submit" className="primary">Create</button>
+        </GuardedForm>
+        <p className="hint">{s.presets.find((p: any) => p.key === preset)?.description}</p>
+      </section>
+      <Signers setup={s} onChanged={load} />
+      {copyOf ? <CopyStyle style={copyOf} onClose={() => setCopyOf(null)} onDone={() => { setCopyOf(null); load(); }} /> : null}
+    </div>
+  );
+}
+
+function CopyStyle({ style, onClose, onDone }: { style: any; onClose: () => void; onDone: () => void }) {
+  const [name, setName] = useState(`${style.name} (copy)`.slice(0, 80));
+  const [err, setErr] = useState<unknown>(null);
+  const go = async (e: FormEvent) => {
+    e.preventDefault();
+    try { await api.post(`/api/checks/styles/${style.id}/copy`, { name }); onDone(); } catch (x) { setErr(x); }
+  };
+  return (
+    <Modal title={`Copy "${style.name}"`} onClose={onClose}>
+      <GuardedForm onSubmit={go}>
+        <ErrorBox error={err} />
+        <Field label="Name of the copy"><input required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Copy</button></div>
+      </GuardedForm>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ editor
+function num(v: string) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
+
+function NumIn({ label, value, onChange, step = 0.005, min, max, unit = "in" }: {
+  label: string; value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; unit?: string;
+}) {
+  const [txt, setTxt] = useState(String(value));
+  const last = useRef(value);
+  useEffect(() => { if (value !== last.current) { setTxt(String(value)); last.current = value; } }, [value]);
+  return (
+    <label className="num-in">
+      <span className="sr-only">{label}</span>
+      <input type="number" aria-label={label} step={step} min={min} max={max} value={txt}
+             onChange={(e) => { setTxt(e.target.value); const n = num(e.target.value); last.current = n; onChange(n); }} />
+      <span className="unit">{unit}</span>
+    </label>
+  );
+}
+
+function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: any; onClose: () => void; onSaved: (s: any) => void }) {
+  const [cfg, setCfg] = useState<any>(clone(style.config));
+  const [name, setName] = useState(style.name);
+  const [err, setErr] = useState<unknown>(null);
+  const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [sample, setSample] = useState<"NORMAL" | "LONG">("NORMAL");
+  const [texts, setTexts] = useState<Record<string, FieldText> | null>(null);
+  const [fitErr, setFitErr] = useState<unknown>(null);
+  const [hl, setHl] = useState<string | null>(null);
+  const [testFeed, setTestFeed] = useState(style.config.feed_modes[0]?.key);
+  const [testSigner, setTestSigner] = useState("");
+  const [pdf, setPdf] = usePdf();
+  const [busy, setBusy] = useState(false);
+  const fonts = setup.fonts;
+  useCheckFonts(fonts);
+  const change = (fn: (c: any) => void) => { const c = clone(cfg); fn(c); setCfg(c); setDirty(true); setSaved(false); };
+  // live fit check with the sample data (debounced)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      api.post("/api/checks/sample-layout", { config: cfg, sample }).then((x) => { setTexts(x); setFitErr(null); }, (x) => setFitErr(x));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [cfg, sample]);
+  const save = async () => {
+    setErr(null);
+    try { const st = await api.put(`/api/checks/styles/${style.id}`, { name, config: cfg }); setDirty(false); setSaved(true); onSaved(st); } catch (x) { setErr(x); }
+  };
+  const pdfReq = async (kind: "test-print" | "calibration") => {
+    setErr(null); setBusy(true);
+    try {
+      const body: any = { feed_key: testFeed, config: cfg };
+      if (kind === "test-print") { body.sample = sample; body.signer_id = testSigner ? Number(testSigner) : null; }
+      setPdf(await api.postBlob(`/api/checks/styles/${style.id}/${kind}`, body), `check-${kind}.pdf`);
+    } catch (x) { setErr(x); } finally { setBusy(false); }
+  };
+  const setField = (n: string, k: string, v: any) => change((c) => { c.fields[n][k] = v; });
+  const fm = cfg.feed_modes.find((m: any) => m.key === testFeed);
+  const problems = texts ? Object.entries(texts).filter(([, t]) => !t.fits) : [];
+  return (
+    <div className="check-setup">
+      <div className="row space-between">
+        <h1>Check style: {style.name}</h1>
+        <button onClick={() => { if (!dirty || window.confirm("Leave without saving your changes?")) onClose(); }}>Back to check styles</button>
+      </div>
+      <ErrorBox error={err} />
+      <section className="card" aria-labelledby="pv-h">
+        <div className="row space-between">
+          <h2 id="pv-h">Preview (drawn to scale, sample data)</h2>
+          <div className="row">
+            <label className="check"><input type="radio" checked={sample === "NORMAL"} onChange={() => setSample("NORMAL")} /> Sample</label>
+            <label className="check"><input type="radio" checked={sample === "LONG"} onChange={() => setSample("LONG")} /> Long text sample</label>
+          </div>
+        </div>
+        <CheckPreview cfg={cfg} fonts={fonts} texts={texts} highlight={hl} />
+        <ErrorBox error={fitErr} />
+        {problems.length ? (
+          <div className="alert warn" role="status">
+            <strong>Does not fit at the smallest size:</strong>{" "}
+            {problems.map(([n]) => FIELD_LABELS[n]).join(", ")}. When this happens with real data, the user sees the full text and a shortened
+            version (payee and memo) and must accept or edit it before printing; for the date and amounts printing is blocked.
+          </div>
+        ) : null}
+        {texts && Object.values(texts).some((t) => t.shrunk) ? <p className="hint">Some text was printed smaller to fit (down to each field's smallest size).</p> : null}
+        <p className="hint">The grey outline is what is pre-printed on the stock (for orientation only – it never prints). The shaded strip at the bottom is
+          the bank number zone, which must stay clear.</p>
+      </section>
+
+      <section className="card" aria-labelledby="gen-h">
+        <h2 id="gen-h">General</h2>
+        <div className="row">
+          <Field label="Name"><input maxLength={80} value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} /></Field>
+          <Field label="How the sheet is used">
+            <select value={cfg.stock.sheet_usage} onChange={(e) => change((c) => { c.stock.sheet_usage = e.target.value; })}>
+              <option value="TEAR_TOP">Print the top check and tear it off (last check fed on its own)</option>
+              <option value="POSITIONS">Print each position in turn on the same sheet (top, middle, bottom)</option>
+            </select>
+          </Field>
+          <Field label="Date format">
+            <select value={cfg.date_format} onChange={(e) => change((c) => { c.date_format = e.target.value; })}>
+              {setup.date_formats.map((d: string) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </Field>
+        </div>
+        <p className="hint">Stock: {cfg.stock.check_tops.length} check(s) of {cfg.stock.check_width}" × {cfg.stock.check_height}" on a Letter sheet.
+          {cfg.stock.stock_note ? ` ${cfg.stock.stock_note}` : ""}</p>
+        <div className="row">
+          <Field label="Default font">
+            <select value={cfg.defaults.font} onChange={(e) => change((c) => { c.defaults.font = e.target.value; })}>
+              {fonts.map((f: any) => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Default size (pt)"><NumIn label="Default size" unit="pt" step={0.5} min={setup.font_sizes.min} max={setup.font_sizes.max} value={cfg.defaults.size} onChange={(v) => change((c) => { c.defaults.size = v; })} /></Field>
+          <label className="check"><input type="checkbox" checked={cfg.defaults.upper} onChange={(e) => change((c) => { c.defaults.upper = e.target.checked; })} /> Print everything in capitals</label>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="fields-h">
+        <h2 id="fields-h">Field positions</h2>
+        <p className="hint">Inches from the top-left corner of the check. Text sits on the bottom of its box, so a box placed on a pre-printed line puts
+          the writing on the line. Font and size left blank use the defaults above.</p>
+        <div className="table-wrap">
+          <table className="table compact field-table">
+            <thead><tr><th>Field</th><th>Left (x)</th><th>Top (y)</th><th>Width</th><th>Height</th><th>Font</th><th>Size</th><th>Bold</th><th>Capitals</th><th>Align</th><th>Shrink to fit (min pt)</th></tr></thead>
+            <tbody>
+              {[...TEXT_FIELDS, "signature"].map((n) => {
+                const f = cfg.fields[n];
+                const isText = n !== "signature";
+                return (
+                  <tr key={n} onFocus={() => setHl(n)} onMouseEnter={() => setHl(n)} onMouseLeave={() => setHl(null)}>
+                    <th scope="row">{FIELD_LABELS[n]}</th>
+                    {(["x", "y", "w", "h"] as const).map((k) => <td key={k}><NumIn label={`${FIELD_LABELS[n]} ${k}`} value={f[k]} onChange={(v) => setField(n, k, v)} /></td>)}
+                    {isText ? (
+                      <>
+                        <td><select aria-label={`${FIELD_LABELS[n]} font`} value={f.font || ""} onChange={(e) => setField(n, "font", e.target.value || null)}>
+                          <option value="">Default</option>{fonts.map((x: any) => <option key={x.key} value={x.key}>{x.label.split(" (")[0]}</option>)}
+                        </select></td>
+                        <td><input type="number" aria-label={`${FIELD_LABELS[n]} size`} step={0.5} min={setup.font_sizes.min} max={setup.font_sizes.max} value={f.size ?? ""} placeholder={String(cfg.defaults.size)}
+                                   onChange={(e) => setField(n, "size", e.target.value ? num(e.target.value) : null)} /></td>
+                        <td><input type="checkbox" aria-label={`${FIELD_LABELS[n]} bold`} checked={!!f.bold} onChange={(e) => setField(n, "bold", e.target.checked)} /></td>
+                        <td><select aria-label={`${FIELD_LABELS[n]} capitals`} value={f.upper == null ? "" : f.upper ? "1" : "0"} onChange={(e) => setField(n, "upper", e.target.value === "" ? null : e.target.value === "1")}>
+                          <option value="">Default</option><option value="1">Yes</option><option value="0">No</option></select></td>
+                        <td><select aria-label={`${FIELD_LABELS[n]} align`} value={f.align} onChange={(e) => setField(n, "align", e.target.value)}>
+                          <option value="LEFT">Left</option><option value="CENTER">Center</option><option value="RIGHT">Right</option></select></td>
+                        <td><label className="check"><input type="checkbox" aria-label={`${FIELD_LABELS[n]} shrink to fit`} checked={f.shrink} onChange={(e) => setField(n, "shrink", e.target.checked)} /></label>{" "}
+                          <input type="number" aria-label={`${FIELD_LABELS[n]} smallest size`} step={0.5} min={setup.font_sizes.min} max={setup.font_sizes.max} value={f.min_size} onChange={(e) => setField(n, "min_size", num(e.target.value))} style={{ width: 60 }} /></td>
+                      </>
+                    ) : <td colSpan={6} className="hint">The signature image is scaled to fit the box.</td>}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="amt-h">
+        <h2 id="amt-h">Amounts</h2>
+        <p className="hint">Both amounts are always generated from the transaction total; nobody types them.</p>
+        <div className="row">
+          <Field label="'AND' in the amount in words">
+            <select value={cfg.amount_words.and_mode} onChange={(e) => change((c) => { c.amount_words.and_mode = e.target.value; })}>
+              <option value="CENTS">Only before the cents (bank convention)</option><option value="HUNDREDS">Also after hundreds ("ONE HUNDRED AND EIGHT")</option>
+            </select>
+          </Field>
+          <label className="check"><input type="checkbox" checked={cfg.amount_words.hyphens} onChange={(e) => change((c) => { c.amount_words.hyphens = e.target.checked; })} /> Hyphens (NINETY-NINE)</label>
+          <Field label="Capitals">
+            <select value={cfg.amount_words.case} onChange={(e) => change((c) => { c.amount_words.case = e.target.value; })}>
+              <option value="UPPER">UPPER CASE</option><option value="TITLE">Title Case</option><option value="LOWER">lower case</option>
+            </select>
+          </Field>
+          <Field label="Whole dollars">
+            <select value={cfg.amount_words.cents} onChange={(e) => change((c) => { c.amount_words.cents = e.target.value; })}>
+              <option value="NN">00/100</option><option value="NO">NO/100</option>
+            </select>
+          </Field>
+        </div>
+        <div className="row">
+          <Field label="Protective fill">
+            <select value={cfg.amount_words.fill} onChange={(e) => change((c) => { c.amount_words.fill = e.target.value; })}>
+              <option value="DOTS">Centered dots</option><option value="DASHES">Centered dashes</option><option value="LINE">Solid centered line</option><option value="STARS">Asterisks</option>
+            </select>
+          </Field>
+          <Field label="Fill placement">
+            <select value={cfg.amount_words.fill_placement} onChange={(e) => change((c) => { c.amount_words.fill_placement = e.target.value; })}>
+              <option value="BETWEEN">Between the words and the cents (cents at the right end)</option><option value="AFTER">After the cents</option>
+            </select>
+          </Field>
+          <Field label="Word after the amount" hint="Leave blank when the stock pre-prints DOLLARS."><input maxLength={20} value={cfg.amount_words.trailing_word} onChange={(e) => change((c) => { c.amount_words.trailing_word = e.target.value; })} /></Field>
+        </div>
+        <div className="row">
+          <label className="check"><input type="checkbox" checked={cfg.amount_number.commas} onChange={(e) => change((c) => { c.amount_number.commas = e.target.checked; })} /> Thousands commas</label>
+          <label className="check"><input type="checkbox" checked={cfg.amount_number.dollar_sign} onChange={(e) => change((c) => { c.amount_number.dollar_sign = e.target.checked; })} /> Print a $ (off when the stock pre-prints it)</label>
+          <Field label="Leading fill">
+            <select value={cfg.amount_number.lead_fill} onChange={(e) => change((c) => { c.amount_number.lead_fill = e.target.value; })}>
+              <option value="">None</option><option value="*">*</option><option value="**">**</option><option value="***">***</option>
+            </select>
+          </Field>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="memo-h">
+        <h2 id="memo-h">Memo and signature</h2>
+        <PatternInput id="memo-default" label="Default memo" value={cfg.memo_default} variables={setup.variables} onChange={(v) => change((c) => { c.memo_default = v; })} placeholder="e.g. {BUDGET_CODE}, INVOICE {INVOICE}" />
+        <div className="row">
+          <Field label="Default signer">
+            <select value={cfg.default_signer_id ?? ""} onChange={(e) => change((c) => { c.default_signer_id = e.target.value ? Number(e.target.value) : null; })}>
+              <option value="">None</option>
+              {setup.signers.filter((x: any) => x.active).map((x: any) => <option key={x.id} value={x.id}>{x.name}{x.title ? ` (${x.title})` : ""}</option>)}
+            </select>
+          </Field>
+          <Field label="No signature above this amount ($, optional)" hint="Above it the signature does not print; the check is signed by hand.">
+            <input inputMode="decimal" value={cfg.signature_limit_cents == null ? "" : (cfg.signature_limit_cents / 100).toFixed(2)}
+                   onChange={(e) => { const v = e.target.value.trim(); change((c) => { c.signature_limit_cents = v ? Math.round(num(v) * 100) || null : null; }); }} />
+          </Field>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="feed-h">
+        <h2 id="feed-h">Feed modes</h2>
+        <p className="hint">How the paper goes into the printer. The user picks one when printing (the sheet counter suggests it). The offset moves everything on the
+          check (right / down positive) for this feed mode only; each user can also save a small adjustment for their own printer.</p>
+        <table className="table compact">
+          <thead><tr><th>Label</th><th>Kind</th><th>Details</th><th>Offset right</th><th>Offset down</th><th>Printer note</th><th /></tr></thead>
+          <tbody>
+            {cfg.feed_modes.map((m: any, i: number) => (
+              <tr key={m.key}>
+                <td><input aria-label="Feed mode label" maxLength={60} value={m.label} onChange={(e) => change((c) => { c.feed_modes[i].label = e.target.value; })} /></td>
+                <td>{m.kind === "SHEET" ? "Sheet" : "Single check"}</td>
+                <td>
+                  {m.kind === "SHEET" ? (
+                    <select aria-label="Position on the sheet" value={m.position} onChange={(e) => change((c) => { c.feed_modes[i].position = Number(e.target.value); })}>
+                      {cfg.stock.check_tops.map((_: number, p: number) => <option key={p} value={p}>{["Top", "Middle", "Bottom"][p] || `#${p + 1}`} check</option>)}
+                    </select>
+                  ) : (
+                    <>
+                      <select aria-label="Which end feeds first" value={m.lead} onChange={(e) => change((c) => { c.feed_modes[i].lead = e.target.value; })}>
+                        <option value="DATE_END">Date end first</option><option value="PAYTO_END">Pay-to end first</option>
+                      </select>{" "}
+                      <select aria-label="Page size" value={m.page} onChange={(e) => change((c) => { c.feed_modes[i].page = e.target.value; })}>
+                        <option value="LETTER">Letter page (no printer setup needed)</option><option value="CHECK">Check-sized page</option>
+                      </select>{" "}
+                      {m.page === "LETTER" ? (
+                        <select aria-label="Manual-feed guides" value={m.guide} onChange={(e) => change((c) => { c.feed_modes[i].guide = e.target.value; })}>
+                          <option value="CENTER">Guides center the paper</option><option value="LEFT">Against the left guide</option><option value="RIGHT">Against the right guide</option>
+                        </select>
+                      ) : null}
+                    </>
+                  )}
+                </td>
+                <td><NumIn label="Offset right" value={m.dx} step={0.0625} min={-setup.limits.feed_offset_max} max={setup.limits.feed_offset_max} onChange={(v) => change((c) => { c.feed_modes[i].dx = v; })} /></td>
+                <td><NumIn label="Offset down" value={m.dy} step={0.0625} min={-setup.limits.feed_offset_max} max={setup.limits.feed_offset_max} onChange={(v) => change((c) => { c.feed_modes[i].dy = v; })} /></td>
+                <td><input aria-label="Printer note" maxLength={200} value={m.note || ""} onChange={(e) => change((c) => { c.feed_modes[i].note = e.target.value || null; })} /></td>
+                <td>{cfg.feed_modes.length > 1 ? <button className="small" onClick={() => change((c) => { c.feed_modes.splice(i, 1); })}>Remove</button> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="actions left">
+          <button className="small" onClick={() => change((c) => { c.feed_modes.push({ key: `sheet_${Date.now() % 100000}`, label: "Sheet – middle check", kind: "SHEET", position: Math.min(1, c.stock.check_tops.length - 1), lead: "DATE_END", page: "LETTER", guide: "CENTER", dx: 0, dy: 0, note: null }); })}
+                  disabled={cfg.feed_modes.length >= 6}>Add sheet feed mode</button>
+          <button className="small" onClick={() => change((c) => { c.feed_modes.push({ key: `single_${Date.now() % 100000}`, label: "Single check – envelope feed", kind: "SINGLE", position: 0, lead: "DATE_END", page: "LETTER", guide: "CENTER", dx: 0, dy: 0, note: null }); })}
+                  disabled={cfg.feed_modes.length >= 6}>Add single-check feed mode</button>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="tp-h">
+        <h2 id="tp-h">Test print and calibration</h2>
+        <p className="hint">Print on plain paper first and hold it over a blank check against a light. The calibration page shows rulers and where each field
+          starts; the test print shows the sample check. Both use your unsaved changes.</p>
+        <div className="row">
+          <Field label="Feed mode">
+            <select value={testFeed} onChange={(e) => setTestFeed(e.target.value)}>
+              {cfg.feed_modes.map((m: any) => <option key={m.key} value={m.key}>{m.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Signature on the test print">
+            <select value={testSigner} onChange={(e) => setTestSigner(e.target.value)}>
+              <option value="">Outlined box only</option>
+              {setup.signers.filter((x: any) => x.active && x.has_image).map((x: any) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </Field>
+          <button disabled={busy} onClick={() => pdfReq("calibration")}>Calibration page</button>
+          <button disabled={busy} onClick={() => pdfReq("test-print")}>Test print</button>
+          <PdfLinks pdf={pdf} />
+        </div>
+        {fm?.note ? <p className="hint">Printer note: {fm.note}</p> : null}
+        <BrowserTips singleFeed={fm?.kind === "SINGLE"} />
+      </section>
+      <div className="actions sticky-actions">
+        {saved ? <span className="hint" role="status">Saved.</span> : null}
+        <button onClick={() => { setCfg(clone(style.config)); setName(style.name); setDirty(false); }} disabled={!dirty}>Undo changes</button>
+        <button className="primary" onClick={save} disabled={!dirty}>Save check style</button>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ signers (#159)
+function Signers({ setup, onChanged }: { setup: any; onChanged: () => void }) {
+  const [err, setErr] = useState<unknown>(null);
+  const [add, setAdd] = useState(false);
+  const [edit, setEdit] = useState<any>(null);
+  const [v, setV] = useState(0);
+  const act = async (fn: () => Promise<any>) => { setErr(null); try { await fn(); setV(v + 1); onChanged(); } catch (x) { setErr(x); } };
+  return (
+    <section className="card" aria-labelledby="signers-h">
+      <h2 id="signers-h">Signers and signatures</h2>
+      <p className="hint">A signature image (PNG) is stored encrypted and can never be downloaded again – only a small preview marked SAMPLE is shown.
+        It prints only on real checks and, when you choose it, on your test prints. Every print that uses it is recorded in the audit log.</p>
+      <ErrorBox error={err} />
+      {setup.signers.length ? (
+        <table className="table compact">
+          <thead><tr><th>Name</th><th>Title</th><th>Signature</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {setup.signers.map((x: any) => (
+              <tr key={x.id}>
+                <td>{x.name}</td><td>{x.title || ""}</td>
+                <td>{x.has_image ? <img src={`/api/checks/signers/${x.id}/preview?v=${v}-${x.image_uploaded_at}`} alt={`Sample of ${x.name}'s signature`} height={40} /> : <span className="muted">No image</span>}</td>
+                <td>{x.active ? "Active" : <span className="badge grey">Deactivated</span>}</td>
+                <td className="actions-cell">
+                  <button className="small" onClick={() => setEdit(x)}>Edit…</button>{" "}
+                  <label className="button small">Upload image<input type="file" accept="image/png" hidden onChange={(e) => {
+                    const f = e.target.files?.[0]; e.target.value = "";
+                    if (f) act(() => api.upload(`/api/checks/signers/${x.id}/image`, f));
+                  }} /></label>{" "}
+                  {x.has_image ? <button className="small" onClick={() => window.confirm(`Remove ${x.name}'s signature image?`) && act(() => api.post(`/api/checks/signers/${x.id}/image/remove`))}>Remove image</button> : null}{" "}
+                  <button className="small" onClick={() => act(() => api.post(`/api/checks/signers/${x.id}/active`, { active: !x.active }))}>{x.active ? "Deactivate" : "Activate"}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="muted">No signers yet.</p>}
+      <div className="actions left"><button onClick={() => setAdd(true)}>Add signer…</button></div>
+      {add ? <SignerForm onClose={() => setAdd(false)} onDone={() => { setAdd(false); onChanged(); }} /> : null}
+      {edit ? <SignerForm signer={edit} onClose={() => setEdit(null)} onDone={() => { setEdit(null); onChanged(); }} /> : null}
+    </section>
+  );
+}
+
+function SignerForm({ signer, onClose, onDone }: { signer?: any; onClose: () => void; onDone: () => void }) {
+  const [name, setName] = useState(signer?.name || "");
+  const [title, setTitle] = useState(signer?.title || "");
+  const [file, setFile] = useState<File | null>(null);
+  const [err, setErr] = useState<unknown>(null);
+  const go = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    try {
+      if (signer) await api.put(`/api/checks/signers/${signer.id}`, { name, title: title || null });
+      else {
+        const fd = new FormData();
+        fd.append("name", name);
+        if (title) fd.append("title", title);
+        if (file) fd.append("file", file);
+        await api.postForm("/api/checks/signers", fd);
+      }
+      onDone();
+    } catch (x) { setErr(x); }
+  };
+  return (
+    <Modal title={signer ? `Edit ${signer.name}` : "Add signer"} onClose={onClose}>
+      <GuardedForm onSubmit={go}>
+        <ErrorBox error={err} />
+        <Field label="Name (prints on record copies as 'SIGNATURE ON FILE: NAME')"><input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="Title (optional)"><input maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Treasurer" /></Field>
+        {!signer ? <Field label="Signature image (PNG, optional now)" hint="A scan or photo of the signature on white paper, cropped close. Transparent backgrounds work best.">
+          <input type="file" accept="image/png" onChange={(e) => setFile(e.target.files?.[0] || null)} /></Field> : null}
+        <div className="actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary" type="submit">Save</button></div>
+      </GuardedForm>
+    </Modal>
+  );
+}

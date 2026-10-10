@@ -59,8 +59,11 @@ def out(db: Session, t: RegisterTransaction, running_balance: int | None = None)
                             .order_by(FiscalYearReview.id)):
             reviews.setdefault(r.transaction_allocation_id, []).append(review_out(db, r, brief=True))
     att_counts = {}
+    check_printed = False
     for att in db.scalars(select(Attachment).where(
             (Attachment.transaction_id == t.id) | (Attachment.allocation_id.in_(ids or [-1])))):
+        if att.system_generated and att.document_type == "CHECK_COPY":   # 2.0.0 (#161): a check record copy
+            check_printed = True
         if att.active:
             key = ("t", t.id) if att.transaction_id else ("a", att.allocation_id)
             att_counts[key] = att_counts.get(key, 0) + 1
@@ -88,6 +91,7 @@ def out(db: Session, t: RegisterTransaction, running_balance: int | None = None)
         "attachment_count": att_counts.get(("t", t.id), 0) + sum(v for k, v in att_counts.items() if k[0] == "a"),
         "has_pending_review": any(r["status"] == "PENDING" for rs in reviews.values() for r in rs),
         "invoice_numbers": sorted({a.invoice_number for a in t.live_allocations if a.invoice_number}),
+        "check_printed": check_printed,
     }
 
 

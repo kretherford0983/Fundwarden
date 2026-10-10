@@ -2001,3 +2001,121 @@ test("#58: a newer release shows the gold arrow, the What's new dialog with ever
     srv.close();
   }
 });
+
+// ---------------------------------------------------------------- 2.0.0 build 1: check printing (#156-#162)
+/** A small valid PNG (a dark zig-zag on transparent), built here so no real signature is ever used. */
+async function samplePng(w = 240, h = 60): Promise<Buffer> {
+  const { deflateSync } = await import("node:zlib");
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (b: Buffer) => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(td));
+    return Buffer.concat([len, td, c]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let x = 0; x < w; x++) {
+    const y = Math.floor(h / 2 + (h / 3) * Math.sin(x / 12));
+    const o = y * (w * 4 + 1) + 1 + x * 4;
+    raw[o] = 20; raw[o + 1] = 20; raw[o + 2] = 80; raw[o + 3] = 255;
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+test("#156-#162: Administrator sets up check printing; a Register User prints a check, with the number confirmed", async ({ page }) => {
+  await login(page, "admin");
+  await page.getByRole("link", { name: "System/About" }).click();
+  await page.getByLabel("Check Printing module").check();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await page.reload();
+  await page.getByRole("link", { name: "Check Printing" }).click();
+  await expect(page.getByRole("heading", { name: "Check Printing", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Create" }).click();
+  // the editor opens with the preset, the preview drawn with the sample data
+  await expect(page.getByRole("heading", { name: /Check style: 3 per page/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Check preview drawn to scale" })).toContainText("SAMPLE PAYEE COMPANY INC");
+  await expect(page.getByLabel("Pay to x")).toHaveValue("1.275");
+  await page.getByLabel("Long text sample").check();
+  await expect(page.getByText("Does not fit at the smallest size")).toBeVisible();
+  await page.getByRole("button", { name: "Back to check styles" }).click();
+  // a signer with a (synthetic) signature image; only a SAMPLE preview is ever shown
+  await page.getByRole("button", { name: "Add signer…" }).click();
+  const sd = page.getByRole("dialog", { name: "Add signer" });
+  await sd.getByLabel(/^Name/).fill("Jordan Sample");
+  await sd.getByLabel("Title (optional)").fill("Treasurer");
+  await sd.getByLabel(/Signature image/).setInputFiles({ name: "signature.png", mimeType: "image/png", buffer: await samplePng() });
+  await sd.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("img", { name: "Sample of Jordan Sample's signature" })).toBeVisible();
+  await page.screenshot({ path: "e2e-screenshots/light-check-setup.png", fullPage: true });
+  await logout(page);
+
+  // Register User: a withdrawal to a vendor, printed as a check
+  await login(page, "ru1", "Brand-New-Pass-99");
+  const post = await apiAs(page);
+  const ent = await (await post("/api/entities", { entity_type: "ORGANIZATION", organization_name: "Sample Supply Company, Inc", confirmations: ["DUPLICATE_ENTITY"] })).json();
+  const opts = await (await page.request.get("/api/budgets/selectable?fiscal_year_id=1&transaction_type=WITHDRAWAL")).json();
+  const travel = opts.find((o: any) => o.label === "1000-01 Travel").id;
+  const tr = await post("/api/transactions", { bank_account_id: 1, transaction_type: "WITHDRAWAL", transaction_date: "2026-11-20", entity_id: ent.id,
+    check_number: "8101", allocations: [{ budget_id: travel, amount: "1234.56", invoice_number: "INV-77", description: "Folding tables" }] });
+  expect(tr.status()).toBe(201);
+  const t = await tr.json();
+  await page.goto(`/register?account=1&txn=${t.id}`);
+  const row = page.locator(`#txn-${t.id}`);
+  await expect(row).toBeVisible();
+  // the linked transaction (?txn=) opens its details by itself once the register has loaded - wait for that
+  // rather than clicking "Details", which could close them again on a slow machine
+  await expect(row.getByRole("button", { name: `Details for transaction ${t.id}` })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Print check…" }).click();
+  const dlg = page.getByRole("dialog", { name: `Print check – transaction #${t.id}` });
+  await dlg.getByRole("button", { name: "Continue" }).click();      // first print from this account: choose the check style
+  const preview = dlg.getByRole("img", { name: "Check preview drawn to scale" });
+  await expect(preview).toContainText("SAMPLE SUPPLY COMPANY, INC");
+  await expect(preview).toContainText("ONE THOUSAND TWO HUNDRED THIRTY-FOUR AND");
+  await expect(preview).toContainText("**1,234.56");
+  await expect(preview).toContainText("SIGNATURE ON FILE: JORDAN SAMPLE");
+  // memo with autocomplete; an unknown variable blocks printing with a suggestion
+  const memo = dlg.getByLabel("Memo");
+  await memo.fill("TABLES {dtae}");
+  await expect(dlg.getByRole("alert").filter({ hasText: "Did you mean {DATE}?" })).toBeVisible();
+  await memo.fill("TABLES, {B");
+  await expect(dlg.getByRole("option", { name: /BUDGET_CODE/ })).toBeVisible();
+  await dlg.getByRole("option", { name: /BUDGET_CODE/ }).click();
+  // typing straight on continues after the inserted variable (the cursor is placed there at once)
+  await memo.pressSequentially(", {I");
+  await memo.press("Enter");
+  await expect(memo).toHaveValue("TABLES, {BUDGET_CODE}, {INVOICE}");
+  await expect(preview).toContainText("TABLES, 1000-01, INV-77");
+  // the number printed on the loaded check must be typed and match
+  const confirm = dlg.getByLabel("Type the number printed on the check that is in the printer");
+  await confirm.fill("8102");
+  await expect(dlg.getByText("That doesn't match check #8101.")).toBeVisible();
+  await expect(dlg.getByRole("button", { name: "Print check" })).toBeDisabled();
+  await confirm.fill("8101");
+  await page.screenshot({ path: "e2e-screenshots/light-print-check.png" });
+  await dlg.getByRole("button", { name: "Print check" }).click();
+  await expect(dlg.getByText("Check #8101 is ready.")).toBeVisible();
+  const href = await dlg.getByRole("link", { name: "Open the check to print" }).getAttribute("href");
+  expect(href).toMatch(/^blob:/);
+  await dlg.getByRole("button", { name: "Yes – done" }).click();
+  await expect(row.getByText("Check printed")).toBeVisible();
+  // printing again is a reprint: a reason is required
+  await page.getByRole("button", { name: "Print check again…" }).click();
+  await expect(dlg.getByText("Check #8101 was already printed")).toBeVisible();
+  await dlg.getByLabel("Type the number printed on the check that is in the printer").fill("8101");
+  await expect(dlg.getByRole("button", { name: "Reprint check" })).toBeDisabled();
+  await dlg.getByLabel("Reason for the reprint (required)").fill("printer jam, check undamaged");
+  await expect(dlg.getByRole("button", { name: "Reprint check" })).toBeEnabled();
+  // a damaged check is marked spoiled instead: the number becomes a zero-dollar VOID record
+  await dlg.getByRole("button", { name: "Mark check #8101 spoiled…" }).click();
+  const sp = page.getByRole("dialog", { name: "Mark check #8101 spoiled" });
+  await sp.getByLabel(/Number of the next check/).fill("8102");
+  await sp.getByRole("button", { name: "Mark spoiled" }).click();
+  await expect(dlg.getByText("Load check #8102")).toBeVisible();
+  await dlg.getByRole("button", { name: "Cancel" }).click();
+  await page.reload();
+  // the spoiled number is kept as a VOID record (the transaction rows have id="txn-<id>"; detail rows don't)
+  await expect(page.locator('tr[id^="txn-"]').filter({ hasText: "8101" }).filter({ hasText: "VOID" })).toHaveCount(1);
+  await expect(page.locator(`#txn-${t.id}`)).toContainText("8102");
+});
