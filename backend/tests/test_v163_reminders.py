@@ -1,8 +1,19 @@
 """v1.6.3 CR-036: reminders and notifications."""
 import datetime as dt
 
+import pytest
+
+from fmpoc.services import reminders as _reminders
+
+# The reminder service's "today" is pinned to the date the tests were collected, so a run that crosses
+# midnight (as a CI build in the evening, US time, crosses midnight UTC) still agrees with D().
 TODAY = dt.date.today()
 D = lambda n: (TODAY + dt.timedelta(days=n)).isoformat()  # noqa: E731
+
+
+@pytest.fixture(autouse=True)
+def _pinned_today(monkeypatch):
+    monkeypatch.setattr(_reminders, "today", lambda: TODAY)
 
 
 def mk(c, **kw):
