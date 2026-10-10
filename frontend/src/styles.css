@@ -421,3 +421,5 @@ fieldset.keep { border: 1px solid var(--border, #d0d7de); border-radius: 6px; pa
 .error-text { color: var(--red-fg); margin: 2px 0; }
 fieldset.choices { border: none; padding: 0; display: grid; gap: 4px; }
 label.button { display: inline-block; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13px; }
+.amount-preview { margin: 4px 0 8px; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; font-size: 13px; }
+.amount-preview .words { font-weight: 600; letter-spacing: .02em; }
