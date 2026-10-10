@@ -404,3 +404,44 @@ def reset_my_printer(body: PrinterResetIn, db: Session = Depends(get_db), ctx: C
     db.commit()
     return svc.printer_out(None, feed)
 
+
+
+# ------------------------------------------------------------------ payments (#164)
+class LastAccountIn(In):
+    bank_account_id: int
+
+
+class AmountPreviewIn(In):
+    bank_account_id: int | None = None
+    amount: str = Field(max_length=20)
+
+
+@router.get("/payments/options")
+def payment_options(db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    return {"last_bank_account_id": svc.last_payment_account(db, ctx),
+            "styles_available": bool(svc.list_styles(db, ctx, include_inactive=False))}
+
+
+@router.put("/payments/last-account")
+def set_last_account(body: LastAccountIn, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    acct = get_scoped(db, BankAccount, body.bank_account_id, ctx, "Bank Account")
+    svc.set_last_payment_account(db, ctx, acct)
+    db.commit()
+    return {"last_bank_account_id": svc.last_payment_account(db, ctx)}
+
+
+@router.post("/payments/amount-preview")
+def amount_preview(body: AmountPreviewIn, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    from ..money import parse_amount
+    acct = get_scoped(db, BankAccount, body.bank_account_id, ctx, "Bank Account") if body.bank_account_id else None
+    try:
+        cents = parse_amount(body.amount, allow_zero=True)
+    except ValueError:
+        return {"number": None, "words": None}
+    return svc.amount_preview(db, ctx, acct, cents)
+
+
+@router.get("/payments/recent")
+def recent(bank_account_id: int, db: Session = Depends(get_db), ctx: Ctx = Depends(print_ctx)):
+    acct = get_scoped(db, BankAccount, bank_account_id, ctx, "Bank Account")
+    return svc.recent_checks(db, ctx, acct)

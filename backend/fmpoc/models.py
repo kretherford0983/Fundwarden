@@ -80,6 +80,8 @@ class User(Base):
     nav_collapsed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)  # v1.3 CR-014
     dashboard_charts: Mapped[str | None] = mapped_column(String(200), nullable=True)  # v1.4.1 CR-020 (comma list)
     dashboard_layout: Mapped[str | None] = mapped_column(String(200), nullable=True)  # v1.5.0 CR-031 (comma list)
+    # 2.0.0 (#164): the bank account of this user's last payment (Check Printing module), preselected next time
+    last_payment_account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     password_changed_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
