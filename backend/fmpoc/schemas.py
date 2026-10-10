@@ -435,7 +435,8 @@ class FundraiserPreviewIn(In):
 
 
 class ModulesIn(In):
-    fundraisers: bool
+    fundraisers: bool | None = None
+    checks: bool | None = None   # 2.0.0 (#156): Check Printing
 
 
 # ------------------------------------------------------------------ v1.6.1 CR-034 fundraiser management

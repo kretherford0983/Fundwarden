@@ -54,6 +54,55 @@ column therefore stays nullable in the schema. Top bar: `me.display_name` withou
 email and roles; the Users list gained a Display name column (not asked for in the issues, added so an
 Administrator can see which users still show a username).
 
+**2.0.0 Check Printing, test build 1 (issues #156–#162; parent #60; decided in chat 2026-10-10).** Migration `0025`:
+`workspace.checks_enabled` (off), `check_style` (name, preset, active, `config_json`), `check_signer` (name, title,
+active, AES-GCM-encrypted PNG with its own AAD `fmpoc:check_signature:v1`), `check_account` (per bank account: the
+style a Register User chose and the sheet counter), `check_printer_setting` (per user, style and feed mode: page
+option, guide, personal adjustment in thousandths of an inch). Package `services/checkprint/`:
+- `config.py` — the check style document (pydantic, `extra="forbid"`): stock (Letter only for now, check size, check
+  tops, `TEAR_TOP`/`POSITIONS`, one signature line, a preview-only outline), defaults (font, size, capitals), fields
+  (inches from the check's top-left; text fields with font/size/bold/capitals/align/shrink/min size; signature box),
+  amount-in-words and number styles, date format, default memo, signature limit, default signer, 1–6 feed modes
+  (`SHEET` position, or `SINGLE` lead `DATE_END`/`PAYTO_END`, page `LETTER`/`CHECK`, guide, offset ±0.5"). Rules:
+  every field inside the check and **above the bottom 5/8"** (MICR clear band); the minimum size ≤ the size; one sheet
+  feed mode at least.
+- `presets.py` — `STANDARD_3UP`, measured from the product owner's stock and Word templates (field boxes = the text
+  area; text baseline = box bottom + font descent, so the positions reproduce the Word text boxes plus their internal
+  margins; verified against pdftotext and a 225-dpi scan of the stock).
+- `fonts.py` — Liberation Sans/Serif/Mono 2.1.5 and Carlito (OFL 1.1, `fmpoc/fonts/`, regular + bold), registered
+  with ReportLab and embedded; served to the setup preview from `/api/checks/fonts/{key}/{weight}`.
+- `amounts.py` — words from whole cents up to 999,999,999.99: bank convention (AND only before cents, hyphens,
+  `NN/100`), options AND in hundreds, no hyphens, case, `NO/100`, trailing word; number with commas / `$` / lead fill.
+- `patterns.py` — literal text + `{NAME}` (case-insensitive, fixed table lookup), `{{`/`}}`, unknown name = error with
+  a difflib suggestion, `{CHECK_NUMBER}` refused on the check face, control characters refused, 200 characters; split
+  transactions give the first value + " and others".
+- `render.py` — check space = points from the check's bottom-left, after the page transform (sheet: translate to
+  the position; single: rotate 90° CCW for date end first, 90° CW for pay-to end first, on a check-sized page or a
+  Letter page at the guide position), then the feed offset + personal adjustment in check coordinates (dx right,
+  dy down). `layout()` fits each field (shrink in 0.5 pt steps to the minimum; payee and memo get a shortened
+  suggestion; date and amounts block). The fill is drawn at baseline + cap height / 2 between "AND" and the cents.
+  PDFs: check (signature image), test print, alignment test, calibration page, scale check, record copy (signature
+  replaced by text, no image). `PrintScaling /None` is set as a viewer preference.
+- `service.py` — module switch (shares `/api/system/modules`), styles, signers (PNG validated with Pillow and
+  re-encoded; only a 220-px SAMPLE preview is ever returned), per-account style and sheet counter, printer settings,
+  `prepare` (variables, memo, fit, signature choice and limit, warnings `EMPTY_VARIABLES` and `CLEARED`),
+  `print_check`, `spoil`.
+Printing rules: only ACTIVE withdrawals over zero outside a Closed Fiscal Year; a payee is required; the client
+never supplies amounts; the typed number must equal the transaction's check number (set at print time if missing,
+CR-011 uniqueness); a **reprint** is a print whose number equals the last printed number (from the
+`CHECK_PRINTED`/`CHECK_REPRINTED` audit events) and needs a reason and does not move the sheet counter; any other print
+uses a check; the record copy (document type `CHECK_COPY`, system generated, not removable) is attached when its
+content (deterministic PDF, sha256) differs from the last one; **spoil** moves the transaction to a new unused number
+and creates a zero-dollar VOID record on Budget 0 of the transaction's Fiscal Year with the old number (BR-072).
+Permissions `checks.setup` (Administrator) and `checks.print` (Register User); Budget Managers have no access.
+Because Administrators cannot see bank accounts or entities (BR-003), the style per bank account is chosen by a
+Register User and signers are typed names. Audit: `CHECK_STYLE_*`, `CHECK_SIGNER_*`, `CHECK_SIGNATURE_*` (SECURITY),
+`CHECK_TEST_PRINT`, `CHECK_ACCOUNT_SETTINGS`, `CHECK_PRINTED`, `CHECK_REPRINTED`, `CHECK_SPOILED`,
+`CHECK_ALIGNMENT_TEST`, `CHECK_PRINTER_SETTINGS(_RESET)`. API `routers/checks.py`. Frontend: `pages/CheckSetup.tsx`,
+`pages/CheckPrint.tsx` (print dialog, spoil dialog, sheet counter, printer setup assistant), `pages/checkShared.tsx`
+(SVG preview with the built-in fonts, `PatternInput` autocomplete, browser instructions). Tests:
+`tests/test_v200_checks.py` (positions read back with pypdf), E2E "#156-#162". Guide: `docs/check-printing.md`.
+
 **1.10.0 Update notification (issue #58; channel decided 2026-10-09).** Migration `0024`: `update_check` (one row).
 `services/updates.py`: `channel(settings)` - setting `update_channel` (`auto` → from `build_info.json`: `main` →
 stable, `test` → test, anything else / no build info → none); `check(app, force)` - due after 24 h (6 h after an error),

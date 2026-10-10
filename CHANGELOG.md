@@ -2,6 +2,47 @@
 
 Versions are `Breaking.Major.Minor` from 1.6.0 (docs/branching.md).
 
+## 2.0.0 — unreleased
+Database migration `0025` (one column and four tables added; no existing data changes). Rolling back to 1.10.0
+needs the data snapshot the installer takes before the upgrade (docs/upgrade.md). 2.0.0 is built and tested in
+several test builds; the notes below grow with each one.
+
+**Test build 1 — check printing on 3-per-page laser stock (#156–#162, #163)**
+- **Check Printing module (optional).** An Administrator turns it on in System/About. Prints the date, payee, the
+  amount in numbers and in words, the memo and a signature on printable check stock that already carries the bank
+  numbers — never the check number or bank numbers (docs/check-printing.md).
+- **Check styles (#156).** Created from a preset and fine-tuned: the sheet (checks per sheet, tear off the top check
+  or print each position), each field's position in inches with a live preview drawn to scale over the stock's
+  pre-printed lines, and **feed modes** — a check on the sheet, or a single check fed through the manual feed like
+  an envelope (date end or pay-to end first, on a Letter page placed at the guides or a check-sized page), each with
+  a small offset and a printer note. First preset: *3 per page – standard laser (top check first)*. Nothing can be
+  placed in the bottom 5/8 inch (the bank number zone). Register Users choose the style for each bank account; a
+  sheet counter suggests the feed mode (single-check feed for the last check).
+- **What prints (#157).** Built-in fonts only (Liberation Sans, Serif and Mono — the same widths as Arial, Times New
+  Roman and Courier New — and Carlito), embedded in every PDF, with a check-wide default and per-field choices; all
+  capitals by default. Both amounts are always calculated from the transaction total: bank convention in words
+  (`… NINETY-NINE AND ··· 30/100`) with a protective fill drawn at mid-letter height between the words and the cents,
+  and `**3,199.30`. Text that doesn't fit shrinks to the field's smallest size, then the user must accept a shortened
+  version or edit it; nothing is cut off silently.
+- **Setup and test prints (#158).** Test print with sample data (TEST – NOT A CHECK) and a calibration page with
+  rulers, both using unsaved changes; every test page has a 5-inch line to check the print scale.
+- **Signers and signatures (#159).** Signature images (PNG) are stored encrypted, can never be downloaded (only a
+  SAMPLE preview), print only on real checks and admin test prints, and every use is audited. Optional amount above
+  which no signature prints.
+- **Memo patterns (#160).** Text plus `{VARIABLES}` from the transaction, with autocomplete after `{`; names ignore
+  case, an unknown name is refused with a suggestion, `{{` / `}}` print a brace, a variable with no data is a warning.
+  Administrators set a default; users can change it for one print.
+- **Printing from the register (#161).** *Print check…* on an active withdrawal (Register Users only): the user types
+  the number printed on the loaded check before every print. **Reprint** (check undamaged) needs a reason;
+  **Mark spoiled** records the number as a $0.00 VOID record and moves the payment to the next check. A record copy
+  (*SIGNATURE ON FILE*, *COPY – NOT NEGOTIABLE*, never the signature image) is attached to the transaction, which shows
+  *Check printed*.
+- **Works without printer setup (#162).** Letter pages by default, print instructions for the user's browser, a test
+  print of the actual check on plain paper, and a printer setup assistant that saves each user's own adjustment (up
+  to 1/4 inch) without changing the Administrator's layout.
+- Fix: in server mode a scheduled backup's folder is always taken from the server's configured `backup_folders`
+  (CodeQL alerts; #168).
+
 ## 1.10.0 — 2026-10-09
 Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot
 the installer takes before the upgrade (docs/upgrade.md).

@@ -73,6 +73,14 @@ result, a breakdown by offering (tickets, auction, food…), the cash float, a f
   <img src="docs/screenshots/readme/count-sheet-page.png" alt="The printable cash count sheet" width="270">
 </p>
 
+### Check printing <sub>(optional module, 2.0.0)</sub>
+
+Print checks on printable check stock: the payee, the amount in numbers and in words (always calculated from the
+transaction, with a protective fill), the date, a memo built from the transaction, and the signature. Each style is
+set up once with a preview drawn to scale and test prints on plain paper; a single last check can be fed through
+the manual feed. The number on the loaded check is confirmed before every print, spoiled checks are recorded as
+VOID, and a record copy is attached to the transaction (docs/check-printing.md).
+
 ### Reminders
 
 Personal reminders and reminders for the whole organization, shown on the dashboard and behind the bell until
@@ -91,6 +99,7 @@ return every quarter, renew the insurance every year — so duties survive a cha
 | **Reports** | End of Year Audit PDF with signature page and account start/end pages; Fiscal Year Close report; Entity activity report with CSV export; fundraiser report; cash count sheet |
 | **Dashboard** | Bank balances, budget progress, items needing attention, charts; each user chooses and arranges their own sections; light and dark mode |
 | **Fundraisers** | Budgets, offerings ("buckets"), cash float, exclusions, documents, cancelled events, events spanning two Fiscal Years |
+| **Check printing** | Check styles from presets, field layout with a scale preview, built-in fonts, amounts in words with protective fill, memo patterns, encrypted signatures with an amount limit, sheet and single-check feed, reprint and spoiled checks, record copies, per-user printer adjustment |
 | **Reminders** | Personal and organization reminders, show-before days, links to a Fiscal Year, budget or account, repeating organization reminders |
 | **People and vendors** | Entities for organizations and individuals, a person's position (offered as the title when they sign) |
 | **Roles** | Administrator, Budget Manager, Budget User, Register User and read-only Auditor; administration is kept strictly apart from financial work |
@@ -125,7 +134,8 @@ report) · [1.4](docs/user-guide-v1.4.md) (audit signatures, two-step verificati
 [1.5](docs/user-guide-v1.5.md) (dashboard layout, installers) · [1.6](docs/user-guide-v1.6.md) (fundraisers,
 reminders) · [1.7](docs/user-guide-v1.7.md) (the new name) · [1.8](docs/user-guide-v1.8.md) (budget history, Financial
 Flow Report, forgotten passwords) · [1.9](docs/user-guide-v1.9.md) (one person on a local install, automatic backups) ·
-[1.10](docs/user-guide-v1.10.md) (pennywarden.org, update notification).
+[1.10](docs/user-guide-v1.10.md) (pennywarden.org, update notification) · [2.0](docs/user-guide-v2.0.md) (check printing; full
+guide: [docs/check-printing.md](docs/check-printing.md)).
 
 **Running PennyWarden**
 - [docs/deployment.md](docs/deployment.md) — local and server installation, HTTPS reverse proxy, Docker, data portability

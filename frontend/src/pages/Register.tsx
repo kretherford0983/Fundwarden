@@ -3,6 +3,7 @@ import { api, money, newRequestKey, qs, todayIso } from "../api";
 import { allocationLabel, Attachments, EntityPicker, ErrorBox, Field, Loading, Modal, PendingFiles, useConfirmable, GuardedForm } from "../components";
 import { useMe } from "../App";
 import { EntityForm } from "./Entities";
+import { PrintCheckDialog } from "./CheckPrint";
 
 export default function Register() {
   const { me, can } = useMe();
@@ -156,11 +157,11 @@ export default function Register() {
                       <td className="num">{t.deposit ? (byBudget ? <Share part={t.budget_share} total={t.deposit} /> : money(t.deposit)) : ""}</td>
                       <td className="num">{t.withdrawal ? (byBudget ? <Share part={t.budget_share} total={t.withdrawal} /> : money(t.withdrawal)) : ""}</td>
                       <td className="num">{money(t.running_balance)}</td>
-                      <td>{t.status === "DELETED" ? <span className="badge grey">Deleted</span> : t.status === "VOID" ? <span className="badge red">VOID</span> : t.cleared ? "Cleared" : "Uncleared"}{t.has_pending_review ? <span className="badge yellow">Review</span> : null}{t.transfer ? <span className="badge blue">Transfer</span> : null}{t.no_attachment ? <span className="badge grey" title={t.no_attachment_reason || ""}>No attachment</span> : null}</td>
+                      <td>{t.status === "DELETED" ? <span className="badge grey">Deleted</span> : t.status === "VOID" ? <span className="badge red">VOID</span> : t.cleared ? "Cleared" : "Uncleared"}{t.has_pending_review ? <span className="badge yellow">Review</span> : null}{t.transfer ? <span className="badge blue">Transfer</span> : null}{t.check_printed ? <span className="badge green" title="A check was printed for this transaction (record copy attached)">Check printed</span> : null}{t.no_attachment ? <span className="badge grey" title={t.no_attachment_reason || ""}>No attachment</span> : null}</td>
                       <td>{t.attachment_count ? <span aria-label={`${t.attachment_count} attachments`}>📎{t.attachment_count}</span> : ""}</td>
                     </tr>
                     {open === t.id ? (
-                      <tr className="detail-row"><td colSpan={12}><TxnDetail t={t} manage={manage} onEdit={() => setModal({ kind: t.transfer ? "legedit" : "txn", txn: t })} onVoid={() => setModal({ kind: "void", txn: t })} onVoidDate={() => setModal({ kind: "voiddate", txn: t })} onVoidCheck={() => setModal({ kind: "voidcheck", txn: t })} onChanged={load} /></td></tr>
+                      <tr className="detail-row"><td colSpan={12}><TxnDetail t={t} manage={manage} canPrintChecks={!!me.modules?.checks && can("checks.print")} onPrintCheck={() => setModal({ kind: "printcheck", txn: t })} onEdit={() => setModal({ kind: t.transfer ? "legedit" : "txn", txn: t })} onVoid={() => setModal({ kind: "void", txn: t })} onVoidDate={() => setModal({ kind: "voiddate", txn: t })} onVoidCheck={() => setModal({ kind: "voidcheck", txn: t })} onChanged={load} /></td></tr>
                     ) : null}
                   </Fragment>
                 ))}
@@ -176,12 +177,13 @@ export default function Register() {
       {modal?.kind === "voiddate" ? <VoidDateForm txn={modal.txn} fys={fys} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
       {modal?.kind === "voidcheck" ? <VoidCheckForm txn={modal.txn} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
       {modal?.kind === "recon" ? <ReconModal title={modal.title} recon={modal.recon} label={modal.label} onClose={() => setModal(null)} /> : null}
+      {modal?.kind === "printcheck" ? <PrintCheckDialog txn={modal.txn} onClose={() => setModal(null)} onChanged={load} /> : null}
       {modal?.kind === "zero" ? <ZeroVoidForm account={acct} initial={modal.initial} fys={fys} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} /> : null}
     </div>
   );
 }
 
-function TxnDetail({ t, manage, onEdit, onVoid, onVoidDate, onVoidCheck, onChanged }: { t: any; manage: boolean; onEdit: () => void; onVoid: () => void; onVoidDate: () => void; onVoidCheck: () => void; onChanged: () => void }) {
+function TxnDetail({ t, manage, canPrintChecks, onPrintCheck, onEdit, onVoid, onVoidDate, onVoidCheck, onChanged }: { t: any; manage: boolean; canPrintChecks: boolean; onPrintCheck: () => void; onEdit: () => void; onVoid: () => void; onVoidDate: () => void; onVoidCheck: () => void; onChanged: () => void }) {
   const [note, setNote] = useState("");
   const [err, setErr] = useState<unknown>(null);
   const editable = manage && t.status === "ACTIVE" && !t.closed_fiscal_year_protected;
@@ -222,6 +224,9 @@ function TxnDetail({ t, manage, onEdit, onVoid, onVoidDate, onVoidCheck, onChang
       </table>
       <div className="actions left">
         {editable ? <button onClick={onEdit}>Edit</button> : null}
+        {/* 2.0.0 (#161): Check Printing module - active withdrawals over zero, not in a Closed Fiscal Year */}
+        {canPrintChecks && editable && t.transaction_type === "WITHDRAWAL" && !t.transfer && Number(t.total) > 0
+          ? <button onClick={onPrintCheck}>{t.check_printed ? "Print check again…" : "Print check…"}</button> : null}
         {editable ? <button className="danger" onClick={onVoid}>Void…</button> : null}
         {manage && t.status === "VOID" && !t.closed_fiscal_year_protected ? <button onClick={onVoidDate}>Correct date…</button> : null}
         {manage && t.status === "VOID" && t.transaction_type === "WITHDRAWAL" && !t.transfer && !t.closed_fiscal_year_protected ? <button onClick={onVoidCheck}>Correct check number…</button> : null}

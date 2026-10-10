@@ -399,3 +399,25 @@ fieldset.keep { border: 1px solid var(--border, #d0d7de); border-radius: 6px; pa
 .release-notes ul { padding-left: 1.2em; }
 .release-notes li { margin: 4px 0; }
 .update-banner .link { margin: 0 2px; }
+
+/* 2.0.0 (#156-#162): Check Printing */
+.check-preview { color: var(--text); border: 1px solid var(--border); border-radius: 6px; margin: 8px 0; }
+.pattern-input { position: relative; }
+.pattern-input .autocomplete { position: absolute; z-index: 20; left: 0; right: 0; top: 62px; margin: 0; padding: 4px 0; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.15); max-height: 240px; overflow-y: auto; }
+.pattern-input .autocomplete li { padding: 4px 10px; cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.pattern-input .autocomplete li.active, .pattern-input .autocomplete li:hover { background: var(--surface-2); }
+.num-in { display: inline-flex; align-items: center; gap: 3px; }
+.num-in input { width: 78px; }
+.num-in .unit { font-size: 11px; color: var(--muted); }
+.field-table td { white-space: nowrap; }
+.field-table select { max-width: 150px; }
+.sticky-actions { position: sticky; bottom: 0; background: var(--bg, var(--surface)); padding: 10px 0; border-top: 1px solid var(--border); z-index: 5; }
+.alert.success { background: var(--green-bg); color: var(--green-fg); }
+.browser-tips ul { margin: 4px 0 4px 18px; padding: 0; }
+.print-check .card.subtle { background: var(--surface-2); }
+.print-check .fit-warning code { white-space: normal; }
+.pdf-links { display: inline-flex; gap: 8px; align-items: center; }
+.error-text { color: var(--red-fg); margin: 2px 0; }
+fieldset.choices { border: none; padding: 0; display: grid; gap: 4px; }
+label.button { display: inline-block; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; font-size: 13px; }

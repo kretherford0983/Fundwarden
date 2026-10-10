@@ -53,6 +53,8 @@ class Workspace(Base):
     next_entity_number: Mapped[int] = mapped_column(Integer, default=1)
     # v1.6.0 CR-033: optional modules, switched on by an Administrator
     fundraisers_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)
+    # 2.0.0 (#156): the Check Printing module
+    checks_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)
 
 
 class Role(Base):
@@ -695,3 +697,72 @@ class UpdateCheck(Base):
     last_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
     updated_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+# ---------------------------------------------------------------- 2.0.0 check printing (#60)
+class CheckStyle(Base):
+    """2.0.0 (#156): a check style - the check stock, where each field prints on it and the ways it can be fed to the
+    printer. The settings are one validated JSON document (services/checkprint/config.py). Deactivated, never
+    deleted (BR-001)."""
+    __tablename__ = "check_style"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    preset_key: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sa_true(), nullable=False)
+    config_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class CheckSigner(Base):
+    """2.0.0 (#159): a signer and their signature image. The PNG is stored encrypted with the application key and can
+    never be downloaded; it is only drawn into printed checks and admin test prints."""
+    __tablename__ = "check_signer"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    title: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sa_true(), nullable=False)
+    image_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_uploaded_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    image_uploaded_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class CheckAccount(Base):
+    """2.0.0 (#156): per bank account - the check style a Register User chose for it and the sheet counter (checks
+    left on the sheet in the printer). Administrators cannot see bank accounts (BR-003), so they never set this."""
+    __tablename__ = "check_account"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    bank_account_id: Mapped[int] = mapped_column(ForeignKey("bank_account.id"), unique=True)
+    check_style_id: Mapped[int] = mapped_column(ForeignKey("check_style.id"))
+    sheet_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class CheckPrinterSetting(Base):
+    """2.0.0 (#162): a user's own printer settings for one check style and feed mode, applied on top of the
+    Administrator's layout (never changing it): page option, guide position and a bounded personal adjustment."""
+    __tablename__ = "check_printer_setting"
+    __table_args__ = (UniqueConstraint("user_id", "check_style_id", "feed_key",
+                                       name="uq_check_printer_setting_user_style_feed"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), index=True)
+    check_style_id: Mapped[int] = mapped_column(ForeignKey("check_style.id"))
+    feed_key: Mapped[str] = mapped_column(String(20))
+    page: Mapped[str | None] = mapped_column(String(10), nullable=True)      # LETTER | CHECK (single feed only)
+    guide: Mapped[str | None] = mapped_column(String(10), nullable=True)     # CENTER | LEFT | RIGHT
+    dx_mils: Mapped[int] = mapped_column(Integer, default=0)                  # thousandths of an inch, check coordinates
+    dy_mils: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
