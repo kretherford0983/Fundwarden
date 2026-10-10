@@ -31,12 +31,17 @@ export function GuardedForm({ onSubmit, children, ...rest }: Omit<FormHTMLAttrib
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  // 1.10.0 (#139): the focus moves into the dialog once, when it opens. A parent that re-renders while the user types
+  // (e.g. the dialog's text lives in the same component) passes a new onClose each time; that must not run this again
+  // and pull the focus away from the field. The latest onClose is kept in a ref for the Escape key.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
     ref.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
   // Portal: nested dialogs (e.g. "new institution" inside the account form) must not nest <form> elements.
   return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

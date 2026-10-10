@@ -558,3 +558,8 @@ class BackupScheduleIn(In):
 
 class BackupFolderTestIn(In):
     destination: OptStr(1000) = None
+
+
+# ------------------------------------------------------------------ 1.10.0 (#58) update notification
+class UpdateSettingsIn(In):
+    enabled: bool

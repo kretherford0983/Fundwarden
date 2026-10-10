@@ -1,0 +1,48 @@
+# pennywarden.org (1.10.0, #83): the product page and the release data files on GitHub Pages.
+# Always built from main (the page that is live is the released one); the release data files come from the
+# repository's GitHub releases: releases.json (production) and releases-test.json (test builds, read only by test
+# builds for the update notification, #58). Runs when the page changes on main, by hand, and from the build workflow
+# after each release or test pre-release (a release created with the workflow token does not start workflows itself,
+# so build.yml starts this one with workflow_dispatch).
+name: pages
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "docs/screenshots/readme/**", "scripts/release_data.py", "scripts/build_site.sh",
+            ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Assemble the site and the release data files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/build_site.sh _site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
