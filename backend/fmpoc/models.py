@@ -335,6 +335,8 @@ class TransactionAllocation(Base):
     budget_id: Mapped[int] = mapped_column(ForeignKey("budget.id"), index=True, nullable=False)
     entity_id: Mapped[int | None] = mapped_column(ForeignKey("entity.id"), nullable=True)
     invoice_number: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # 2.0.0 (#165): optional date of the invoice (withdrawals), printed in the payment cover letter
+    invoice_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     amount_cents: Mapped[int] = mapped_column(BigInteger)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -761,10 +763,29 @@ class CheckPrinterSetting(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), index=True)
-    check_style_id: Mapped[int] = mapped_column(ForeignKey("check_style.id"))
+    check_style_id: Mapped[int | None] = mapped_column(ForeignKey("check_style.id"), nullable=True)
+    # 2.0.0 (#166): or an envelope template (check_style_id empty, feed_key "envelope")
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("check_document.id"), nullable=True)
     feed_key: Mapped[str] = mapped_column(String(20))
     page: Mapped[str | None] = mapped_column(String(10), nullable=True)      # LETTER | CHECK (single feed only)
     guide: Mapped[str | None] = mapped_column(String(10), nullable=True)     # CENTER | LEFT | RIGHT
     dx_mils: Mapped[int] = mapped_column(Integer, default=0)                  # thousandths of an inch, check coordinates
     dy_mils: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class CheckDocument(Base):
+    """2.0.0 (#165, #166): a cover letter or envelope template of the Check Printing module - a validated JSON settings
+    document like a check style. Deactivated, never deleted (BR-001); one default per kind."""
+    __tablename__ = "check_document"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspace.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))            # LETTER | ENVELOPE
+    name: Mapped[str] = mapped_column(String(80))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sa_true(), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false(), nullable=False)
+    config_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+    created_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    updated_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

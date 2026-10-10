@@ -7,7 +7,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, money } from "../api";
 import { ErrorBox, Field, GuardedForm, Loading, Modal } from "../components";
-import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfLinks, useCheckFonts, usePdf } from "./checkShared";
+import { EnclosuresPanel, HandwrittenPanel } from "./CheckEnclosures";
+import { BrowserTips, CheckPreview, FIELD_LABELS, PatternInput, PdfViewer, useCheckFonts, usePdf } from "./checkShared";
 
 type Opts = any;
 
@@ -16,10 +17,20 @@ export function PrintCheckDialog({ txn, onClose, onChanged }: { txn: any; onClos
   const [err, setErr] = useState<unknown>(null);
   const load = () => api.get(`/api/checks/transactions/${txn.id}/options`).then(setO, setErr);
   useEffect(() => { load(); }, [txn.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mode, setMode] = useState<"print" | "hand">("print");
+  const defaultSigner = o ? (o.signers.find((s: any) => s.id === o.default_signer_id) || o.signers[0])?.id ?? null : null;
   return (
     <Modal title={`Print check – transaction #${txn.id}`} onClose={onClose} wide>
       <ErrorBox error={err} />
-      {!o ? (err ? null : <Loading />) : !o.check_style_id ? (
+      {o && o.has_documents ? (
+        <div className="segmented" role="radiogroup" aria-label="How is the check made">
+          <label><input type="radio" name="mode" checked={mode === "print"} onChange={() => setMode("print")} /> Print the check</label>
+          <label><input type="radio" name="mode" checked={mode === "hand"} onChange={() => setMode("hand")} /> I'm writing the check by hand</label>
+        </div>
+      ) : null}
+      {o && mode === "hand" ? (
+        <HandwrittenPanel txn={o.transaction} nextNumber={o.next_check_number} signerId={defaultSigner} onChanged={() => { onChanged(); load(); }} />
+      ) : !o ? (err ? null : <Loading />) : !o.check_style_id ? (
         <ChooseStyle o={o} onDone={load} />
       ) : (
         <PrintForm o={o} reload={load} onClose={onClose} onChanged={onChanged} />
@@ -77,6 +88,7 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
   const [busy, setBusy] = useState(false);
   const [pdf, setPdf] = usePdf();
   const [align, setAlign] = usePdf();
+  const [viewing, setViewing] = useState<null | "check" | "align">(null);   // #174: PDFs open in the page
   const [printed, setPrinted] = useState(false);
   const [spoiling, setSpoiling] = useState(false);
   const [assistant, setAssistant] = useState(false);
@@ -108,12 +120,13 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
       });
       setPdf(blob, `check-${number}.pdf`);
       setPrinted(true);
+      setViewing("check");
       onChanged();
     } catch (x) { setErr(x); } finally { setBusy(false); }
   };
   const alignment = async () => {
     setErr(null);
-    try { setAlign(await api.postBlob(`/api/checks/transactions/${t.id}/alignment-test`, body), "alignment-test.pdf"); } catch (x) { setErr(x); }
+    try { setAlign(await api.postBlob(`/api/checks/transactions/${t.id}/alignment-test`, body), "alignment-test.pdf"); setViewing("align"); } catch (x) { setErr(x); }
   };
   const afterPrint = (what: "done" | "reprint" | "spoil") => {
     if (what === "done") { onClose(); return; }
@@ -130,9 +143,13 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
   if (printed) {
     return (
       <div className="print-check">
-        <div className="alert success" role="status"><strong>Check #{number} is ready.</strong> Open it and print it with the settings below.</div>
-        <PdfLinks pdf={pdf} label="Open the check to print" />
-        <BrowserTips singleFeed={feedMode?.kind === "SINGLE"} />
+        <div className="alert success" role="status"><strong>Check #{number} is ready.</strong> Print it at actual size (100%).</div>
+        <div className="actions left"><button onClick={() => setViewing("check")}>Show the check again</button></div>
+        {pdf && viewing === "check" ? (
+          <PdfViewer pdf={pdf} title={`Check #${number}`} singleFeed={feedMode?.kind === "SINGLE"} onClose={() => setViewing(null)}>
+            <p className="hint">Load check <b>#{number}</b>{feedMode?.kind === "SINGLE" ? " in the manual feed" : ""}, then <b>Print…</b>. Close this window afterwards to say whether it printed correctly.</p>
+          </PdfViewer>
+        ) : null}
         <h3>Did the check print correctly?</h3>
         <div className="actions left">
           <button className="primary" onClick={() => afterPrint("done")}>Yes – done</button>
@@ -141,6 +158,8 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
         </div>
         <p className="hint">A misaligned print counts as spoiled: the check has ink on it. Reprint only when the check came out blank or undamaged and you
           put the same check back in the printer.</p>
+        <EnclosuresPanel txnId={t.id} signerId={signer ? Number(signer) : null} onChanged={onChanged}
+          intro="Optional. The letter is signed by name by the check's signer. Printed letters and envelopes are attached to the transaction." />
         {spoiling ? <SpoilDialog txn={t} number={number} next={o.next_check_number} onClose={() => setSpoiling(false)} onDone={() => { setSpoiling(false); setPrinted(false); setTyped(""); setPdf(null); onChanged(); reload(); }} /> : null}
       </div>
     );
@@ -221,7 +240,7 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
         <h3>Check alignment on plain paper first (optional)</h3>
         <div className="row">
           <button type="button" onClick={alignment} disabled={!prep || !!prepErr}>Test print on plain paper</button>
-          <PdfLinks pdf={align} label="Open the test page" />
+          {align && viewing !== "align" ? <button className="link" onClick={() => setViewing("align")}>Show the test page again</button> : null}
           <button type="button" onClick={() => setAssistant(true)}>Printer setup assistant…</button>
         </div>
         <p className="hint">Hold the test page over a blank check against a light. It never uses a check and is not recorded as printed.
@@ -248,6 +267,7 @@ function PrintForm({ o, reload, onClose, onChanged }: { o: Opts; reload: () => v
           <button className="primary" disabled={!canPrint} onClick={doPrint}>{reprint ? "Reprint check" : "Print check"}</button>
         </div>
       </section>
+      {align && viewing === "align" ? <PdfViewer pdf={align} title="Alignment test (plain paper)" singleFeed={feedMode?.kind === "SINGLE"} onClose={() => setViewing(null)} /> : null}
       {spoiling ? <SpoilDialog txn={t} number={t.check_number} next={o.next_check_number} onClose={() => setSpoiling(false)} onDone={() => { setSpoiling(false); setTyped(""); onChanged(); reload(); }} /> : null}
       {assistant ? <PrinterAssistant o={o} feed={feed} body={body} txnId={t.id} onClose={() => { setAssistant(false); reload(); }} /> : null}
       {counter ? <SheetCounter o={o} onClose={() => setCounter(false)} onDone={() => { setCounter(false); reload(); }} /> : null}
@@ -333,6 +353,7 @@ function PrinterAssistant({ o, feed, body, txnId, onClose }: { o: Opts; feed: st
   const [step, setStep] = useState<"scale" | "scale-bad" | "align" | "result" | "done">("scale");
   const [scalePdf, setScalePdf] = usePdf();
   const [testPdf, setTestPdf] = usePdf();
+  const [show, setShow] = useState<null | "scale" | "test">(null);
   const [err, setErr] = useState<unknown>(null);
   const [outcome, setOutcome] = useState("");
   const [dir, setDir] = useState("down");
@@ -342,8 +363,8 @@ function PrinterAssistant({ o, feed, body, txnId, onClose }: { o: Opts; feed: st
     setSt(next);
     await api.put("/api/checks/my-printer", { check_style_id: o.check_style_id, feed_key: feed, page: single ? next.page : null, guide: single ? next.guide : null, dx: next.dx, dy: next.dy });
   };
-  const printScale = async () => { setErr(null); try { const r = await fetch("/api/checks/scale-check", { credentials: "same-origin" }); setScalePdf(await r.blob(), "scale-check.pdf"); } catch (x) { setErr(x); } };
-  const printTest = async () => { setErr(null); try { setTestPdf(await api.postBlob(`/api/checks/transactions/${txnId}/alignment-test`, body), "alignment-test.pdf"); setStep("result"); } catch (x) { setErr(x); } };
+  const printScale = async () => { setErr(null); try { const r = await fetch("/api/checks/scale-check", { credentials: "same-origin" }); setScalePdf(await r.blob(), "scale-check.pdf"); setShow("scale"); } catch (x) { setErr(x); } };
+  const printTest = async () => { setErr(null); try { setTestPdf(await api.postBlob(`/api/checks/transactions/${txnId}/alignment-test`, body), "alignment-test.pdf"); setStep("result"); setShow("test"); } catch (x) { setErr(x); } };
   const apply = async () => {
     setErr(null);
     const a = Number(amt);
@@ -375,13 +396,15 @@ function PrinterAssistant({ o, feed, body, txnId, onClose }: { o: Opts; feed: st
   };
   return (
     <Modal title={`Printer setup assistant – ${fm?.label}`} onClose={onClose} wide>
+      {show === "scale" && scalePdf ? <PdfViewer pdf={scalePdf} title="Scale check" onClose={() => setShow(null)} /> : null}
+      {show === "test" && testPdf ? <PdfViewer pdf={testPdf} title="Alignment test" singleFeed={single} onClose={() => setShow(null)} /> : null}
       <ErrorBox error={err} />
       <p className="hint">These settings are yours only, for this check style and feed mode. They never change the Administrator's layout.</p>
       {step === "scale" || step === "scale-bad" ? (
         <>
           <h3>Step 1 – print scale</h3>
           <p>Print the scale check on plain paper and measure the line with a ruler.</p>
-          <div className="row"><button onClick={printScale}>Get the scale check page</button><PdfLinks pdf={scalePdf} label="Open to print" /></div>
+          <div className="row"><button onClick={printScale}>Print the scale check page</button></div>
           {step === "scale-bad" ? <div className="alert warn">The browser is changing the size. Fix the scale setting below and print the scale check again.</div> : null}
           <BrowserTips singleFeed={false} />
           <p><b>Is the line exactly 5 inches?</b></p>
@@ -398,7 +421,7 @@ function PrinterAssistant({ o, feed, body, txnId, onClose }: { o: Opts; feed: st
       ) : step === "result" ? (
         <>
           <h3>Step 3 – what happened?</h3>
-          <div className="row"><PdfLinks pdf={testPdf} label="Open the test page" /></div>
+          <div className="row"><button className="link" onClick={() => setShow("test")}>Show the test page again</button></div>
           <fieldset className="choices">
             {[["ok", "It lines up with the check"], ["shifted", "Everything is shifted"], ["shrunk", "It printed smaller or larger"],
               ...(single ? [["wrongplace", "It printed on the wrong part of the paper"], ["papersize", "The printer showed a paper-size error"]] : []),

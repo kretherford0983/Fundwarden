@@ -11,6 +11,7 @@ printed transaction).
 - [For Administrators: setting up](#for-administrators-setting-up)
 - [For Register Users: printing a check](#for-register-users-printing-a-check)
 - [For Register Users: payments](#for-register-users-payments)
+- [Cover letters and envelopes](#cover-letters-and-envelopes)
 - [When something goes wrong](#when-something-goes-wrong)
 - [Example: 3-per-page laser checks on an HP LaserJet](#example-3-per-page-laser-checks-on-an-hp-laserjet)
 
@@ -166,6 +167,48 @@ The Payments page lists the checks printed from the account; **Open in register*
 **Create payment…** on a withdrawal that is already in the register opens its payment page. The transaction's details
 are shown but locked — to change them, edit the transaction in the register — and the check is printed from there.
 
+## Cover letters and envelopes
+
+### Setting them up (Administrators)
+Under **Cover letters and envelopes** in Check Printing, **New cover letter** and **New #10 envelope** create a
+template and open its editor. The first template of each kind becomes the **default**; **Make default** and
+**Deactivate** change that. **Test print (sample data)** shows the template with a sample payee and invoices.
+
+A **cover letter** has:
+
+- **Letterhead** — up to six typed lines; the first prints in bold (`{ORG}` is the organization's name). Optionally
+  today's date under it.
+- **Subject**, **salutation**, **opening paragraph**, **closing paragraph(s)** and **sign-off**. A blank line starts
+  a new paragraph. All of them take the memo's `{VARIABLES}` (type `{` for the list), plus `{TODAY}`,
+  `{PAYEE_ADDRESS}`, `{INVOICE_DATE}`, `{CHECK_NUMBER}`, `{SIGNER}` and `{SIGNER_TITLE}`.
+- The **invoice table** — choose and order the columns (invoice number, invoice date, description, budget, notes, amount)
+  and their headings; one row per line of the transaction, with the **total line** under it.
+- **Signed by** — the letter is signed by name (never the signature image) by the check's signer: name, title and
+  organization. When the check prints without a signer, or the check is written by hand without one, the **name and
+  role** set here are used.
+- Whether **Include cover letter** starts ticked on the print screen.
+
+The payee's name and address under "To:" come from the payee's entity — keep the vendor's address in **Entities**.
+
+A **#10 envelope** (9.5 × 4.125 in) has the payee's name and address from the entity, an optional **return address**
+(it starts as the default letter's letterhead; leave it off for envelopes with a printed return address — users can
+still switch it on for one print), the positions of both, and how it feeds: **stamp end first** or the other end, on a
+**Letter page** placed at the manual-feed guides (no printer setup needed) or on an envelope-sized page, a small
+offset and a printer note.
+
+### Printing them (Register Users)
+After a check prints, the print screen shows **Cover letter and envelope**: with **Include cover letter** ticked,
+choose the letter template and click **Print cover letter**; choose the envelope template and click **Print
+envelope**. A payee without an address, or a variable without data, asks you to confirm
+first. Each printed letter and envelope is attached to the transaction (the same one only once).
+**Test on plain paper** prints the envelope without recording it; **My envelope printer settings** saves your own page,
+guide and an adjustment of up to 1/4 inch.
+
+### Checks written by hand
+For a check you write by hand (or a personal check), open **Print check…** and choose **I'm writing the check by
+hand**. Type the number of the check you wrote twice and click **Record check number** — the register then matches
+the bank, and no check is printed or counted. Then print the cover letter and envelope as above.
+
 ## When something goes wrong
 
 | Problem | What to do |
@@ -177,6 +220,8 @@ are shown but locked — to change them, edit the transaction in the register �
 | The browser can't print at actual size | **Download PDF** and print it from a PDF app (Adobe Reader, Preview). |
 | Printer jammed but the check is fine | Print again → **Reprint** with a reason. |
 | The check is damaged | **Mark spoiled**, then print on the next check. |
+| The envelope address is off-center | **My envelope printer settings** on the print screen (your printer), or the envelope template's positions (everyone). |
+| The letter or envelope has no address | Add the address to the payee in **Entities**, then print again. |
 
 Browser settings that matter:
 

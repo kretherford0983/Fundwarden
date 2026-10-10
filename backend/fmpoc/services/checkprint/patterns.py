@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 
 AND_OTHERS = " and others"
 MAX_PATTERN = 200
+MAX_TEXT = 2000        # letter paragraphs
 
 # name -> (description, contexts it may be used in)
 CHECK, LETTER, ENVELOPE, STUB = "CHECK", "LETTER", "ENVELOPE", "STUB"
@@ -34,7 +35,14 @@ VARIABLES: dict[str, tuple[str, tuple[str, ...]]] = {
                      (LETTER, ENVELOPE, STUB)),
     "ORG": ("Organization name", ALL),
     "ACCOUNT": ("Bank account name (never the account number)", ALL),
+    # 2.0.0 (#165, #166): letters, envelopes and stubs
+    "INVOICE_DATE": ("Invoice date (first one + \"and others\" when split)", (LETTER, ENVELOPE, STUB)),
+    "TODAY": ("Today's date (the day it is printed)", (LETTER, ENVELOPE, STUB)),
+    "PAYEE_ADDRESS": ("Payee's address from the entity (several lines)", (LETTER, ENVELOPE)),
+    "SIGNER": ("Name of the check's signer", (LETTER,)),
+    "SIGNER_TITLE": ("Title of the check's signer", (LETTER,)),
 }
+MULTILINE = (LETTER, ENVELOPE)     # contexts whose text may contain line breaks
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -63,10 +71,13 @@ def _suggest(name: str, context: str) -> str | None:
 def parse(pattern: str, context: str = CHECK) -> list[Token]:
     if pattern is None:
         return []
-    if len(pattern) > MAX_PATTERN:
-        raise PatternError(f"The text is longer than {MAX_PATTERN} characters.")
-    if any(ord(ch) < 32 for ch in pattern):
-        raise PatternError("The text may not contain line breaks or control characters.")
+    limit = MAX_TEXT if context in (LETTER,) else MAX_PATTERN
+    if len(pattern) > limit:
+        raise PatternError(f"The text is longer than {limit} characters.")
+    allowed = {"\n"} if context in MULTILINE else set()
+    if any(ord(ch) < 32 and ch not in allowed for ch in pattern):
+        raise PatternError("The text may not contain line breaks or control characters." if not allowed
+                           else "The text may not contain control characters.")
     out: list[Token] = []
     buf: list[str] = []
     i, n = 0, len(pattern)

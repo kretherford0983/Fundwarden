@@ -219,7 +219,7 @@ function TxnDetail({ t, manage, canPrintChecks, onPrintCheck, onEdit, onVoid, on
           {t.allocations.map((a: any) => (
             <tr key={a.id}>
               <td>{a.budget.fiscal_year.display_name}</td><td>{a.budget.label}{a.budget.status === "REJECTED" ? " (rejected)" : ""}</td>
-              <td>{a.entity?.display_name || ""}</td><td>{a.invoice_number || ""}</td><td>{a.description || ""}</td>
+              <td>{a.entity?.display_name || ""}</td><td>{a.invoice_number || ""}{a.invoice_date ? <span className="muted"> ({a.invoice_date})</span> : null}</td><td>{a.description || ""}</td>
               <td className="num">{money(a.amount)}</td>
               <td>{a.reviews.map((r: any) => `${r.category === "CROSS_FY" ? "Cross-FY" : "No FY"}: ${r.status}`).join("; ")}</td>
               <td>{a.notes || ""}</td>
@@ -254,8 +254,8 @@ function TxnDetail({ t, manage, canPrintChecks, onPrintCheck, onEdit, onVoid, on
   );
 }
 
-type Alloc = { id?: number; fiscal_year_id: string; budget_id: string; entity_id: string; invoice_number: string; description: string; amount: string; notes: string; no_attachment: boolean; no_attachment_reason: string; files: File[] };
-const blankAlloc = (fy = ""): Alloc => ({ fiscal_year_id: fy, budget_id: "", entity_id: "", invoice_number: "", description: "", amount: "", notes: "", no_attachment: false, no_attachment_reason: "", files: [] });
+type Alloc = { id?: number; fiscal_year_id: string; budget_id: string; entity_id: string; invoice_number: string; invoice_date: string; description: string; amount: string; notes: string; no_attachment: boolean; no_attachment_reason: string; files: File[] };
+const blankAlloc = (fy = ""): Alloc => ({ fiscal_year_id: fy, budget_id: "", entity_id: "", invoice_number: "", invoice_date: "", description: "", amount: "", notes: "", no_attachment: false, no_attachment_reason: "", files: [] });
 
 function useBudgetOptions(fyIds: string[], type: string) {
   const [cache, setCache] = useState<Record<string, any[]>>({});
@@ -285,7 +285,7 @@ export function TxnForm({ account, txn, initial, fys, onClose, onSaved, payment 
   const [noAttDlg, setNoAttDlg] = useState<number | null>(null);
   const [allocs, setAllocs] = useState<Alloc[]>(txn ? txn.allocations.map((a: any) => ({
     id: a.id, fiscal_year_id: String(a.budget.fiscal_year.id), budget_id: String(a.budget.id), entity_id: a.entity ? String(a.entity.id) : "",
-    invoice_number: a.invoice_number || "", description: a.description || "", amount: a.amount, notes: a.notes || "",
+    invoice_number: a.invoice_number || "", invoice_date: a.invoice_date || "", description: a.description || "", amount: a.amount, notes: a.notes || "",
     no_attachment: !!a.no_attachment, no_attachment_reason: a.no_attachment_reason || "", files: [],
   })) : [blankAlloc()]);
   const [parentFiles, setParentFiles] = useState<File[]>([]);
@@ -315,14 +315,14 @@ export function TxnForm({ account, txn, initial, fys, onClose, onSaved, payment 
 
   const changeType = (t: string) => {
     if (t === type) return;
-    if (isNew) { setType(t); setAllocs(allocs.map((a) => ({ ...a, budget_id: "", invoice_number: "" }))); setH({ ...h, check_number: "" }); return; }
+    if (isNew) { setType(t); setAllocs(allocs.map((a) => ({ ...a, budget_id: "", invoice_number: "", invoice_date: "" }))); setH({ ...h, check_number: "" }); return; }
     setTypeDlg(t);
   };
   const confirmType = () => {
     const t = typeDlg!;
     setType(t);
     // clear/revalidate incompatible fields: budgets must be re-selected, check/invoice numbers cleared
-    setAllocs(allocs.map((a) => ({ ...a, budget_id: "", invoice_number: t === "DEPOSIT" ? "" : a.invoice_number, entity_id: "" })));
+    setAllocs(allocs.map((a) => ({ ...a, budget_id: "", invoice_number: t === "DEPOSIT" ? "" : a.invoice_number, invoice_date: t === "DEPOSIT" ? "" : a.invoice_date, entity_id: "" })));
     setH({ ...h, check_number: t === "DEPOSIT" ? "" : h.check_number, entity_id: txn?.entity?.is_system ? "" : h.entity_id });
     setTypeDlg(null);
   };
@@ -340,7 +340,9 @@ export function TxnForm({ account, txn, initial, fys, onClose, onSaved, payment 
     const allocations = allocs.map((a) => ({
       ...(a.id ? { id: a.id } : {}), budget_id: Number(a.budget_id), fiscal_year_id: a.fiscal_year_id ? Number(a.fiscal_year_id) : null,
       entity_id: type === "DEPOSIT" && a.entity_id ? Number(a.entity_id) : null,
-      invoice_number: type === "WITHDRAWAL" ? a.invoice_number || null : null, description: a.description || null, amount: a.amount, notes: a.notes || null,
+      invoice_number: type === "WITHDRAWAL" ? a.invoice_number || null : null,
+      invoice_date: type === "WITHDRAWAL" && a.invoice_date ? a.invoice_date : null, // 2.0.0 (#165)
+      description: a.description || null, amount: a.amount, notes: a.notes || null,
       no_attachment: split ? a.no_attachment : false, no_attachment_reason: split && a.no_attachment ? a.no_attachment_reason || null : null,
     }));
     const header = {
@@ -444,6 +446,7 @@ export function TxnForm({ account, txn, initial, fys, onClose, onSaved, payment 
                     onChange={(v) => upd(i, "entity_id", v)} placeholder="Default entity" />
                 ) : null}
                 {type === "WITHDRAWAL" ? <Field label="Invoice #"><input value={a.invoice_number} onChange={(e) => upd(i, "invoice_number", e.target.value)} /></Field> : null}
+                {type === "WITHDRAWAL" ? <Field label="Invoice date"><input type="date" aria-label={`Allocation ${i + 1} Invoice date`} value={a.invoice_date} onChange={(e) => upd(i, "invoice_date", e.target.value)} /></Field> : null}
                 <Field label="Description"><input maxLength={500} value={a.description} onChange={(e) => upd(i, "description", e.target.value)} /></Field>
                 <Field label="Notes"><input value={a.notes} onChange={(e) => upd(i, "notes", e.target.value)} /></Field>
               </div>

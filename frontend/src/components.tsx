@@ -29,6 +29,8 @@ export function GuardedForm({ onSubmit, children, ...rest }: Omit<FormHTMLAttrib
   );
 }
 
+const openModals: object[] = [];
+
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   // 1.10.0 (#139): the focus moves into the dialog once, when it opens. A parent that re-renders while the user types
@@ -37,10 +39,18 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
+    // 2.0.0 (#174): dialogs can open on top of each other (a PDF viewer over the print screen) - Escape closes only the
+    // top one
+    const me = {};
+    openModals.push(me);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && openModals[openModals.length - 1] === me && closeRef.current();
     window.addEventListener("keydown", onKey);
     ref.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const i = openModals.indexOf(me);
+      if (i >= 0) openModals.splice(i, 1);
+    };
   }, []);
   // Portal: nested dialogs (e.g. "new institution" inside the account form) must not nest <form> elements.
   return createPortal(

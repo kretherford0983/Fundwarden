@@ -2,6 +2,7 @@
  * to scale with the built-in fonts, the pattern input with variable autocomplete, and browser print instructions. */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
+import { Modal } from "../components";
 
 export type FontInfo = { key: string; label: string; descent: number; descent_bold: number; cap_height: number };
 export type Variable = { name: string; description: string };
@@ -127,10 +128,11 @@ export function CheckPreview({ cfg, fonts, texts, highlight, showBoxes = true, s
 }
 
 /** Text with {VARIABLES}: autocomplete after "{" (case-insensitive), descriptions shown, Enter/Tab/click inserts. */
-export function PatternInput({ value, onChange, variables, label, id, placeholder, maxLength = 200 }: {
+export function PatternInput({ value, onChange, variables, label, id, placeholder, maxLength = 200, multiline = false, hint = true }: {
   value: string; onChange: (v: string) => void; variables: Variable[]; label: string; id: string; placeholder?: string; maxLength?: number;
+  multiline?: boolean; hint?: boolean;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef<any>(null);
   const [caret, setCaret] = useState(0);
   const [active, setActive] = useState(0);
   const [focus, setFocus] = useState(false);
@@ -171,12 +173,22 @@ export function PatternInput({ value, onChange, variables, label, id, placeholde
   return (
     <div className="field pattern-input">
       <label htmlFor={id}>{label}</label>
-      <input id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
-             role="combobox" aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
-             onChange={(e) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
-             onKeyUp={(e) => setCaret((e.target as HTMLInputElement).selectionStart || 0)}
-             onClick={(e) => setCaret((e.target as HTMLInputElement).selectionStart || 0)}
+      <div className="pi-wrap">
+      {multiline ? (
+        <textarea rows={4} id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
+             aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
+             onChange={(e: any) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
+             onKeyUp={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onClick={(e: any) => setCaret(e.target.selectionStart || 0)}
              onKeyDown={onKey} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
+      ) : (
+        <input id={id} ref={ref} value={value} maxLength={maxLength} placeholder={placeholder} autoComplete="off" spellCheck={false}
+             role="combobox" aria-expanded={!!open && focus} aria-controls={`${id}-list`} aria-autocomplete="list"
+             onChange={(e: any) => { onChange(e.target.value); setCaret(e.target.selectionStart || 0); setActive(0); }}
+             onKeyUp={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onClick={(e: any) => setCaret(e.target.selectionStart || 0)}
+             onKeyDown={onKey} onFocus={() => setFocus(true)} onBlur={() => setTimeout(() => setFocus(false), 150)} />
+      )}
       {open && focus ? (
         <ul className="autocomplete" id={`${id}-list`} role="listbox">
           {open.list.map((v, i) => (
@@ -187,7 +199,8 @@ export function PatternInput({ value, onChange, variables, label, id, placeholde
           ))}
         </ul>
       ) : null}
-      <span className="hint">Text prints as typed; <code>{"{VARIABLE}"}</code> fills in from the transaction (type <code>{"{"}</code> for the list). Use <code>{"{{"}</code> and <code>{"}}"}</code> to print a brace.</span>
+      </div>
+      {hint ? <span className="hint">Text prints as typed; <code>{"{VARIABLE}"}</code> fills in from the transaction (type <code>{"{"}</code> for the list). Use <code>{"{{"}</code> and <code>{"}}"}</code> to print a brace.</span> : null}
     </div>
   );
 }
@@ -232,14 +245,47 @@ export function BrowserTips({ singleFeed }: { singleFeed?: boolean }) {
   );
 }
 
-/** Opens a generated PDF: a link to open it in a new tab (to print) and one to download it. */
-export function PdfLinks({ pdf, label = "Open to print" }: { pdf: { url: string; name: string } | null; label?: string }) {
+/** Links to open a generated PDF in a new tab and to download it. */
+export function PdfLinks({ pdf, label = "Open in a new tab" }: { pdf: { url: string; name: string } | null; label?: string }) {
   if (!pdf) return null;
   return (
     <span className="pdf-links">
-      <a className="button primary" href={pdf.url} target="_blank" rel="noopener">{label}</a>
+      <a className="button" href={pdf.url} target="_blank" rel="noopener">{label}</a>
       <a className="button" href={pdf.url} download={pdf.name}>Download PDF</a>
     </span>
+  );
+}
+
+/** 2.0.0 (#174): a generated PDF shown in the page with a Print button that opens the browser's print dialog
+ * directly - one click to see it, one to print. Download and a new tab remain for browsers that can't print a PDF
+ * from the page. */
+export function PdfViewer({ pdf, title, onClose, singleFeed, children }: {
+  pdf: { url: string; name: string }; title: string; onClose: () => void; singleFeed?: boolean; children?: React.ReactNode;
+}) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [failed, setFailed] = useState(false);
+  const print = () => {
+    try {
+      const w = frame.current?.contentWindow;
+      if (!w) throw new Error("no frame");
+      w.focus();
+      w.print();
+    } catch { setFailed(true); }
+  };
+  return (
+    <Modal title={title} onClose={onClose} wide>
+      <div className="pdf-viewer">
+        <div className="row">
+          <button className="primary" onClick={print} autoFocus>Print…</button>
+          <PdfLinks pdf={pdf} />
+          <button onClick={onClose}>Close</button>
+        </div>
+        {failed ? <div className="alert warn">This browser can't print from here: use <b>Open in a new tab</b> and print from there.</div> : null}
+        {children}
+        <iframe ref={frame} className="pdf-frame" src={pdf.url} title={title} />
+        <details className="browser-tips-wrap"><summary>Print settings for this browser</summary><BrowserTips singleFeed={singleFeed} /></details>
+      </div>
+    </Modal>
   );
 }
 
