@@ -1,6 +1,6 @@
 /** 2.0.0 (#157, #160, #162): pieces shared by the check setup screen and the print screen - the check preview drawn
  * to scale with the built-in fonts, the pattern input with variable autocomplete, and browser print instructions. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export type FontInfo = { key: string; label: string; descent: number; descent_bold: number; cap_height: number };
 export type Variable = { name: string; description: string };
@@ -142,13 +142,23 @@ export function PatternInput({ value, onChange, variables, label, id, placeholde
     const list = variables.filter((v) => v.name.startsWith(typed.toUpperCase()));
     return list.length ? { start: i, typed, list } : null;
   }, [value, caret, variables]);
+  // The cursor goes right after an inserted variable in the same render that shows the new text (a layout effect),
+  // before the next keystroke can arrive - moving it later (e.g. on the next animation frame) let fast typing land
+  // in the wrong place.
+  const pendingCaret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const pos = pendingCaret.current;
+    if (pos === null || !ref.current) return;
+    pendingCaret.current = null;
+    ref.current.setSelectionRange(pos, pos);
+    setCaret(pos);
+  }, [value]);
   const insert = (name: string) => {
     if (!open) return;
     const after = value.slice(caret);
     const next = value.slice(0, open.start) + `{${name}}` + (after.startsWith("}") ? after.slice(1) : after);
+    pendingCaret.current = open.start + name.length + 2;
     onChange(next);
-    const pos = open.start + name.length + 2;
-    requestAnimationFrame(() => { ref.current?.setSelectionRange(pos, pos); setCaret(pos); });
   };
   const onKey = (e: React.KeyboardEvent) => {
     if (!open || !focus) return;

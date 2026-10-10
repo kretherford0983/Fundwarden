@@ -2082,7 +2082,7 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await memo.fill("TABLES, {B");
   await expect(dlg.getByRole("option", { name: /BUDGET_CODE/ })).toBeVisible();
   await dlg.getByRole("option", { name: /BUDGET_CODE/ }).click();
-  await memo.press("End");
+  // typing straight on continues after the inserted variable (the cursor is placed there at once)
   await memo.pressSequentially(", {I");
   await memo.press("Enter");
   await expect(memo).toHaveValue("TABLES, {BUDGET_CODE}, {INVOICE}");
@@ -2115,5 +2115,7 @@ test("#156-#162: Administrator sets up check printing; a Register User prints a 
   await expect(dlg.getByText("Load check #8102")).toBeVisible();
   await dlg.getByRole("button", { name: "Cancel" }).click();
   await page.reload();
-  await expect(page.getByRole("row").filter({ hasText: "8101" }).filter({ hasText: "VOID" })).toBeVisible();
+  // the spoiled number is kept as a VOID record (the transaction rows have id="txn-<id>"; detail rows don't)
+  await expect(page.locator('tr[id^="txn-"]').filter({ hasText: "8101" }).filter({ hasText: "VOID" })).toHaveCount(1);
+  await expect(page.locator(`#txn-${t.id}`)).toContainText("8102");
 });
