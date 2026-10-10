@@ -96,14 +96,18 @@ function CopyStyle({ style, onClose, onDone }: { style: any; onClose: () => void
 }
 
 // ------------------------------------------------------------------ editor
-/** #174: a section of the editor that can be collapsed, remembered in this browser (best effort). */
+/** #174: which editor sections are collapsed and whether the preview is pinned - kept in memory while the app is open
+ * (AC-SEC-006: the app keeps nothing in browser storage). */
+const viewState = new Map<string, boolean>();
+
+/** #174: a section of the editor that can be collapsed. */
 function Section({ id, title, children, extra, className = "" }: { id: string; title: string; children: React.ReactNode; extra?: React.ReactNode; className?: string }) {
   const key = `pw-check-setup-${id}`;
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== "closed"; } catch { return true; } });
+  const [open, setOpen] = useState(() => viewState.get(key) ?? true);
   const toggle = () => {
     const next = !open;
     setOpen(next);
-    try { localStorage.setItem(key, next ? "open" : "closed"); } catch { /* storage unavailable: just not remembered */ }
+    viewState.set(key, next);
   };
   return (
     <section className={`card collapsible ${open ? "open" : "closed"} ${className}`} aria-labelledby={`${id}-h`}>
@@ -148,8 +152,8 @@ function StyleEditor({ setup, style, onClose, onSaved }: { setup: any; style: an
   const [texts, setTexts] = useState<Record<string, FieldText> | null>(null);
   const [fitErr, setFitErr] = useState<unknown>(null);
   const [hl, setHl] = useState<string | null>(null);
-  const [pin, setPin] = useState(() => { try { return localStorage.getItem("pw-check-setup-pin") === "1"; } catch { return false; } });
-  useEffect(() => { try { localStorage.setItem("pw-check-setup-pin", pin ? "1" : "0"); } catch { /* not remembered */ } }, [pin]);
+  const [pin, setPin] = useState(() => viewState.get("pw-check-setup-pin") ?? false);
+  useEffect(() => { viewState.set("pw-check-setup-pin", pin); }, [pin]);
   const [testFeed, setTestFeed] = useState(style.config.feed_modes[0]?.key);
   const [testSigner, setTestSigner] = useState("");
   const [pdf, setPdf] = usePdf();
