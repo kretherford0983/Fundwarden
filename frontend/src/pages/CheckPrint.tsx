@@ -48,7 +48,7 @@ function ChooseStyle({ o, onDone }: { o: Opts; onDone: () => void }) {
     e.preventDefault();
     try { await api.put(`/api/checks/accounts/${o.transaction.bank_account_id}`, { check_style_id: Number(style), sheet_remaining: left ? Number(left) : null }); onDone(); } catch (x) { setErr(x); }
   };
-  if (!o.styles.length) return <div className="alert warn">No check styles are set up yet. Ask an Administrator to set up Check Printing.</div>;
+  if (!o.styles.length) return <div className="alert warn">No check styles are set up yet. Ask an Administrator to set up check styles in Payments Setup.</div>;
   return (
     <GuardedForm onSubmit={go}>
       <ErrorBox error={err} />

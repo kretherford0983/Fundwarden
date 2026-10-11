@@ -1,10 +1,10 @@
-# Check printing (2.0.0)
+# The Payments module: check printing, payments, letters and envelopes (2.0.0)
 
 PennyWarden can print checks on **printable check stock that already carries the bank numbers** (the MICR line and
 the check number are pre-printed). PennyWarden prints the date, the payee, the amount in numbers and in words, the
 memo and, when allowed, a signature. It never prints the check number or the bank numbers.
 
-Check printing is an optional module. An **Administrator** sets it up; **Register Users** print checks. Budget
+Check printing is part of the optional **Payments module**. An **Administrator** sets it up in **Payments Setup**; **Register Users** print checks. Budget
 Managers, Budget Users and Auditors have no access to the module (Auditors see the record copy attached to each
 printed transaction).
 
@@ -18,11 +18,11 @@ printed transaction).
 ## For Administrators: setting up
 
 ### 1. Turn the module on
-**System/About → Optional modules → Check Printing module.** *Check Printing* appears in your menu, and Register
-Users get a **Print check…** button on withdrawals in the register.
+**System/About → Optional modules → Payments module.** *Payments Setup* appears in your menu, and Register Users get
+**Payments** in their menu and a **Print check…** button on withdrawals in the register.
 
 ### 2. Create a check style
-**Check Printing → New check style from preset → Create.** A check style describes your check stock:
+**Payments Setup → New check style from preset → Create.** A check style describes your check stock:
 
 - **the sheet**: how many checks are on a Letter sheet and how you use it — print the top check and tear it off, or
   print each position in turn;
@@ -194,7 +194,7 @@ are shown but locked — to change them, edit the transaction in the register �
 ## Cover letters and envelopes
 
 ### Setting them up (Administrators)
-Under **Cover letters and envelopes** in Check Printing, **New cover letter** and **New #10 envelope** create a
+Under **Cover letters and envelopes** in Payments Setup, **New cover letter** and **New #10 envelope** create a
 template and open its editor. The first template of each kind becomes the **default**; **Make default** and
 **Deactivate** change that. **Test print (sample data)** shows the template with a sample payee and invoices.
 

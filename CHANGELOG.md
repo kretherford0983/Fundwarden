@@ -8,7 +8,7 @@ needs the data snapshot the installer takes before the upgrade (docs/upgrade.md)
 several test builds; the notes below grow with each one.
 
 **Test build 1 — check printing on 3-per-page laser stock (#156–#162, #163)**
-- **Check Printing module (optional).** An Administrator turns it on in System/About. Prints the date, payee, the
+- **Payments module (optional).** An Administrator turns it on in System/About and sets it up in *Payments Setup*. Prints the date, payee, the
   amount in numbers and in words, the memo and a signature on printable check stock that already carries the bank
   numbers — never the check number or bank numbers (docs/check-printing.md).
 - **Check styles (#156).** Created from a preset and fine-tuned: the sheet (checks per sheet, tear off the top check
@@ -44,7 +44,7 @@ several test builds; the notes below grow with each one.
   (CodeQL alerts; #168).
 
 **Test build 2 — payments (#164)**
-- **Payments.** A *Payments* item in the menu for Register Users (Check Printing on), and *New payment* on the
+- **Payments.** A *Payments* item in the menu for Register Users (Payments module on), and *New payment* on the
   register: enter a bill once — pay from (the last account is remembered), check date, payee (search, or add a new
   vendor without leaving), one line per invoice with its budget, invoice number, description, amount and documents —
   and see the check amount in numbers and words as it will print. *Save and print check* records the withdrawal in the
@@ -57,7 +57,7 @@ several test builds; the notes below grow with each one.
 **Test build 3 — cover letters, #10 envelopes, setup polish (#165, #166, #174)**
 - **Invoice date.** Each line of a withdrawal can carry an optional invoice date (register and payments); it is
   available as `{INVOICE_DATE}` and in the cover letter's invoice table.
-- **Cover letters (#165).** Administrators keep letter templates in Check Printing: typed letterhead lines (the first in
+- **Cover letters (#165).** Administrators keep letter templates in Payments Setup: typed letterhead lines (the first in
   bold), today's date, subject, salutation, opening, an invoice table (choose and order the columns: invoice number,
   invoice date, description, budget, notes, amount; a total line), closing and sign-off — all with the same `{VARIABLES}`
   as the memo plus `{TODAY}`, `{PAYEE_ADDRESS}`, `{SIGNER}` and `{SIGNER_TITLE}`. The letter is signed by name by the

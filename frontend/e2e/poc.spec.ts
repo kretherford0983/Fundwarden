@@ -2027,11 +2027,11 @@ async function samplePng(w = 240, h = 60): Promise<Buffer> {
 test("#156-#162: Administrator sets up check printing; a Register User prints a check, with the number confirmed", async ({ page }) => {
   await login(page, "admin");
   await page.getByRole("link", { name: "System/About" }).click();
-  await page.getByLabel("Check Printing module").check();
+  await page.getByLabel("Payments module").check();
   await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
   await page.reload();
-  await page.getByRole("link", { name: "Check Printing" }).click();
-  await expect(page.getByRole("heading", { name: "Check Printing", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Payments Setup" }).click();
+  await expect(page.getByRole("heading", { name: "Payments Setup", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Create" }).click();
   // the editor opens with the preset, the preview drawn with the sample data
   await expect(page.getByRole("heading", { name: /Check style: 3 per page/ })).toBeVisible();
@@ -2191,7 +2191,7 @@ test("#164: a Register User enters a two-invoice payment, sees the check amount 
 // ---------------------------------------------------------------- 2.0.0 build 3: cover letters, envelopes (#165, #166)
 test("#165-#166: Administrator sets up a cover letter and an envelope; a Register User records a handwritten check and prints both", async ({ page }) => {
   await login(page, "admin");
-  await page.getByRole("link", { name: "Check Printing" }).click();
+  await page.getByRole("link", { name: "Payments Setup" }).click();
   await page.getByRole("button", { name: "New cover letter" }).click();
   await expect(page.getByRole("heading", { name: "Cover letter: Invoice payment letter" })).toBeVisible();
   await page.getByRole("button", { name: "+ Add line" }).click();
@@ -2203,12 +2203,12 @@ test("#165-#166: Administrator sets up a cover letter and an envelope; a Registe
   const tp = page.getByRole("dialog", { name: "Test print" });
   await expect(tp.getByRole("button", { name: "Print…" })).toBeVisible();
   await tp.getByRole("button", { name: "Close" }).first().click();
-  await page.getByRole("button", { name: "Back to check printing" }).click();
+  await page.getByRole("button", { name: "Back to Payments Setup" }).click();
   await page.getByRole("button", { name: "New #10 envelope" }).click();
   await expect(page.getByRole("heading", { name: "Envelope: #10 envelope" })).toBeVisible();
   // the return address starts as the default letter's letterhead
   await expect(page.getByLabel("Return address line 2", { exact: true })).toHaveValue("100 Example Street, Sampletown");
-  await page.getByRole("button", { name: "Back to check printing" }).click();
+  await page.getByRole("button", { name: "Back to Payments Setup" }).click();
   const docs = page.locator("section", { has: page.getByRole("heading", { name: "Cover letters and envelopes" }) });
   await expect(docs.getByRole("row", { name: /Invoice payment letter/ })).toContainText("Default");
   await expect(docs.getByRole("row", { name: /#10 envelope/ })).toContainText("Default");
@@ -2265,7 +2265,7 @@ test("#165-#166: Administrator sets up a cover letter and an envelope; a Registe
 // ---------------------------------------------------------------- 2.0.0 build 4: voucher checks, two signatures (#167)
 test("#167: Administrator sets up a voucher check with two signature lines; a Register User prints it with two signers", async ({ page }) => {
   await login(page, "admin");
-  await page.getByRole("link", { name: "Check Printing" }).click();
+  await page.getByRole("link", { name: "Payments Setup" }).click();
   await page.getByLabel("New check style from preset").selectOption({ label: "Voucher - check on top, two stubs" });
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.getByRole("heading", { name: /Check style: Voucher/ })).toBeVisible();

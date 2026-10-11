@@ -36,8 +36,8 @@ export default function CheckSetup() {
   }
   return (
     <div className="check-setup">
-      <h1>Check Printing</h1>
-      <p className="hint">Set up how checks print on your check stock. Register Users print checks from the register; they choose the
+      <h1>Payments Setup</h1>
+      <p className="hint">Set up how checks, cover letters and envelopes print for the Payments module. Register Users print checks from the register; they choose the
         check style for each bank account the first time they print from it. Test prints here use sample data only.</p>
       <ErrorBox error={err} />
       <section className="card" aria-labelledby="styles-h">

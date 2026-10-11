@@ -1,4 +1,4 @@
-"""2.0.0 (#156-#162): Check Printing module API.
+"""2.0.0 (#156-#162): Payments module API.
 
 Setup (Administrators, checks.setup): check styles, signers, test prints with dummy data, calibration pages.
 Printing (Register Users, checks.print): print checks from register transactions, reprint, spoil, alignment tests,

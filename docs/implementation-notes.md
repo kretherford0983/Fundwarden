@@ -154,6 +154,12 @@ is confirmed, warning `STUB_OVERFLOW`, `sample_stub` for admin pages; audit adds
 `setLines`, `MoneyIn`), `CheckPrint.tsx` (second signature select), `CheckPreview` draws the second line. Tests:
 `tests/test_v200_voucher.py`, E2E "#167".
 
+**2.0.0 rename (Kyle, 2026-10-10):** the optional module is shown as the **Payments module**; the Administrator's
+setup screen and menu item are **Payments Setup** (the Register Users' item stays **Payments**, so a combined local
+user sees two distinct entries). Only labels changed: the API (`/api/checks`), permissions (`checks.setup`,
+`checks.print`), `workspace.checks_enabled`, the `modules.checks` key, the route `/check-setup` and the guide's file
+name `docs/check-printing.md` stay as they are.
+
 **1.10.0 Update notification (issue #58; channel decided 2026-10-09).** Migration `0024`: `update_check` (one row).
 `services/updates.py`: `channel(settings)` - setting `update_channel` (`auto` → from `build_info.json`: `main` →
 stable, `test` → test, anything else / no build info → none); `check(app, force)` - due after 24 h (6 h after an error),

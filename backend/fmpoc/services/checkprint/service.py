@@ -1,4 +1,4 @@
-"""2.0.0 (#156, #158, #159, #161, #162): Check Printing module services.
+"""2.0.0 (#156, #158, #159, #161, #162): Payments module services.
 
 Who does what (docs/04 permission matrix):
 - Administrators (checks.setup): switch the module on/off, check styles, signers and signature images, limits, test
@@ -54,7 +54,7 @@ def module_enabled(db: Session, ws_id: int | None) -> bool:
 
 def require_module(db: Session, ctx) -> None:
     if not module_enabled(db, ctx.workspace_id):
-        raise AppError(404, "MODULE_DISABLED", "The Check Printing module is not turned on.")
+        raise AppError(404, "MODULE_DISABLED", "The Payments module is not turned on.")
 
 
 def set_module(db: Session, ctx, enabled: bool) -> bool:
