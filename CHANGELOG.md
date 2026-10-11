@@ -76,6 +76,17 @@ several test builds; the notes below grow with each one.
   click in a viewer with *Print…*, a new-tab link and *Download*; Escape closes only the top dialog; setup fields line
   up whether or not they have help text.
 
+**Test build 4 — voucher checks, two signature lines (#167)**
+- **Voucher checks.** New preset *Voucher – check on top, two stubs* (one check per Letter sheet, stubs perforated at
+  3.5 and 7 inches). Each stub prints a title, the payee, date and amount, a table of the payment's lines (columns
+  chosen like the cover letter's) with the total, the memo and `CHECK #nnnn` from the register (it can be switched
+  off; never on the check itself). The vendor copy never shows budgets; the office copy adds the budget column and
+  *OFFICE COPY*. More lines than fit: *…and N more, see enclosed letter*, confirmed before printing. Stubs are on the
+  test print, calibration page, plain-paper test and the record copy.
+- **Two signature lines.** Any check style can have two; the user picks two different signers (or leaves the second
+  for a hand signature). Optional amount above which only the first signature prints, below the no-signature amount.
+  The record copy shows *SIGNATURE ON FILE* for each line.
+
 ## 1.10.0 — 2026-10-09
 Database migration `0024` (one table added; no existing data changes). Rolling back to 1.9.0 needs the data snapshot
 the installer takes before the upgrade (docs/upgrade.md).

@@ -2261,3 +2261,66 @@ test("#165-#166: Administrator sets up a cover letter and an envelope; a Registe
   await page.reload();
   await expect(page.locator(`#txn-${t.id}`)).toContainText("8301");
 });
+
+// ---------------------------------------------------------------- 2.0.0 build 4: voucher checks, two signatures (#167)
+test("#167: Administrator sets up a voucher check with two signature lines; a Register User prints it with two signers", async ({ page }) => {
+  await login(page, "admin");
+  await page.getByRole("link", { name: "Check Printing" }).click();
+  await page.getByLabel("New check style from preset").selectOption({ label: "Voucher - check on top, two stubs" });
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("heading", { name: /Check style: Voucher/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stubs (voucher check)" })).toBeVisible();
+  await expect(page.getByLabel("Stub 2 copy")).toHaveValue("OFFICE");
+  await page.getByLabel("Signature lines").selectOption("2");
+  await expect(page.getByLabel("Second signature x")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Check preview drawn to scale" })).toContainText("SIGNATURE 2");
+  await page.getByRole("button", { name: "Save check style" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  await page.getByRole("button", { name: "Test print", exact: true }).click();
+  const tp = page.getByRole("dialog", { name: "Test print" });
+  await expect(tp.getByRole("button", { name: "Print…" })).toBeVisible();
+  await tp.getByRole("button", { name: "Close" }).first().click();
+  await page.getByRole("button", { name: "Back to check styles" }).click();
+  await page.getByRole("button", { name: "Add signer…" }).click();
+  const sd = page.getByRole("dialog", { name: "Add signer" });
+  await sd.getByLabel(/^Name/).fill("Pat Example");
+  await sd.getByLabel("Title (optional)").fill("Chair");
+  await sd.getByLabel(/Signature image/).setInputFiles({ name: "signature.png", mimeType: "image/png", buffer: await samplePng(220, 70) });
+  await sd.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("img", { name: "Sample of Pat Example's signature" })).toBeVisible();
+  await logout(page);
+
+  await login(page, "ru1", "Brand-New-Pass-99");
+  const post = await apiAs(page);
+  const ents = await (await page.request.get("/api/entities?search=Sample%20Supply")).json();
+  const ent = (ents.items || ents).find((e: any) => e.display_name === "Sample Supply Company, Inc");
+  const opts = await (await page.request.get("/api/budgets/selectable?fiscal_year_id=1&transaction_type=WITHDRAWAL")).json();
+  const travel = opts.find((o: any) => o.label === "1000-01 Travel").id;
+  const tr = await post("/api/transactions", { bank_account_id: 1, transaction_type: "WITHDRAWAL", transaction_date: "2026-11-30", entity_id: ent.id, check_number: "8401",
+    allocations: [{ budget_id: travel, amount: "25.00", invoice_number: "INV-95", description: "Pens" },
+                  { budget_id: travel, amount: "30.00", invoice_number: "INV-96", description: "Folders" }] });
+  expect(tr.status()).toBe(201);
+  const t = await tr.json();
+  // this account now uses the voucher stock
+  const po = await (await page.request.get(`/api/checks/transactions/${t.id}/options`)).json();
+  const voucher = po.styles.find((s: any) => s.name.startsWith("Voucher"));
+  expect((await page.request.put("/api/checks/accounts/1", { data: { check_style_id: voucher.id }, headers: { "X-CSRF-Token": (await (await page.request.get("/api/auth/me")).json()).csrf_token } })).status()).toBe(200);
+  await page.goto(`/register?account=1&txn=${t.id}`);
+  const row = page.locator(`#txn-${t.id}`);
+  await expect(row.getByRole("button", { name: `Details for transaction ${t.id}` })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Print check…" }).click();
+  const dlg = page.getByRole("dialog", { name: `Print check – transaction #${t.id}` });
+  await dlg.getByLabel("First signature").selectOption({ label: "Jordan Sample (Treasurer)" });
+  await dlg.getByLabel("Second signature").selectOption({ label: "Pat Example (Chair)" });
+  const preview = dlg.getByRole("img", { name: "Check preview drawn to scale" });
+  await expect(preview).toContainText("SIGNATURE ON FILE: PAT EXAMPLE");
+  await expect(preview).toContainText("SIGNATURE ON FILE: JORDAN SAMPLE");
+  await expect(dlg.getByText(/The stubs below the check list the 2 lines/)).toBeVisible();
+  await dlg.getByLabel("Type the number printed on the check that is in the printer").fill("8401");
+  await page.screenshot({ path: "e2e-screenshots/light-voucher-check.png" });
+  await dlg.getByRole("button", { name: "Print check" }).click();
+  await page.getByRole("dialog", { name: "Check #8401" }).getByRole("button", { name: "Close" }).first().click();
+  await expect(dlg.getByText("Check #8401 is ready.")).toBeVisible();
+  await dlg.getByRole("button", { name: "Yes – done" }).click();
+  await expect(row.getByText("Check printed")).toBeVisible();
+});

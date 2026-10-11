@@ -34,3 +34,9 @@ Administrators keep **cover letter** and **#10 envelope** templates in Check Pri
 the letter and the envelope; they are attached to the transaction. For a check written by hand, choose **I'm writing
 the check by hand**, record its number (typed twice), and print the letter and envelope. Withdrawal lines can carry an
 optional **invoice date**. Details: [Check printing](check-printing.md#cover-letters-and-envelopes).
+
+## Voucher checks and two signatures (test build 4)
+Administrators can create a **voucher check** style (one check per sheet with a vendor-copy and an office-copy stub
+listing the invoices paid, the total and the check number) and give any style **two signature lines**. Register Users
+then choose two different signers when printing; above an optional amount only the first signature prints. Details:
+[Check printing](check-printing.md#10-voucher-checks-check-with-stubs).

@@ -95,6 +95,13 @@ Every print that uses it is recorded in the audit log. Backups include the signa
 **No signature above this amount** (optional): above it the signature does not print and the check is signed by hand.
 The user is told before printing.
 
+**Two signature lines** (for checks that need two signers): under **Memo and signature** choose **Two signature
+lines**. The second line appears under **Field positions** (it starts above the first; move both to match your
+stock). On the print screen the user picks a **first** and a **second signature**; the same person can't sign both,
+and the second line can be left blank to sign by hand. Optional **Only one signature above this amount**: above it
+only the first signature prints and the second line is signed by hand. It must be below the no-signature amount
+(above that, neither prints). You can also choose a second default signer.
+
 ### 8. Feed modes
 - **Sheet** — the check at the top (or middle, bottom) of a Letter sheet. A sheet with the top check torn off prints
   the same way.
@@ -111,6 +118,22 @@ print (for example which printer profile to choose).
 **Test print** prints the sample check (marked TEST – NOT A CHECK) in the chosen feed mode; **Calibration page**
 prints rulers and where each field starts. Both use your unsaved changes and include a 5-inch line to check the print
 scale.
+
+### 10. Voucher checks (check with stubs)
+The preset **Voucher – check on top, two stubs** is for one check per Letter sheet with two detail stubs below it
+(perforated at 3.5 and 7 inches — the common layout of laser voucher checks). Under **Stubs (voucher check)**:
+
+- each stub's **top** and **height** (inches from the top of the sheet), **vendor copy** or **office copy**, a
+  **title** (a pattern, `{ORG}` by default), whether it prints **CHECK #** and the **memo**, its font, size and
+  margin;
+- the **line table** — choose, order and rename the columns (invoice number, invoice date, description, budget,
+  notes, amount); the total prints under it.
+
+The **vendor copy never shows budgets**; the **office copy** adds the budget column and *OFFICE COPY*. The stubs print
+the **check number from the register** (the confirmed number — after a spoiled check, the reprint shows the new one);
+the check itself never gets a printed number. When a payment has more lines than fit, the stub shows as many as fit
+and *…and N more, see enclosed letter*, and the user confirms before printing (print the cover letter, which lists
+every line). The stubs are on the test print and the calibration page; the preview on the screen shows the check only.
 
 ## For Register Users: printing a check
 
@@ -136,7 +159,8 @@ scale.
      spoiled check (write VOID on it).
 
 A **record copy** of the check is attached to the transaction: the check as printed, with *SIGNATURE ON FILE:
-name* in place of the signature and *COPY – NOT NEGOTIABLE* across it. The transaction shows **Check printed**.
+name* in place of each signature and *COPY – NOT NEGOTIABLE* across it (for a voucher check, the whole sheet with its
+stubs). The transaction shows **Check printed**.
 
 ### Your printer settings
 If the printing is shifted on your printer, run the **Printer setup assistant** from the print screen:
