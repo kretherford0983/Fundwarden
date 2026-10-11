@@ -103,6 +103,37 @@ Register User and signers are typed names. Audit: `CHECK_STYLE_*`, `CHECK_SIGNER
 (SVG preview with the built-in fonts, `PatternInput` autocomplete, browser instructions). Tests:
 `tests/test_v200_checks.py` (positions read back with pypdf), E2E "#156-#162". Guide: `docs/check-printing.md`.
 
+**2.0.0 Payments, test build 2 (issue #164; decided in chat 2026-10-10).** Migration `0026`:
+`app_user.last_payment_account_id` (plain `add_column`; `app_user` has the 0017 triggers). The payment form is the
+register's `TxnForm` with `payment` set (withdrawal only, no clear date, "Invoice(s)" wording, `AmountPreview`, submit
+"Save and print check", `onSaved(saved)` receives the created transaction), so payments go through
+`POST /api/transactions` with all register rules, confirmations, the request key and the attachment uploads. Endpoints
+(`checks.print`): `GET /api/checks/payments/options`, `PUT /api/checks/payments/last-account`,
+`POST /api/checks/payments/amount-preview` (words and number as the account's style prints them; preset defaults
+before a style is chosen; nothing stored), `GET /api/checks/payments/recent` (from the `CHECK_COPY` record copies; the
+module keeps no payment list). Frontend `pages/Payments.tsx` (`/payments`, nav for `checks.print` with the module on;
+`/payments?txn=<id>` shows the transaction locked in a disabled fieldset). Register: *New payment* (toolbar) and
+*Create payment…* (detail). The memo autocomplete sets the cursor in a layout effect (was an animation frame - typing
+could land in front of the inserted variable). Tests: `tests/test_v200_payments.py`, E2E "#164".
+
+**2.0.0 Cover letters and envelopes, test build 3 (issues #165, #166, #174; decided in chat 2026-10-10).** Migration
+`0027`: `transaction_allocation.invoice_date` (plain `add_column`; optional, withdrawals only, part of the allocation
+snapshot and change comparison), table `check_document` (kind `LETTER`/`ENVELOPE`, `config_json` validated by
+`LetterConfig`/`EnvelopeConfig` in `services/checkprint/documents.py`, one default per kind), and
+`check_printer_setting.document_id` with `check_style_id` optional (batch mode: the table has no triggers) for each
+user's envelope settings (`feed_key` "envelope"). Letters: platypus with the embedded fonts; the letterhead is typed
+lines (a logo is a later enhancement); signer by name from the check's signer or the template's fallback name/role;
+warnings `EMPTY_VARIABLES` and `NO_PAYEE_ADDRESS` (409 confirmation). Envelopes: #10 only (double-window envelopes are a
+later phase); rotation as the single-check feed (`STAMP_END` = 90° CCW); the attached copy is drawn without the user's
+offsets so it is deduplicated by SHA-256 like the letter (`CHECK_LETTER`, `CHECK_ENVELOPE` attachments). Handwritten
+checks: `POST /api/checks/transactions/{id}/handwritten` (number typed twice; refused for a number already printed
+unless it is the same), audit `CHECK_HANDWRITTEN`. Endpoints: `/api/checks/documents` (+ `/{id}`, `/{id}/flags`,
+`/{id}/test-print`, `checks.setup`), `/api/checks/transactions/{id}/documents|letter|envelope|envelope-test|handwritten`
+and `PUT /api/checks/my-printer/envelope` (`checks.print`). Frontend: `pages/CheckDocuments.tsx` (setup),
+`pages/CheckEnclosures.tsx` (print screen panel, handwritten mode), `PatternInput` gains `multiline`. #174 polish:
+default memo resolved with sample values, collapsible sections, `PdfViewer`, modal stack for Escape. Tests:
+`tests/test_v200_letters.py`, `tests/test_v200_polish.py`, E2E "#165-#166".
+
 **1.10.0 Update notification (issue #58; channel decided 2026-10-09).** Migration `0024`: `update_check` (one row).
 `services/updates.py`: `channel(settings)` - setting `update_channel` (`auto` → from `build_info.json`: `main` →
 stable, `test` → test, anything else / no build info → none); `check(app, force)` - due after 24 h (6 h after an error),

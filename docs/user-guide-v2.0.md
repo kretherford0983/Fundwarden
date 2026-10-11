@@ -21,3 +21,16 @@ PennyWarden can now print your checks on printable check stock that already carr
 
 A record copy of every printed check is attached to the transaction. If the printing is shifted on your printer, the
 **Printer setup assistant** on the print screen adjusts it for you without changing anyone else's settings.
+
+## Payments (test build 2)
+**Payments** in the menu (Register Users) enters a bill and prints its check in one go: pay from (your last account is
+remembered), date, payee (or a new one), one line per invoice with its documents — the check amount is shown in words
+as you type. **Save and print check** records it in the register and opens the print screen. **Create payment…** on a
+withdrawal already in the register shows its details locked and prints its check.
+
+## Cover letters and envelopes (test build 3)
+Administrators keep **cover letter** and **#10 envelope** templates in Check Printing (letterhead, text with
+`{VARIABLES}`, the invoice table; envelope return address and feeding). After a check prints, the print screen offers
+the letter and the envelope; they are attached to the transaction. For a check written by hand, choose **I'm writing
+the check by hand**, record its number (typed twice), and print the letter and envelope. Withdrawal lines can carry an
+optional **invoice date**. Details: [Check printing](check-printing.md#cover-letters-and-envelopes).
